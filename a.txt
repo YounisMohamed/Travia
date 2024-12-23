@@ -6,7 +6,7 @@ Cluster 3: Family-Friendly Restaurants (Businesses with kids-friendly amenities,
 Cluster 4: Trendy Nightlife Locations (Businesses with trendy ambiance, late-night hours, and casual dining options)
 
 
-***********************************************************************
+*************************************************************************
 
 
 Ask the user a set of questions about their trip preferences. For example:
