@@ -150,12 +150,16 @@ Future<void> _waitForEmailVerification(User user, BuildContext context) async {
   int refreshPeriod = 2;
 
   Timer.periodic(Duration(seconds: refreshPeriod), (timer) async {
+    if (auth.currentUser == null) {
+      timer.cancel();
+      return;
+    }
     await user.reload(); // Refresh user data
     User? refreshedUser = auth.currentUser; // Get latest user data
 
     if (refreshedUser != null && refreshedUser.emailVerified) {
       timer.cancel(); // Stop the periodic timer
-      context.go("/signin");
+      context.go("/signin", extra: true);
     }
 
     elapsedSeconds += refreshPeriod;
