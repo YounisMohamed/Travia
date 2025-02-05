@@ -1,0 +1,5 @@
+package com.aast.travia
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity()

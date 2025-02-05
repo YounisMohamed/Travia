@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "1037102746825",
+    "project_id": "travia-aast",
+    "storage_bucket": "travia-aast.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1037102746825:android:8dd53a78f04d14ae03d118",
+        "android_client_info": {
+          "package_name": "com.aast.travia"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1037102746825-cep31d6vllovb09d0nivvkkcl26pt9dq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aast.travia",
+            "certificate_hash": "97061b57f2599e79235b624eea1ac149e00c95ce"
+          }
+        },
+        {
+          "client_id": "1037102746825-51eovbm3p4d244plah5l1uk04oo7vag6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZ_voI_CGYnlTVAzBC1Vr4ruoIsLfuEmc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1037102746825-51eovbm3p4d244plah5l1uk04oo7vag6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1037102746825-6b2fjb09ha8o9210qo90k8admuks2rur.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.younis.gradtravia"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
