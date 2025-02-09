@@ -4,7 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:travia/Helpers/popUp.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:travia/Helpers/PopUp.dart';
 
 import '../Providers/LoadingProvider.dart';
 
@@ -34,8 +35,15 @@ Future<void> signInWithEmailAndPassword(
       return;
     }
 
-    // If verified, navigate to homepage
-    context.go("/homepage");
+    if (user != null && user.displayName != null) {
+      context.go("/homepage");
+    }
+    if (user != null && user.displayName == null) {
+      context.go("/name");
+    }
+    if (user == null) {
+      throw Exception("User Not Found");
+    }
   } on FirebaseAuthException catch (e) {
     print(e);
     String errorMessage = "";
@@ -50,6 +58,8 @@ Future<void> signInWithEmailAndPassword(
       case "wrong-password":
         errorMessage = "Incorrect password. Please try again.";
         break;
+      case "invalid-credential":
+        errorMessage = "Incorrect password. Please try again.";
       case "user-disabled":
         errorMessage = "This account has been disabled. Contact support.";
         break;
@@ -145,7 +155,7 @@ Future<void> signUpWithEmailAndPassword(
 
 Future<void> _waitForEmailVerification(User user, BuildContext context) async {
   final FirebaseAuth auth = FirebaseAuth.instance;
-  const int timeoutSeconds = 120; // Set a timeout of 2 minutes
+  const int timeoutSeconds = 300; // Set a timeout of 5 minutes
   int elapsedSeconds = 0;
   int refreshPeriod = 2;
 
@@ -178,19 +188,81 @@ Future<void> _waitForEmailVerification(User user, BuildContext context) async {
 Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
-    // implement signing in with google
-    ref.read(loadingProvider.notifier).setLoadingToFalse();
-    print("SUCCESS");
+
+    final GoogleSignInAccount? googleUser = await GoogleSignIn(clientId: "536970171951-k30lmtrdnc348rr806u0lroar3kh5clj.apps.googleusercontent.com").signIn();
+    if (googleUser == null) {
+      ref.read(loadingProvider.notifier).setLoadingToFalse();
+      return; // User canceled the sign-in
+    }
+
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final OAuthCredential credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+    User? user = userCredential.user;
+
+    if (user != null && user.displayName != null) {
+      context.go("/homepage");
+    }
+    if (user != null && user.displayName == null) {
+      context.go("/name");
+    }
+    if (user == null) {
+      throw Exception("User Not Found");
+    }
   } catch (e) {
     print("Login error: $e");
-    Popup.showPopUp(text: e.toString(), context: context);
+    Popup.showPopUp(text: "Google sign-in failed. Please try again.", context: context);
+  } finally {
+    ref.read(loadingProvider.notifier).setLoadingToFalse();
+  }
+}
+
+// =====================================
+
+Future<void> forgotPassword(BuildContext context, WidgetRef ref, String email) async {
+  try {
+    ref.read(loadingProvider.notifier).setLoadingToTrue();
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+    Popup.showPopUp(text: "Password reset email sent. Check your inbox.", context: context, color: Colors.greenAccent);
+  } catch (e) {
+    print("Password reset error: $e");
+    Popup.showPopUp(text: "Failed to send password reset email. Please try again.", context: context);
+  } finally {
+    ref.read(loadingProvider.notifier).setLoadingToFalse();
+  }
+}
+
+// =====================================
+
+Future<void> signOut(BuildContext context, WidgetRef ref) async {
+  try {
+    ref.read(loadingProvider.notifier).setLoadingToTrue();
+
+    // Sign out from Firebase authentication
+    await FirebaseAuth.instance.signOut();
+
+    // Also sign out from Google if the user signed in with Google
+    final GoogleSignIn googleSignIn = GoogleSignIn(clientId: "536970171951-k30lmtrdnc348rr806u0lroar3kh5clj.apps.googleusercontent.com");
+    if (await googleSignIn.isSignedIn()) {
+      await googleSignIn.signOut();
+    }
+    context.go("/signin");
+  } catch (e) {
+    Popup.showPopUp(text: "Sign-out failed", context: context);
+    print(e);
+  } finally {
+    ref.read(loadingProvider.notifier).setLoadingToFalse();
   }
 }
 
 /*
 // client ids if needed
 GoogleSignIn googleSignInProvider() {
-  const webClientId = '722459534211-4dqe3fhikb9v69esaa1lcpbkdiaqjlhk.apps.googleusercontent.com';
+  const webClientId = '1037102746825-51eovbm3p4d244plah5l1uk04oo7vag6.apps.googleusercontent.com';
 
   const androidClientId = '722459534211-gie50eb2cjspqfndnk0ht7hi3hfktg88.apps.googleusercontent.com';
 

@@ -8,10 +8,10 @@ class GoogleSignInButton extends StatelessWidget {
 
   // Constructor to pass context and ref
   const GoogleSignInButton({
-    Key? key,
+    super.key,
     required this.contextOfParent,
     required this.ref,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,4 @@
-package com.aast.travia
+package com.grad.aast
 
 import io.flutter.embedding.android.FlutterActivity
 

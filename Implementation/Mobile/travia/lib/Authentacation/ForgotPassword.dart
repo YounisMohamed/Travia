@@ -7,20 +7,19 @@ import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/Icons.dart';
 import 'package:travia/Helpers/Loading.dart';
+import 'package:travia/Helpers/Methods.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
-import '../Helpers/GoogleSignInWidget.dart';
-import '../Helpers/Methods.dart';
 import '../Helpers/defaultFormField.dart';
 
-class SignInPage extends ConsumerStatefulWidget {
-  const SignInPage({super.key});
+class ForgotPassword extends ConsumerStatefulWidget {
+  const ForgotPassword({super.key});
 
   @override
-  ConsumerState<SignInPage> createState() => _SignInPageState();
+  ConsumerState<ForgotPassword> createState() => SignInWithOtpState();
 }
 
-class _SignInPageState extends ConsumerState<SignInPage> {
+class SignInWithOtpState extends ConsumerState<ForgotPassword> {
   var _formKey;
 
   @override
@@ -30,7 +29,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
 
   bool visiblePassword = false;
 
@@ -50,7 +48,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     );
 
     // State when the user asks to sign in
-    final isLoading = ref.watch(loadingProvider);
+    final _isLoading = ref.watch(loadingProvider);
 
     return SafeArea(
       child: Container(
@@ -58,7 +56,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         child: Scaffold(
           resizeToAvoidBottomInset: true,
           body: Padding(
-            padding: EdgeInsets.symmetric(vertical: 30),
+            padding: EdgeInsets.symmetric(vertical: 25),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
@@ -67,15 +65,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   Image.asset("assets/TraviaLogo.png"),
                   SizedBox(height: height * 0.01),
                   DefaultText(
-                    text: "SIGN IN",
+                    text: "Reset your password",
                     color: Colors.black,
                     isBold: true,
                     size: 16,
-                  ),
-                  SizedBox(height: height * 0.05),
-                  GoogleSignInButton(
-                    contextOfParent: context,
-                    ref: ref,
                   ),
                   SizedBox(height: height * 0.1),
                   Form(
@@ -87,7 +80,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                           defaultTextFormField(
                             type: TextInputType.emailAddress,
                             controller: _emailController,
-                            label: "Email Address",
+                            label: "Email",
                             icon: emailIcon,
                             validatorFun: (val) {
                               if (val.toString().isEmpty) {
@@ -97,56 +90,15 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                               }
                             },
                           ),
-                          SizedBox(height: height * 0.03),
-                          defaultTextFormField(
-                            type: TextInputType.visiblePassword,
-                            controller: _passwordController,
-                            label: "Password",
-                            isSecure: !visiblePassword,
-                            icon: lockIcon,
-                            validatorFun: (val) {
-                              if (val.toString().isEmpty) {
-                                return "Password cannot be empty";
-                              }
-                              if (val.toString().length < 6) {
-                                return "Password is less than 6";
-                              } else {
-                                return null;
-                              }
-                            },
-                          ),
-                          SizedBox(height: height * 0.009),
-                          Row(
-                            children: [
-                              DefaultText(
-                                text: "Show Password",
-                                color: Colors.black,
-                                size: 12,
-                              ),
-                              SizedBox(width: width * 0.01),
-                              Checkbox(
-                                value: visiblePassword,
-                                onChanged: (bool? newValue) {
-                                  setState(() {
-                                    visiblePassword = newValue!;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
                           SizedBox(height: height * 0.05),
-                          isLoading
+                          _isLoading
                               ? LoadingWidget()
                               : MUIGradientBlockButton(
-                                  text: "SIGN IN",
+                                  widthFactor: 0.45,
+                                  text: "Send",
                                   onPressed: () async {
                                     if (_formKey.currentState!.validate()) {
-                                      await signInWithEmailAndPassword(
-                                        context,
-                                        ref,
-                                        email: _emailController.text,
-                                        password: _passwordController.text,
-                                      );
+                                      await forgotPassword(context, ref, _emailController.text);
                                     } else {
                                       print("Not Valid");
                                     }
@@ -154,6 +106,13 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                                   bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
                                   animationDuration: 5,
                                 ),
+                          SizedBox(height: height * 0.05),
+                          DefaultText(
+                            text: "A link will be sent to your email address, If the email is not registered you won't recieve a link",
+                            italic: true,
+                            center: true,
+                            size: 16,
+                          ),
                         ],
                       ),
                     ),
@@ -161,22 +120,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   SizedBox(height: height * 0.05),
                   TextButton(
                     onPressed: () {
-                      context.go("/signup");
+                      context.go("/signin");
                     },
                     child: DefaultText(
-                      text: "I don't have an account",
-                      size: 12,
-                      color: Colors.grey,
-                      underlined: true,
-                    ),
-                  ),
-                  SizedBox(height: height * 0.009),
-                  TextButton(
-                    onPressed: () {
-                      context.go("/forgotpassword");
-                    },
-                    child: DefaultText(
-                      text: "I forgot my password",
+                      text: "Go back to Sign In",
                       size: 12,
                       color: Colors.grey,
                       underlined: true,
