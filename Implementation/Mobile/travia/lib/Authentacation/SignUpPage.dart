@@ -9,8 +9,8 @@ import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
 import '../Helpers/Icons.dart';
-import '../Helpers/Methods.dart';
 import '../Helpers/defaultFormField.dart';
+import 'AuthMethods.dart';
 
 class SignUpPage extends ConsumerStatefulWidget {
   const SignUpPage({super.key});

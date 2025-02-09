@@ -5,6 +5,7 @@ class Post {
   final String mediaUrl;
   final String? caption;
   final String? location;
+  final String postId;
   // User details
   final String userDisplayName;
   final String? userPhotoUrl;
@@ -23,6 +24,7 @@ class Post {
     this.userPhotoUrl,
     required this.likeCount,
     required this.commentCount,
+    required this.postId,
   });
 
   factory Post.fromMap(Map<String, dynamic> map) {
@@ -41,6 +43,7 @@ class Post {
       userPhotoUrl: userData['photo_url'],
       likeCount: likesCount,
       commentCount: commentsCount,
+      postId: map['id'],
     );
   }
 }

@@ -5,11 +5,12 @@ import 'package:modular_ui/modular_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/HelperMethods.dart';
 
-import '../Helpers/Icons.dart';
-import '../Helpers/Methods.dart';
+import '../Authentacation/AuthMethods.dart';
+import '../Providers/DatabaseProviders.dart';
 import '../Providers/LoadingProvider.dart';
-import '../Providers/PostsProvider.dart';
+import '../database/FetchingMethods.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -19,7 +20,7 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  final dummyImageUrl = "https://dummyimage.com/300";
+  final dummyImageUrl = "https://picsum.photos/200";
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +47,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                           postImageUrl: dummyImageUrl,
                           likes: 0,
                           comments: 0,
-                          index: index,
+                          postId: "",
+                          userId: "",
                         ),
                       ),
                     ),
@@ -61,7 +63,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         postImageUrl: posts[index].mediaUrl,
                         likes: posts[index].likeCount,
                         comments: posts[index].commentCount,
-                        index: index,
+                        postId: posts[index].postId,
+                        userId: posts[index].userId,
                       ),
                     ),
                   );
@@ -135,7 +138,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               child: CircleAvatar(
                                 radius: 18,
                                 backgroundImage: i < 2 ? NetworkImage(dummyImageUrl) : null,
-                                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                                 child: i == 2
                                     ? Text(
                                         "65+",
@@ -168,7 +171,8 @@ class PostCard extends StatelessWidget {
   final String postImageUrl;
   final int likes;
   final int comments;
-  final int index;
+  final String postId;
+  final String userId;
 
   PostCard({
     Key? key,
@@ -177,197 +181,201 @@ class PostCard extends StatelessWidget {
     required this.postImageUrl,
     required this.likes,
     required this.comments,
-    required this.index,
+    required this.postId,
+    required this.userId,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Theme.of(context).primaryColor,
-                      width: 2,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 24,
-                    backgroundImage: NetworkImage(profilePicUrl),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const Text(
-                        '2 minutes ago',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () {},
-                ),
-              ],
-            ),
+    return Consumer(
+      builder: (context, ref, child) {
+        final likeState = ref.watch(likeProvider);
+        final isLiked = likeState[postId] ?? false;
+
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          Hero(
-            tag: "${postImageUrl}_$index",
-            child: Container(
-              height: 300,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(postImageUrl),
-                  fit: BoxFit.cover,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User Info Section
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.deepOrange,
+                          width: 1,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundImage: NetworkImage(profilePicUrl),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const Text(
+                            '2 minutes ago',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      onPressed: () {},
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+
+              // Post Image Section
+              GestureDetector(
+                onDoubleTap: () {
+                  ref.read(likeProvider.notifier).toggleLike(postId);
+                  updateLikeInDatabase(userId, postId, !isLiked);
+                },
+                child: Container(
+                  height: 300,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: NetworkImage(postImageUrl),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Like, Comment, and Share Section
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    GestureDetector(
-                      onTap: () {},
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        child: likeIcon,
-                      ),
+                    Row(
+                      children: [
+                        // Like Button
+                        GestureDetector(
+                          onTap: () {
+                            ref.read(likeProvider.notifier).toggleLike(postId);
+                            updateLikeInDatabase(userId, postId, !isLiked);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 1000),
+                            child: Image.asset(
+                              isLiked ? "assets/liked.png" : "assets/unliked.png",
+                              width: 28,
+                              height: 28,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${likes + (isLiked ? 1 : 0)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+
+                        // Comment Button
+                        IconButton(
+                          icon: const Icon(
+                            Icons.chat_bubble_outline,
+                            color: Colors.grey,
+                            size: 26,
+                          ),
+                          onPressed: () {
+                            // TODO: FIX
+                            showMaterialModalBottomSheet(
+                              context: context,
+                              builder: (context) => CommentModal(
+                                postId: postId,
+                              ),
+                              backgroundColor: Colors.transparent,
+                              bounce: true,
+                              enableDrag: true,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$comments',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$likes',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+
+                    // Share Button
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ),
-                    const SizedBox(width: 20),
-                    IconButton(
-                      icon: Icon(
-                        Icons.chat_bubble_outline,
-                        color: Colors.grey,
-                        size: 26,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
                       ),
-                      onPressed: () {
-                        // TODO: FIX
-                        showMaterialModalBottomSheet(
-                          context: context,
-                          builder: (context) => const CommentModal(),
-                          backgroundColor: Colors.transparent,
-                          bounce: true,
-                          enableDrag: true,
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$comments',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.send,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Share',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(
-                        Icons.send,
-                        color: Colors.grey,
-                        size: 20,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'Share',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class CommentModal extends StatelessWidget {
-  const CommentModal({Key? key}) : super(key: key);
-
-  // Dummy comments data
-  final List<Map<String, dynamic>> dummyComments = const [
-    {
-      "username": "Michael Chen",
-      "profilePic": "https://dummyimage.com/100x100",
-      "text": "Great shot! The composition is really interesting.",
-      "timestamp": "4h ago",
-      "likes": 12,
-      "id": "1",
-    },
-    {
-      "username": "Sarah Johnson",
-      "profilePic": "https://dummyimage.com/100x100/ffcc00/ffffff",
-      "text": "Love the colors in this photo!",
-      "timestamp": "3h ago",
-      "likes": 8,
-      "id": "2",
-    },
-    {
-      "username": "David Lee",
-      "profilePic": "https://dummyimage.com/100x100/00ffcc/ffffff",
-      "text": "Absolutely stunning! What camera did you use?",
-      "timestamp": "2h ago",
-      "likes": 15,
-      "id": "3",
-    },
-  ];
+class CommentModal extends ConsumerWidget {
+  final String postId; // Receive postId from PostCard
+  const CommentModal({Key? key, required this.postId}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final commentsAsync = ref.watch(commentsProvider(postId));
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -399,58 +407,43 @@ class CommentModal extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Header
-
               // Divider
               const Divider(height: 1, thickness: 1),
-
               // Comments List
               Expanded(
-                child: ListView.builder(
-                  physics: const BouncingScrollPhysics(), // Enable smooth scrolling
-                  itemCount: dummyComments.length,
-                  itemBuilder: (context, index) {
-                    final comment = dummyComments[index];
-                    return ListTile(
-                      leading: Hero(
-                        tag: '${comment["profilePic"]}_$index',
-                        child: CircleAvatar(
-                          backgroundImage: NetworkImage(comment["profilePic"]),
-                        ),
+                child: commentsAsync.when(
+                  loading: () => Skeletonizer(
+                    enabled: true,
+                    child: ListView.builder(
+                      itemCount: 10,
+                      itemBuilder: (context, index) => CommentCard(
+                        content: "",
+                        createdAt: "",
+                        likeCount: 0,
+                        userName: "",
+                        userPhotoUrl: "",
                       ),
-                      title: Text(
-                        comment["username"],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(comment["text"]),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                comment["timestamp"],
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                "${comment["likes"]} likes",
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.favorite_border, color: Colors.red),
-                        onPressed: () {},
-                      ),
-                    );
-                  },
+                    ),
+                  ),
+                  error: (error, stackTrace) => Center(
+                    child: Text("Error loading comments"),
+                  ),
+                  data: (comments) => ListView.builder(
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: comments.length,
+                    itemBuilder: (context, index) {
+                      final comment = comments[index];
+                      return CommentCard(
+                        userName: comment.userName,
+                        userPhotoUrl: comment.userPhotoUrl,
+                        content: comment.content,
+                        createdAt: timeAgo(comment.createdAt), // ex: 45 minutes ago
+                        likeCount: comment.likeCount,
+                      );
+                    },
+                  ),
                 ),
               ),
-
               // Input Field
               Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -473,7 +466,9 @@ class CommentModal extends StatelessWidget {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.send, color: Colors.blue),
-                      onPressed: () {},
+                      onPressed: () {
+                        // Add send comment functionality here
+                      },
                     ),
                   ],
                 ),
@@ -481,6 +476,62 @@ class CommentModal extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class CommentCard extends StatelessWidget {
+  final String userName;
+  final String userPhotoUrl;
+  final String content;
+  final String createdAt;
+  final int likeCount;
+
+  const CommentCard({
+    Key? key,
+    required this.userName,
+    required this.userPhotoUrl,
+    required this.content,
+    required this.createdAt,
+    required this.likeCount,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: NetworkImage(userPhotoUrl),
+      ),
+      title: Text(
+        userName,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(content),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                createdAt,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "$likeCount likes",
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ],
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.favorite_border, color: Colors.red),
+        onPressed: () {
+          // TODO: Like functionality
+        },
       ),
     );
   }

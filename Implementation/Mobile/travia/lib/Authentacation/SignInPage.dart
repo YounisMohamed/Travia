@@ -10,8 +10,8 @@ import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
 import '../Helpers/GoogleSignInWidget.dart';
-import '../Helpers/Methods.dart';
 import '../Helpers/defaultFormField.dart';
+import 'AuthMethods.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
   const SignInPage({super.key});
