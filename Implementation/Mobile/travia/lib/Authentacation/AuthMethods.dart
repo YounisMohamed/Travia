@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:travia/Helpers/PopUp.dart';
 
 import '../Providers/LoadingProvider.dart';
+import '../main.dart';
 
 Future<void> signInWithEmailAndPassword(
   BuildContext context,
@@ -250,6 +251,9 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     if (await googleSignIn.isSignedIn()) {
       await googleSignIn.signOut();
     }
+
+    final statuses = await supabase.removeAllChannels(); // Remove supabase channels (DATABASE)
+
     context.go("/signin");
   } catch (e) {
     Popup.showPopUp(text: "Sign-out failed", context: context);

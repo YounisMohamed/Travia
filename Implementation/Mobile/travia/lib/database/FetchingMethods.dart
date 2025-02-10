@@ -1,9 +1,6 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../Classes/Comment.dart';
 import '../Classes/Post.dart';
-
-final supabase = Supabase.instance.client;
+import '../main.dart';
 
 Future<List<Post>> fetchPosts() async {
   try {
@@ -13,8 +10,7 @@ Future<List<Post>> fetchPosts() async {
             display_name,
             photo_url
           ),
-          likes (*),
-          comments (*)
+          comments (id)
         ''').order('created_at', ascending: false);
 
     return (response as List<dynamic>).map((post) => Post.fromMap(post as Map<String, dynamic>)).toList();
@@ -27,11 +23,9 @@ Future<List<Post>> fetchPosts() async {
 Future<List<Comment>> fetchComments(String postId) async {
   try {
     final response = await supabase.from('comments').select('''
-          *,
-          users!inner (
-            display_name,
-            photo_url
-          )
+          id, content, created_at, user_id, parent_comment_id, post_id,
+          users!inner (display_name, photo_url),
+          likes(count)
         ''').eq('post_id', postId).order('created_at', ascending: false);
 
     return (response as List<dynamic>).map((comment) => Comment.fromMap(comment as Map<String, dynamic>)).toList();
@@ -41,17 +35,55 @@ Future<List<Comment>> fetchComments(String postId) async {
   }
 }
 
-Future<void> updateLikeInDatabase(String userId, String postId, bool isLiked) async {
+Future<void> updatePostLikeInDatabase({required String likerId, required String posterId, required String postId}) async {
   try {
-    if (isLiked) {
+    // Check if the user already liked the post
+    final existingLike = await supabase
+        .from('likes')
+        .select('id') // Fetch only the `id`
+        .eq('user_id', likerId)
+        .eq('post_id', postId)
+        .limit(1) // Ensure we only fetch one row
+        .maybeSingle(); // Returns `null` if no match is found
+    print(existingLike);
+
+    if (existingLike != null) {
+      // If like exists, remove it
+      await supabase.from('likes').delete().match({'id': existingLike['id']});
+    } else {
+      // No like found, add a new one
       await supabase.from('likes').insert({
-        'user_id': userId,
+        'user_id': likerId,
+        'liked_user_id': posterId,
         'post_id': postId,
       });
+    }
+  } catch (e) {
+    print("Error updating like: $e");
+  }
+}
+
+Future<void> updateCommentLikeInDatabase({required String likerId, required String posterId, required String commentId}) async {
+  try {
+    // Check if the user already liked the post
+    final existingLike = await supabase
+        .from('likes')
+        .select('id') // Fetch only the `id`
+        .eq('user_id', likerId)
+        .eq('comment_id', commentId)
+        .limit(1) // Ensure we only fetch one row
+        .maybeSingle(); // Returns `null` if no match is found
+    print(existingLike);
+
+    if (existingLike != null) {
+      // If like exists, remove it
+      await supabase.from('likes').delete().match({'id': existingLike['id']});
     } else {
-      await supabase.from('likes').delete().match({
-        'user_id': userId,
-        'post_id': postId,
+      // No like found, add a new one
+      await supabase.from('likes').insert({
+        'user_id': likerId,
+        'liked_user_id': posterId,
+        'comment_id': commentId,
       });
     }
   } catch (e) {

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -5,6 +6,7 @@ import 'package:modular_ui/modular_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/DummyPostCard.dart';
 import 'package:travia/Helpers/HelperMethods.dart';
 
 import '../Authentacation/AuthMethods.dart';
@@ -19,12 +21,18 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
-  final dummyImageUrl = "https://picsum.photos/200";
+final dummyImageUrl = "https://picsum.photos/200";
+final currentlyLoggedInUserId = FirebaseAuth.instance.currentUser!.uid;
 
+class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final _isLoading = ref.watch(loadingProvider);
+    User? user = FirebaseAuth.instance.currentUser;
+    print(user?.uid);
+    print(user?.email);
+    print(user?.photoURL);
+    print(user?.displayName);
 
     return Container(
       color: backgroundColor,
@@ -41,19 +49,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                       enabled: true,
                       child: ListView.builder(
                         itemCount: 3,
-                        itemBuilder: (context, index) => PostCard(
-                          profilePicUrl: dummyImageUrl,
-                          name: "",
-                          postImageUrl: dummyImageUrl,
-                          likes: 0,
-                          comments: 0,
-                          postId: "",
-                          userId: "",
-                        ),
+                        itemBuilder: (context, index) => DummyPostCard(),
                       ),
                     ),
                     error: (error, stackTrace) => Center(
-                      child: DefaultText(text: "You may not have stable internet connection"),
+                      child: DefaultText(
+                        text: "Posts not available",
+                        center: true,
+                      ),
                     ),
                     data: (posts) => ListView.builder(
                       itemCount: posts.length,
@@ -61,7 +64,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                         profilePicUrl: posts[index].userPhotoUrl ?? dummyImageUrl,
                         name: posts[index].userDisplayName,
                         postImageUrl: posts[index].mediaUrl,
-                        likes: posts[index].likeCount,
                         comments: posts[index].commentCount,
                         postId: posts[index].postId,
                         userId: posts[index].userId,
@@ -169,7 +171,6 @@ class PostCard extends StatelessWidget {
   final String profilePicUrl;
   final String name;
   final String postImageUrl;
-  final int likes;
   final int comments;
   final String postId;
   final String userId;
@@ -179,7 +180,6 @@ class PostCard extends StatelessWidget {
     required this.profilePicUrl,
     required this.name,
     required this.postImageUrl,
-    required this.likes,
     required this.comments,
     required this.postId,
     required this.userId,
@@ -191,6 +191,8 @@ class PostCard extends StatelessWidget {
       builder: (context, ref, child) {
         final likeState = ref.watch(likeProvider);
         final isLiked = likeState[postId] ?? false;
+        print("POST ID: $postId");
+        final likeCount = ref.watch(postLikeCountProvider(postId));
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -252,8 +254,12 @@ class PostCard extends StatelessWidget {
               // Post Image Section
               GestureDetector(
                 onDoubleTap: () {
-                  ref.read(likeProvider.notifier).toggleLike(postId);
-                  updateLikeInDatabase(userId, postId, !isLiked);
+                  //updatePostLikeInDatabase(postId: postId, likerId: currentlyLoggedInUserId, posterId: userId);
+                  ref.read(likeProvider.notifier).toggleLike(
+                        postId: postId,
+                        likerId: FirebaseAuth.instance.currentUser!.uid,
+                        posterId: userId,
+                      );
                 },
                 child: Container(
                   height: 300,
@@ -277,25 +283,31 @@ class PostCard extends StatelessWidget {
                         // Like Button
                         GestureDetector(
                           onTap: () {
-                            ref.read(likeProvider.notifier).toggleLike(postId);
-                            updateLikeInDatabase(userId, postId, !isLiked);
+                            //updatePostLikeInDatabase(postId: postId, likerId: currentlyLoggedInUserId, posterId: userId);
+                            ref.read(likeProvider.notifier).toggleLike(
+                                  postId: postId,
+                                  likerId: FirebaseAuth.instance.currentUser!.uid,
+                                  posterId: userId,
+                                );
                           },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 1000),
-                            child: Image.asset(
-                              isLiked ? "assets/liked.png" : "assets/unliked.png",
-                              width: 28,
-                              height: 28,
-                            ),
+                          child: Image.asset(
+                            isLiked ? "assets/liked.png" : "assets/unliked.png",
+                            width: 28,
+                            height: 28,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '${likes + (isLiked ? 1 : 0)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+
+                        likeCount.when(
+                          data: (count) => Text(
+                            '${likeCount.value}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
+                          loading: () => SizedBox(),
+                          error: (err, stack) => Text("Error loading likes"),
                         ),
                         const SizedBox(width: 20),
 
@@ -307,7 +319,6 @@ class PostCard extends StatelessWidget {
                             size: 26,
                           ),
                           onPressed: () {
-                            // TODO: FIX
                             showMaterialModalBottomSheet(
                               context: context,
                               builder: (context) => CommentModal(
@@ -421,7 +432,9 @@ class CommentModal extends ConsumerWidget {
                         createdAt: "",
                         likeCount: 0,
                         userName: "",
-                        userPhotoUrl: "",
+                        userPhotoUrl: dummyImageUrl,
+                        commentId: "",
+                        userId: "",
                       ),
                     ),
                   ),
@@ -439,6 +452,8 @@ class CommentModal extends ConsumerWidget {
                         content: comment.content,
                         createdAt: timeAgo(comment.createdAt), // ex: 45 minutes ago
                         likeCount: comment.likeCount,
+                        commentId: comment.id,
+                        userId: comment.userId,
                       );
                     },
                   ),
@@ -486,6 +501,8 @@ class CommentCard extends StatelessWidget {
   final String userPhotoUrl;
   final String content;
   final String createdAt;
+  final String commentId;
+  final String userId;
   final int likeCount;
 
   const CommentCard({
@@ -495,44 +512,61 @@ class CommentCard extends StatelessWidget {
     required this.content,
     required this.createdAt,
     required this.likeCount,
+    required this.commentId,
+    required this.userId,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: NetworkImage(userPhotoUrl),
-      ),
-      title: Text(
-        userName,
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(content),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                createdAt,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+    return Consumer(
+      builder: (context, ref, child) {
+        final likeState = ref.watch(likeProvider);
+        final isLiked = likeState[commentId] ?? false;
+        return GestureDetector(
+          onDoubleTap: () {
+            updateCommentLikeInDatabase(commentId: commentId, likerId: currentlyLoggedInUserId, posterId: userId);
+          },
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundImage: NetworkImage(userPhotoUrl),
+            ),
+            title: Text(
+              userName,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(content),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      createdAt,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${likeCount + (isLiked ? 1 : 0)} likes',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            trailing: GestureDetector(
+              onTap: () {
+                updateCommentLikeInDatabase(commentId: commentId, likerId: currentlyLoggedInUserId, posterId: userId);
+              },
+              child: Image.asset(
+                isLiked ? "assets/liked.png" : "assets/unliked.png",
+                width: 28,
+                height: 28,
               ),
-              const SizedBox(width: 8),
-              Text(
-                "$likeCount likes",
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
+            ),
           ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.favorite_border, color: Colors.red),
-        onPressed: () {
-          // TODO: Like functionality
-        },
-      ),
+        );
+      },
     );
   }
 }

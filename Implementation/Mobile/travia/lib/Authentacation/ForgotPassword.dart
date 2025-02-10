@@ -50,87 +50,85 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
     // State when the user asks to sign in
     final _isLoading = ref.watch(loadingProvider);
 
-    return SafeArea(
-      child: Container(
-        color: backgroundColor,
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          body: Padding(
-            padding: EdgeInsets.symmetric(vertical: 25),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Image.asset("assets/TraviaLogo.png"),
-                  SizedBox(height: height * 0.01),
-                  DefaultText(
-                    text: "Reset your password",
-                    color: Colors.black,
-                    isBold: true,
-                    size: 16,
-                  ),
-                  SizedBox(height: height * 0.1),
-                  Form(
-                    key: _formKey,
-                    child: Padding(
-                      padding: padding,
-                      child: Column(
-                        children: [
-                          defaultTextFormField(
-                            type: TextInputType.emailAddress,
-                            controller: _emailController,
-                            label: "Email",
-                            icon: emailIcon,
-                            validatorFun: (val) {
-                              if (val.toString().isEmpty) {
-                                return "Email cannot be empty";
-                              } else {
-                                return null;
-                              }
-                            },
-                          ),
-                          SizedBox(height: height * 0.05),
-                          _isLoading
-                              ? LoadingWidget()
-                              : MUIGradientBlockButton(
-                                  widthFactor: 0.45,
-                                  text: "Send",
-                                  onPressed: () async {
-                                    if (_formKey.currentState!.validate()) {
-                                      await forgotPassword(context, ref, _emailController.text);
-                                    } else {
-                                      print("Not Valid");
-                                    }
-                                  },
-                                  bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
-                                  animationDuration: 5,
-                                ),
-                          SizedBox(height: height * 0.05),
-                          DefaultText(
-                            text: "A link will be sent to your email address, If the email is not registered you won't recieve a link",
-                            italic: true,
-                            center: true,
-                            size: 16,
-                          ),
-                        ],
-                      ),
+    return Container(
+      color: backgroundColor,
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        body: Padding(
+          padding: EdgeInsets.symmetric(vertical: 50),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Image.asset("assets/TraviaLogo.png"),
+                SizedBox(height: height * 0.01),
+                DefaultText(
+                  text: "Reset your password",
+                  color: Colors.black,
+                  isBold: true,
+                  size: 16,
+                ),
+                SizedBox(height: height * 0.1),
+                Form(
+                  key: _formKey,
+                  child: Padding(
+                    padding: padding,
+                    child: Column(
+                      children: [
+                        defaultTextFormField(
+                          type: TextInputType.emailAddress,
+                          controller: _emailController,
+                          label: "Email",
+                          icon: emailIcon,
+                          validatorFun: (val) {
+                            if (val.toString().isEmpty) {
+                              return "Email cannot be empty";
+                            } else {
+                              return null;
+                            }
+                          },
+                        ),
+                        SizedBox(height: height * 0.05),
+                        _isLoading
+                            ? LoadingWidget()
+                            : MUIGradientBlockButton(
+                                widthFactor: 0.45,
+                                text: "Send",
+                                onPressed: () async {
+                                  if (_formKey.currentState!.validate()) {
+                                    await forgotPassword(context, ref, _emailController.text);
+                                  } else {
+                                    print("Not Valid");
+                                  }
+                                },
+                                bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
+                                animationDuration: 5,
+                              ),
+                        SizedBox(height: height * 0.05),
+                        DefaultText(
+                          text: "A link will be sent to your email address, If the email is not registered you won't recieve a link",
+                          italic: true,
+                          center: true,
+                          size: 16,
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: height * 0.05),
-                  TextButton(
-                    onPressed: () {
-                      context.go("/signin");
-                    },
-                    child: DefaultText(
-                      text: "Go back to Sign In",
-                      size: 12,
-                      color: Colors.grey,
-                      underlined: true,
-                    ),
+                ),
+                SizedBox(height: height * 0.05),
+                TextButton(
+                  onPressed: () {
+                    context.go("/signin");
+                  },
+                  child: DefaultText(
+                    text: "Go back to Sign In",
+                    size: 12,
+                    color: Colors.grey,
+                    underlined: true,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

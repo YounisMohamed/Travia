@@ -14,6 +14,8 @@ import 'package:travia/MainFlow/HomePage.dart';
 
 import 'firebase_options.dart';
 
+final supabase = Supabase.instance.client;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
@@ -27,15 +29,7 @@ void main() async {
       retryAttempts: 10,
     ),
   );
-  /*
-  final supabase = Supabase.instance.client;
-  try {
-    final data = await supabase.from('users').select();
-    print(data);
-  } catch (e) {
-    print(e.toString());
-  }
-   */
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -85,11 +79,6 @@ class MyApp extends StatelessWidget {
         final isOnForgotPasswordPage = state.uri.toString() == "/forgotpassword";
         final nameMissing = FirebaseAuth.instance.currentUser?.displayName == null || FirebaseAuth.instance.currentUser?.displayName?.isEmpty == true;
         final isVerified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
-
-        if (!isAuthenticated || !isVerified) {
-          // If not authenticated or not verified, redirect to sign-in page
-          return '/signin';
-        }
 
         if (isAuthenticated && isVerified && nameMissing) {
           // If authenticated, verified, but no display name, redirect to name page
