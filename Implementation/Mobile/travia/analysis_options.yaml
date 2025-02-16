@@ -6,7 +6,8 @@ analyzer:
 
 linter:
   rules:
-    # Add any custom lint rules here if needed
+    avoid_print: false
+
 custom_lint:
   # Forcibly disable lint rules by default
   enable_all_lint_rules: true

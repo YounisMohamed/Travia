@@ -10,7 +10,7 @@ import 'package:travia/Helpers/Icons.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
-import '../Helpers/defaultFormField.dart';
+import '../Helpers/DefaultFormField.dart';
 
 class ForgotPassword extends ConsumerStatefulWidget {
   const ForgotPassword({super.key});
@@ -48,7 +48,7 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
     );
 
     // State when the user asks to sign in
-    final _isLoading = ref.watch(loadingProvider);
+    final isLoading = ref.watch(loadingProvider);
 
     return Container(
       color: backgroundColor,
@@ -76,7 +76,7 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
                     padding: padding,
                     child: Column(
                       children: [
-                        defaultTextFormField(
+                        DefaultTextFormField(
                           type: TextInputType.emailAddress,
                           controller: _emailController,
                           label: "Email",
@@ -90,7 +90,7 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
                           },
                         ),
                         SizedBox(height: height * 0.05),
-                        _isLoading
+                        isLoading
                             ? LoadingWidget()
                             : MUIGradientBlockButton(
                                 widthFactor: 0.45,

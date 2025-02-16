@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-Widget defaultTextFormField({
+Widget DefaultTextFormField({
   TextEditingController? controller,
   bool? isSecure,
   String? label,

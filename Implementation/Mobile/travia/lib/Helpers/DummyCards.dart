@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'Constants.dart';
+
 class DummyPostCard extends StatelessWidget {
   const DummyPostCard({super.key});
 
@@ -110,6 +112,96 @@ class DummyPostCard extends StatelessWidget {
                     width: 60,
                     color: Colors.grey[300],
                   ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DummyCommentCard extends StatelessWidget {
+  const DummyCommentCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: commentCardColor, // Placeholder color
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            spreadRadius: 2,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Profile Image (Skeleton)
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: contrastCommentCardColor, // Slightly darker placeholder
+          ),
+          const SizedBox(width: 10),
+
+          // Comment Content (Skeleton)
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Username & Timestamp (Skeleton)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      // Username placeholder
+                      height: 14,
+                      width: 80,
+                      color: contrastCommentCardColor,
+                    ),
+                    Container(
+                      // Timestamp placeholder
+                      height: 12,
+                      width: 60,
+                      color: contrastCommentCardColor,
+                    ),
+                  ],
+                ),
+
+                // Comment Text (Skeleton)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Container(
+                    height: 14 * 3, // Simulate 3 lines of text
+                    width: double.infinity,
+                    color: contrastCommentCardColor,
+                  ),
+                ),
+
+                // Like Count & Like Button (Skeleton)
+                Row(
+                  children: [
+                    CircleAvatar(
+                      // Like icon placeholder
+                      radius: 11,
+                      backgroundColor: contrastCommentCardColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      // Like count placeholder
+                      height: 12,
+                      width: 30,
+                      color: contrastCommentCardColor,
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -1,16 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive_flutter/adapters.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Authentacation/ForgotPassword.dart';
 import 'package:travia/Authentacation/SignInPage.dart';
 import 'package:travia/Authentacation/SignUpPage.dart';
-import 'package:travia/Authentacation/confirmEmail.dart';
-import 'package:travia/Authentacation/namePage.dart';
+import 'package:travia/Authentacation/completeProfilePage.dart';
 import 'package:travia/MainFlow/HomePage.dart';
+import 'package:travia/MainFlow/NotificationsPage.dart';
 
 import 'firebase_options.dart';
 
@@ -33,8 +33,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await Hive.initFlutter();
-  runApp(ProviderScope(child: MyApp()));
+
+  runApp(Phoenix(child: ProviderScope(child: Directionality(textDirection: TextDirection.ltr, child: MyApp()))));
 }
 
 class MyApp extends StatelessWidget {
@@ -43,9 +43,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final GoRouter router = GoRouter(
-      initialLocation: '/signin', // initial location
+      initialLocation: '/notifications', // initial location
       routes: [
-        // Define the routes
+        // ======================
+        // AUTH ROUTES
         GoRoute(
           path: '/signin',
           builder: (context, state) => SignInPage(),
@@ -55,37 +56,36 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => SignUpPage(),
         ),
         GoRoute(
+          path: '/forgotpassword',
+          builder: (context, state) => ForgotPassword(),
+        ),
+        // ======================
+        // MAIN FLOW ROUTES
+        GoRoute(
           path: '/homepage',
           builder: (context, state) => HomePage(),
         ),
         GoRoute(
-          path: '/name',
-          builder: (context, state) => displayNamePage(),
+          path: '/complete-profile',
+          builder: (context, state) => CompleteProfilePage(),
         ),
         GoRoute(
-          path: '/confirm',
-          builder: (context, state) => Confirmemail(),
-        ),
-        GoRoute(
-          path: '/forgotpassword',
-          builder: (context, state) => ForgotPassword(),
+          path: '/notifications',
+          builder: (context, state) => NotificationsPage(),
         ),
       ],
       redirect: (context, state) {
         final isAuthenticated = FirebaseAuth.instance.currentUser != null;
         final isOnSignInPage = state.uri.toString() == "/signin";
-        final isOnNamePage = state.uri.toString() == "/name";
-        final isOnConfirmPage = state.uri.toString() == "/confirm";
-        final isOnForgotPasswordPage = state.uri.toString() == "/forgotpassword";
-        final nameMissing = FirebaseAuth.instance.currentUser?.displayName == null || FirebaseAuth.instance.currentUser?.displayName?.isEmpty == true;
         final isVerified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+        final isProfileComplete = FirebaseAuth.instance.currentUser?.displayName != null;
 
-        if (isAuthenticated && isVerified && nameMissing) {
+        if (isAuthenticated && isVerified && !isProfileComplete) {
           // If authenticated, verified, but no display name, redirect to name page
-          return '/name';
+          return '/complete-profile';
         }
 
-        if (isAuthenticated && isVerified && !nameMissing && isOnSignInPage) {
+        if (isAuthenticated && isVerified && isOnSignInPage && isProfileComplete) {
           // If authenticated, verified, and has display name, redirect to homepage if on sign-in page
           return '/homepage';
         }

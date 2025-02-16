@@ -8,8 +8,8 @@ import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
+import '../Helpers/DefaultFormField.dart';
 import '../Helpers/Icons.dart';
-import '../Helpers/defaultFormField.dart';
 import 'AuthMethods.dart';
 
 class SignUpPage extends ConsumerStatefulWidget {
@@ -50,7 +50,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     );
 
     // State when the user asks to sign in
-    final _isLoading = ref.watch(loadingProvider);
+    final isLoading = ref.watch(loadingProvider);
 
     return Container(
       color: backgroundColor,
@@ -78,7 +78,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     padding: padding,
                     child: Column(
                       children: [
-                        defaultTextFormField(
+                        DefaultTextFormField(
                           type: TextInputType.emailAddress,
                           controller: _emailController,
                           label: "Email Address",
@@ -92,7 +92,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           },
                         ),
                         SizedBox(height: height * 0.03),
-                        defaultTextFormField(
+                        DefaultTextFormField(
                           type: TextInputType.visiblePassword,
                           controller: _passwordController,
                           label: "Password",
@@ -107,7 +107,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           },
                         ),
                         SizedBox(height: height * 0.03),
-                        defaultTextFormField(
+                        DefaultTextFormField(
                           type: TextInputType.visiblePassword,
                           controller: _confirmPasswordController,
                           label: "Confirm Password",
@@ -143,7 +143,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           ],
                         ),
                         SizedBox(height: height * 0.05),
-                        _isLoading
+                        isLoading
                             ? LoadingWidget()
                             : MUIGradientBlockButton(
                                 text: "SIGN UP",
@@ -158,6 +158,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                                   } else {
                                     print("Not Valid");
                                   }
+                                  FocusManager.instance.primaryFocus?.unfocus();
                                 },
                                 bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
                                 animationDuration: 5,
@@ -178,6 +179,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     underlined: true,
                   ),
                 ),
+                SizedBox(height: height * 0.04),
               ],
             ),
           ),

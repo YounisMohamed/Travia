@@ -1,0 +1,300 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:modular_ui/modular_ui.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:travia/Helpers/Constants.dart';
+import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/MainFlow/HomePage.dart';
+import 'package:travia/database/DatabaseMethods.dart';
+
+import '../Helpers/DefaultFormField.dart';
+import '../Helpers/Loading.dart';
+import '../Helpers/PopUp.dart';
+import '../Providers/LoadingProvider.dart';
+
+class CompleteProfilePage extends ConsumerStatefulWidget {
+  const CompleteProfilePage({super.key});
+
+  @override
+  ConsumerState<CompleteProfilePage> createState() => _CompleteProfilePageState();
+}
+
+class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
+  var _formKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _formKey = GlobalKey<FormState>();
+  }
+
+  final TextEditingController _displayNameController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
+  final relationshipOptions = ['Single', 'Married'];
+  String? selectedRelationship;
+  String? selectedGender;
+
+  @override
+  Widget build(BuildContext context) {
+    double height = MediaQuery.sizeOf(context).height;
+    double width = MediaQuery.sizeOf(context).width;
+
+    final double paddingFactor = kIsWeb ? 0.3 : 0.05;
+    final EdgeInsets padding = EdgeInsets.fromLTRB(
+      width * paddingFactor,
+      0,
+      width * paddingFactor,
+      0,
+    );
+
+    final isLoading = ref.watch(loadingProvider);
+
+    return Container(
+      color: backgroundColor,
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        body: Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Image.asset("assets/TraviaLogo.png"),
+                SizedBox(height: height * 0.02),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: DefaultText(
+                    text: "Complete Your Profile",
+                    color: Colors.black,
+                    isBold: true,
+                    size: 20,
+                    center: true,
+                  ),
+                ),
+                SizedBox(height: height * 0.04),
+                Form(
+                  key: _formKey,
+                  child: Padding(
+                    padding: padding,
+                    child: Column(
+                      children: [
+                        // Display Name Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                              ),
+                            ],
+                          ),
+                          child: DefaultTextFormField(
+                            type: TextInputType.text,
+                            controller: _displayNameController,
+                            label: "Display Name",
+                            icon: const Icon(Icons.person, size: 20, color: Colors.grey),
+                            validatorFun: (val) {
+                              final name = val?.trim() ?? '';
+                              if (name.isEmpty) return "Name cannot be empty";
+                              if (name.contains(' ')) return "No spaces allowed";
+                              final specialCharRegExp = RegExp(r'[^a-zA-Z0-9._]');
+                              if (specialCharRegExp.hasMatch(name)) return "Only . and _ are allowed as special characters";
+                              final letterRegExp = RegExp(r'[a-zA-Z]');
+                              if (!letterRegExp.hasMatch(name)) return "Name must contain at least one letter";
+                              if (name.length < 4) return "At least 4 letters";
+                              if (name.length > 15) return "At most 15 letters";
+                              return null;
+                            },
+                          ),
+                        ),
+                        SizedBox(height: height * 0.02),
+
+                        // Age Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                              ),
+                            ],
+                          ),
+                          child: DefaultTextFormField(
+                            type: TextInputType.number,
+                            controller: _ageController,
+                            label: "Age",
+                            icon: const Icon(Icons.cake, size: 20, color: Colors.grey),
+                            validatorFun: (val) {
+                              if (val == null || val.isEmpty) return "Age is required";
+                              final age = int.tryParse(val);
+                              if (age == null) return "Please enter a valid age";
+                              if (age < 10) return "You are too young to enter";
+                              if (age > 120) return "You are too old to enter";
+                              return null;
+                            },
+                          ),
+                        ),
+                        SizedBox(height: height * 0.02),
+
+                        Container(
+                          width: width * 0.7, // Controls width for a balanced UI
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                              ),
+                            ],
+                          ),
+                          child: DropdownButtonFormField<String>(
+                            decoration: InputDecoration(
+                              labelText: "Gender",
+                              prefixIcon: Icon(Icons.people, size: 22, color: Colors.grey.shade600),
+                              border: InputBorder.none, // Removes default border
+                              contentPadding: EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                            ),
+                            value: selectedGender,
+                            items: ['Male ♂️', 'Female ♀️']
+                                .map((gender) => DropdownMenuItem(
+                                      value: gender,
+                                      child: Text(gender, style: TextStyle(fontSize: 16)),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              selectedGender = value;
+                            },
+                            validator: (value) => value == null ? "Please select your gender" : null,
+                          ),
+                        ),
+                        SizedBox(height: height * 0.02),
+                        Container(
+                          width: width * 0.7, // Matches gender dropdown width
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                              ),
+                            ],
+                          ),
+                          child: DropdownButtonFormField<String>(
+                            decoration: InputDecoration(
+                              labelText: "Relationship Status",
+                              prefixIcon: Icon(Icons.favorite, size: 22, color: Colors.redAccent),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                            ),
+                            value: selectedRelationship,
+                            items: relationshipOptions
+                                .map((status) => DropdownMenuItem(
+                                      value: status,
+                                      child: Text(status, style: TextStyle(fontSize: 16)),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              selectedRelationship = value;
+                            },
+                            validator: (value) => value == null ? "Please select your relationship status" : null,
+                          ),
+                        ),
+                        SizedBox(height: height * 0.04),
+
+                        // Submit Button
+                        if (isLoading)
+                          LoadingWidget()
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.purpleAccent.withValues(alpha: 0.3),
+                                  spreadRadius: 1,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: MUIGradientBlockButton(
+                              widthFactor: 0.45,
+                              widthFactorPressed: 0.45,
+                              text: "Complete Profile",
+                              onPressed: () async {
+                                if (!_formKey.currentState!.validate()) {
+                                  print("Form is not valid");
+                                  return;
+                                }
+                                if (FirebaseAuth.instance.currentUser == null) {
+                                  context.go("/signin");
+                                  return;
+                                }
+                                try {
+                                  ref.read(loadingProvider.notifier).setLoadingToTrue();
+                                  final user = FirebaseAuth.instance.currentUser!;
+                                  await user.updateDisplayName(_displayNameController.text);
+                                  await insertUser(
+                                    userId: user!.uid,
+                                    email: user!.email ?? "",
+                                    displayName: _displayNameController.text,
+                                    age: toInt(_ageController.text) ?? 25,
+                                    gender: selectedGender?.split(" ").first ?? "Male",
+                                    photoUrl: user.photoURL ?? dummyDefaultUser,
+                                    relationshipStatus: selectedRelationship ?? "Single",
+                                  );
+                                  await user.updateDisplayName(_displayNameController.text);
+                                  ref.read(loadingProvider.notifier).setLoadingToFalse();
+                                  context.go("/homepage"); // Navigate to home
+                                } catch (e) {
+                                  Popup.showPopUp(text: "Error while updating profile", context: context);
+                                  print(e);
+                                }
+                              },
+                              bgGradient: LinearGradient(
+                                colors: [Colors.orangeAccent, Colors.purpleAccent],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              animationDuration: 5,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

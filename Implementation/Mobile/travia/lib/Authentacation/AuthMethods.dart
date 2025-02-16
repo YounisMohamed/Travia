@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -9,6 +10,21 @@ import 'package:travia/Helpers/PopUp.dart';
 
 import '../Providers/LoadingProvider.dart';
 import '../main.dart';
+
+Future<bool> checkIfUserExists(String userId) async {
+  try {
+    final response = await supabase
+        .from('users')
+        .select('id') // Only select the ID to minimize data transfer
+        .eq('id', userId) // Filter by the provided user ID
+        .limit(1); // Limit to 1 result, as we only need to know if it exists
+
+    return response.isNotEmpty; // returns true if the user exists
+  } catch (e) {
+    print('Error checking user existence: $e');
+    return false; // Assume user doesn't exist on error
+  }
+}
 
 Future<void> signInWithEmailAndPassword(
   BuildContext context,
@@ -36,14 +52,12 @@ Future<void> signInWithEmailAndPassword(
       return;
     }
 
-    if (user != null && user.displayName != null) {
+    bool userExists = await checkIfUserExists(user!.uid);
+    if (userExists) {
       context.go("/homepage");
-    }
-    if (user != null && user.displayName == null) {
-      context.go("/name");
-    }
-    if (user == null) {
-      throw Exception("User Not Found");
+    } else {
+      await user.updateDisplayName(null);
+      context.go("/complete-profile");
     }
   } on FirebaseAuthException catch (e) {
     print(e);
@@ -95,7 +109,6 @@ Future<void> signUpWithEmailAndPassword(
 }) async {
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
-
     // Create user
     UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: email,
@@ -116,7 +129,7 @@ Future<void> signUpWithEmailAndPassword(
     );
 
     // Start listening for verification
-    await _waitForEmailVerification(user, context);
+    await _waitForEmailVerification(user, context, ref);
   } on FirebaseAuthException catch (e) {
     print(e);
     String errorMessage = "";
@@ -154,7 +167,7 @@ Future<void> signUpWithEmailAndPassword(
 
 // =====================================
 
-Future<void> _waitForEmailVerification(User user, BuildContext context) async {
+Future<void> _waitForEmailVerification(User user, BuildContext context, WidgetRef ref) async {
   final FirebaseAuth auth = FirebaseAuth.instance;
   const int timeoutSeconds = 300; // Set a timeout of 5 minutes
   int elapsedSeconds = 0;
@@ -204,15 +217,16 @@ Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
 
     UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
     User? user = userCredential.user;
-
-    if (user != null && user.displayName != null) {
-      context.go("/homepage");
-    }
-    if (user != null && user.displayName == null) {
-      context.go("/name");
-    }
     if (user == null) {
-      throw Exception("User Not Found");
+      throw Exception("Error");
+    }
+    bool userExists = await checkIfUserExists(user!.uid);
+
+    if (userExists) {
+      context.go("/homepage");
+    } else {
+      await user.updateDisplayName(null);
+      context.go("/complete-profile");
     }
   } catch (e) {
     print("Login error: $e");
@@ -251,9 +265,7 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     if (await googleSignIn.isSignedIn()) {
       await googleSignIn.signOut();
     }
-
-    final statuses = await supabase.removeAllChannels(); // Remove supabase channels (DATABASE)
-
+    Phoenix.rebirth(context);
     context.go("/signin");
   } catch (e) {
     Popup.showPopUp(text: "Sign-out failed", context: context);
@@ -262,17 +274,3 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     ref.read(loadingProvider.notifier).setLoadingToFalse();
   }
 }
-
-/*
-// client ids if needed
-GoogleSignIn googleSignInProvider() {
-  const webClientId = '1037102746825-51eovbm3p4d244plah5l1uk04oo7vag6.apps.googleusercontent.com';
-
-  const androidClientId = '722459534211-gie50eb2cjspqfndnk0ht7hi3hfktg88.apps.googleusercontent.com';
-
-  const iosClientId = '722459534211-otql03j9vqlasl5jov5orbjmg2l555d5.apps.googleusercontent.com';
-  return GoogleSignIn(scopes: ['email'], clientId: Platform.isIOS ? iosClientId : androidClientId, serverClientId: webClientId);
-}
-
-
- */

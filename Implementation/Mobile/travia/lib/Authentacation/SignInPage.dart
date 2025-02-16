@@ -9,8 +9,8 @@ import 'package:travia/Helpers/Icons.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
+import '../Helpers/DefaultFormField.dart';
 import '../Helpers/GoogleSignInWidget.dart';
-import '../Helpers/defaultFormField.dart';
 import 'AuthMethods.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
@@ -83,7 +83,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                     padding: padding,
                     child: Column(
                       children: [
-                        defaultTextFormField(
+                        DefaultTextFormField(
                           type: TextInputType.emailAddress,
                           controller: _emailController,
                           label: "Email Address",
@@ -97,7 +97,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                           },
                         ),
                         SizedBox(height: height * 0.03),
-                        defaultTextFormField(
+                        DefaultTextFormField(
                           type: TextInputType.visiblePassword,
                           controller: _passwordController,
                           label: "Password",

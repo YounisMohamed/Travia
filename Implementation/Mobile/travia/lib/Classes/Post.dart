@@ -10,6 +10,7 @@ class Post {
   final String? userPhotoUrl;
   // Engagement counts
   final int commentCount;
+  final int likeCount;
 
   Post({
     required this.createdAt,
@@ -20,12 +21,14 @@ class Post {
     required this.userDisplayName,
     this.userPhotoUrl,
     required this.commentCount,
+    required this.likeCount,
     required this.postId,
   });
 
   factory Post.fromMap(Map<String, dynamic> map) {
     final userData = map['users'] as Map<String, dynamic>;
     final commentsCount = (map['comments'] as List).length;
+    final likeCount = (map['likes'] as List).length;
 
     return Post(
       createdAt: DateTime.parse(map['created_at']),
@@ -36,6 +39,7 @@ class Post {
       userDisplayName: userData['display_name'],
       userPhotoUrl: userData['photo_url'],
       commentCount: commentsCount,
+      likeCount: likeCount,
       postId: map['id'],
     );
   }
