@@ -7,6 +7,8 @@ class NotificationModel {
   final bool isRead;
   final String? sourceId;
   final String? senderUserId;
+  final String? senderPhoto;
+  final String? displayName;
 
   NotificationModel({
     required this.id,
@@ -17,6 +19,8 @@ class NotificationModel {
     this.targetUserId,
     this.sourceId,
     this.senderUserId,
+    this.senderPhoto,
+    this.displayName,
   });
 
   // Convert JSON/Map from Supabase to NotificationModel
@@ -30,6 +34,8 @@ class NotificationModel {
       isRead: map['is_read'] as bool,
       sourceId: map['source_id'] as String?,
       senderUserId: map['sender_user_id'] as String?,
+      senderPhoto: map['sender_photo'] as String?,
+      displayName: map['user_display_name'] as String?,
     );
   }
 
@@ -44,6 +50,8 @@ class NotificationModel {
       'is_read': isRead,
       'source_id': sourceId,
       'sender_user_id': senderUserId,
+      'sender_photo': senderPhoto,
+      'user_display_name': displayName,
     };
   }
 }

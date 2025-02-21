@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../Classes/Comment.dart';
 import '../Classes/Post.dart';
 import '../database/DatabaseMethods.dart';
+import '../main.dart';
 
 class PostsNotifier extends AsyncNotifier<List<Post>> {
   @override
@@ -20,35 +21,9 @@ final postsProvider = AsyncNotifierProvider<PostsNotifier, List<Post>>(() {
   return PostsNotifier();
 });
 
-class CommentsNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
-  @override
-  Future<List<Comment>> build(String postId) async {
-    return await fetchComments(postId);
-  }
-
-  Future<void> refresh() async {
-    if (state case AsyncData(:final value)) {
-      state = const AsyncValue.loading();
-      state = await AsyncValue.guard(() => fetchComments(value.first.postId));
-    }
-  }
-
-  void addComment(Comment newComment) {
-    if (state case AsyncData(:final value)) {
-      state = AsyncData([...value, newComment]); // Append the new comment
-    }
-  }
-
-  // ✅ Remove comment if insertion fails
-  void removeComment(String commentId) {
-    if (state case AsyncData(:final value)) {
-      state = AsyncData(value.where((c) => c.id != commentId).toList());
-    }
-  }
-}
-
-// Family provider for fetching comments by post ID
-final commentsProvider = AsyncNotifierProvider.family<CommentsNotifier, List<Comment>, String>(CommentsNotifier.new);
+final commentsProvider = StreamProvider.family<List<Comment>, String>((ref, postId) {
+  return supabase.from('comments').stream(primaryKey: ['id']).eq('post_id', postId).order('created_at', ascending: false).map((data) => data.map((json) => Comment.fromJson(json)).toList());
+});
 
 class PostCommentCountNotifier extends FamilyNotifier<int, String> {
   @override

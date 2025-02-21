@@ -54,7 +54,7 @@ Future<void> signInWithEmailAndPassword(
 
     bool userExists = await checkIfUserExists(user!.uid);
     if (userExists) {
-      context.go("/homepage");
+      context.go("/");
     } else {
       await user.updateDisplayName(null);
       context.go("/complete-profile");
@@ -223,7 +223,7 @@ Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
     bool userExists = await checkIfUserExists(user!.uid);
 
     if (userExists) {
-      context.go("/homepage");
+      context.go("/");
     } else {
       await user.updateDisplayName(null);
       context.go("/complete-profile");

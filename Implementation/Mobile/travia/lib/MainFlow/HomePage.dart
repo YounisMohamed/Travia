@@ -2,15 +2,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:modular_ui/modular_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 
 import '../Authentacation/AuthMethods.dart';
 import '../Providers/DatabaseProviders.dart';
+import '../main.dart';
 import 'PostCard.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -22,30 +23,58 @@ class HomePage extends ConsumerStatefulWidget {
 
 final dummyImageUrl = "https://picsum.photos/200";
 final dummyDefaultUser = "assets/defaultUser.png";
-final currentlyLoggedInUserId = FirebaseAuth.instance.currentUser!.uid;
 
 class _HomePageState extends ConsumerState<HomePage> {
+  final user = FirebaseAuth.instance.currentUser;
+
   @override
   void initState() {
-    initHive();
-    super.initState();
-  }
-
-  Future<void> initHive() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    await Hive.initFlutter();
-    await Hive.openBox<Map<String, bool>>("liked_posts_$userId");
-    await Hive.openBox<Map<String, bool>>("liked_comments_$userId");
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      context.go("/signin");
+    }
+    supabase
+        .channel('public:notifications')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'notifications',
+            callback: (payload) {
+              print('Change received: ${payload.toString()}');
+            })
+        .subscribe();
+    supabase
+        .channel('public:comments')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'comments',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'user_id',
+              value: user!.uid,
+            ),
+            callback: (payload) {
+              print('Change received: ${payload.toString()}');
+            })
+        .subscribe();
     print(user?.uid);
     print(user?.email);
     print(user?.photoURL);
     print(user?.displayName);
+    print("------------");
+    super.initState();
+  }
 
+  @override
+  void dispose() {
+    supabase.channel('public:notifications').unsubscribe();
+    supabase.channel('public:comments').unsubscribe();
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         forceMaterialTransparency: true,
@@ -69,7 +98,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 size: 28,
               ),
               onPressed: () {
-                context.go("/notifications");
+                context.push("/notifications");
               },
             ),
           ),
@@ -101,26 +130,44 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ? Center(child: DefaultText(text: "No posts to show for now"))
                         : ListView.builder(
                             itemCount: posts.length,
-                            itemBuilder: (context, index) => PostCard(
-                              profilePicUrl: posts[index].userPhotoUrl,
-                              name: posts[index].userDisplayName,
-                              postImageUrl: posts[index].mediaUrl,
-                              commentCount: posts[index].commentCount,
-                              postId: posts[index].postId,
-                              userId: posts[index].userId,
-                              likeCount: posts[index].likeCount,
-                            ),
-                          ),
+                            itemBuilder: (context, index) {
+                              return PostCard(
+                                profilePicUrl: posts[index].userPhotoUrl,
+                                name: posts[index].userDisplayName,
+                                postImageUrl: posts[index].mediaUrl,
+                                commentCount: posts[index].commentCount,
+                                postId: posts[index].postId,
+                                userId: posts[index].userId,
+                                likeCount: posts[index].likeCount,
+                              );
+                            }),
                   );
                 },
               ),
             ),
-            MUIGradientButton(
-              text: "Sign out",
-              onPressed: () async {
-                await signOut(context, ref);
-              },
-            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                MUIGradientButton(
+                  text: "Sign out",
+                  onPressed: () async {
+                    await signOut(context, ref);
+                  },
+                  bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
+                ),
+                SizedBox(
+                  width: 15,
+                ),
+                MUIGradientButton(
+                  text: "Update profile",
+                  onPressed: () {
+                    context.push("/complete-profile");
+                  },
+                  bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
+                ),
+              ],
+            )
           ],
         ),
       ),

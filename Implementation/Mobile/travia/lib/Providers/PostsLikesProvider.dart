@@ -1,12 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 import '../main.dart';
 
 class LikeNotifierPost extends StateNotifier<Map<String, bool>> {
-  final Box<Map<String, bool>> _likedPostsBox = Hive.box("liked_posts_${FirebaseAuth.instance.currentUser?.uid}");
-
   LikeNotifierPost() : super({}) {
     _fetchLikedPosts();
   }
@@ -21,24 +18,17 @@ class LikeNotifierPost extends StateNotifier<Map<String, bool>> {
     try {
       final response = await supabase.from('likes').select('post_id').eq('liker_user_id', userId).not('post_id', 'is', null);
 
-      print("Fetched likes for $userId: $response");
-
       final Map<String, bool> likedPosts = {
         for (var like in response) like['post_id'] as String: true,
       };
 
       state = likedPosts;
-
-      // Save likes per user ID in Hive
-      _likedPostsBox.put(userId, likedPosts);
-
-      print("Updated state and cache for $userId: $state");
     } catch (e) {
       print("Error fetching liked posts: $e");
     }
   }
 
-  // *Toggle Like (Optimistic Update with Hive)*
+  // *Toggle Like (Optimistic Update)*
   Future<void> toggleLike({
     required String postId,
     required String likerId,
@@ -49,11 +39,6 @@ class LikeNotifierPost extends StateNotifier<Map<String, bool>> {
     try {
       // Optimistically update state
       state = {...state, postId: !isLiked};
-
-      // Get existing cached likes for this user
-      final userLikes = _likedPostsBox.get(likerId, defaultValue: {}) ?? {};
-      userLikes[postId] = !isLiked;
-      _likedPostsBox.put(likerId, userLikes);
 
       if (isLiked) {
         // Unlike the post
@@ -74,10 +59,6 @@ class LikeNotifierPost extends StateNotifier<Map<String, bool>> {
       print("Error updating like: $e");
       // Revert state on failure
       state = {...state, postId: isLiked};
-
-      final userLikes = _likedPostsBox.get(likerId, defaultValue: {}) ?? {};
-      userLikes[postId] = isLiked;
-      _likedPostsBox.put(likerId, userLikes);
     }
   }
 }

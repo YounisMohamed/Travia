@@ -7,10 +7,12 @@ import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/Icons.dart';
 import 'package:travia/Helpers/Loading.dart';
+import 'package:travia/Helpers/SplashScreen.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
 import '../Helpers/DefaultFormField.dart';
 import '../Helpers/GoogleSignInWidget.dart';
+import '../Providers/AuthProvider.dart';
 import 'AuthMethods.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
@@ -27,6 +29,13 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   void initState() {
     super.initState();
     _formKey = GlobalKey<FormState>();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   final TextEditingController _emailController = TextEditingController();
@@ -51,141 +60,176 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
     // State when the user asks to sign in
     final isLoading = ref.watch(loadingProvider);
+    final asyncUser = ref.watch(authProvider);
 
-    return Container(
-      color: backgroundColor,
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        body: Padding(
-          padding: EdgeInsets.symmetric(vertical: 50),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Image.asset("assets/TraviaLogo.png"),
-                SizedBox(height: height * 0.01),
-                DefaultText(
-                  text: "SIGN IN",
-                  color: Colors.black,
-                  isBold: true,
-                  size: 16,
-                ),
-                SizedBox(height: height * 0.05),
-                GoogleSignInButton(
-                  contextOfParent: context,
-                  ref: ref,
-                ),
-                SizedBox(height: height * 0.1),
-                Form(
-                  key: _formKey,
-                  child: Padding(
-                    padding: padding,
-                    child: Column(
-                      children: [
-                        DefaultTextFormField(
-                          type: TextInputType.emailAddress,
-                          controller: _emailController,
-                          label: "Email Address",
-                          icon: emailIcon,
-                          validatorFun: (val) {
-                            if (val.toString().isEmpty) {
-                              return "Email cannot be empty";
-                            } else {
-                              return null;
-                            }
-                          },
-                        ),
-                        SizedBox(height: height * 0.03),
-                        DefaultTextFormField(
-                          type: TextInputType.visiblePassword,
-                          controller: _passwordController,
-                          label: "Password",
-                          isSecure: !visiblePassword,
-                          icon: lockIcon,
-                          validatorFun: (val) {
-                            if (val.toString().isEmpty) {
-                              return "Password cannot be empty";
-                            }
-                            if (val.toString().length < 6) {
-                              return "Password is less than 6";
-                            } else {
-                              return null;
-                            }
-                          },
-                        ),
-                        SizedBox(height: height * 0.009),
-                        Row(
-                          children: [
-                            DefaultText(
-                              text: "Show Password",
-                              color: Colors.black,
-                              size: 12,
-                            ),
-                            SizedBox(width: width * 0.01),
-                            Checkbox(
-                              value: visiblePassword,
-                              onChanged: (bool? newValue) {
-                                setState(() {
-                                  visiblePassword = newValue!;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: height * 0.05),
-                        isLoading
-                            ? LoadingWidget()
-                            : MUIGradientBlockButton(
-                                text: "SIGN IN",
-                                onPressed: () async {
-                                  if (_formKey.currentState!.validate()) {
-                                    await signInWithEmailAndPassword(
-                                      context,
-                                      ref,
-                                      email: _emailController.text,
-                                      password: _passwordController.text,
-                                    );
-                                  } else {
-                                    print("Not Valid");
+    return asyncUser.when(
+      data: (user) {
+        if (user != null) {
+          // User is authenticated and exists, navigate to home
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.go('/');
+          });
+          return const SplashScreen(); // Show splash while navigating
+        } else {
+          // User needs to complete profile or is not logged in, show sign-in UI
+          return Container(
+            color: backgroundColor,
+            child: Scaffold(
+              resizeToAvoidBottomInset: true,
+              body: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 50),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Image.asset("assets/TraviaLogo.png"),
+                      SizedBox(height: height * 0.01),
+                      DefaultText(
+                        text: "SIGN IN",
+                        color: Colors.black,
+                        isBold: true,
+                        size: 16,
+                      ),
+                      SizedBox(height: height * 0.05),
+                      GoogleSignInButton(
+                        contextOfParent: context,
+                        ref: ref,
+                      ),
+                      SizedBox(height: height * 0.1),
+                      Form(
+                        key: _formKey,
+                        child: Padding(
+                          padding: padding,
+                          child: Column(
+                            children: [
+                              DefaultTextFormField(
+                                type: TextInputType.emailAddress,
+                                controller: _emailController,
+                                label: "Email Address",
+                                icon: emailIcon,
+                                validatorFun: (val) {
+                                  if (val.toString().isEmpty) {
+                                    return "Email cannot be empty";
                                   }
+                                  return null;
                                 },
-                                bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
-                                animationDuration: 5,
                               ),
-                      ],
-                    ),
+                              SizedBox(height: height * 0.03),
+                              Consumer(
+                                builder: (context, ref, child) {
+                                  final visiblePassword = ref.watch(StateProvider<bool>((ref) => false));
+                                  return DefaultTextFormField(
+                                    type: TextInputType.visiblePassword,
+                                    controller: _passwordController,
+                                    label: "Password",
+                                    isSecure: !visiblePassword,
+                                    icon: lockIcon,
+                                    validatorFun: (val) {
+                                      if (val.toString().isEmpty) {
+                                        return "Password cannot be empty";
+                                      }
+                                      if (val.toString().length < 6) {
+                                        return "Password is less than 6";
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                },
+                              ),
+                              SizedBox(height: height * 0.009),
+                              Row(
+                                children: [
+                                  DefaultText(
+                                    text: "Show Password",
+                                    color: Colors.black,
+                                    size: 12,
+                                  ),
+                                  SizedBox(width: width * 0.01),
+                                  Consumer(
+                                    builder: (context, ref, child) {
+                                      final visiblePassword = ref.watch(StateProvider<bool>((ref) => false));
+                                      return Checkbox(
+                                        value: visiblePassword,
+                                        onChanged: (bool? newValue) {
+                                          ref.read(StateProvider<bool>((ref) => false).notifier).state = newValue!;
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: height * 0.05),
+                              isLoading
+                                  ? LoadingWidget()
+                                  : MUIGradientBlockButton(
+                                      text: "SIGN IN",
+                                      onPressed: () async {
+                                        if (_formKey.currentState!.validate()) {
+                                          ref.read(loadingProvider.notifier).state = true;
+                                          try {
+                                            await signInWithEmailAndPassword(
+                                              context,
+                                              ref,
+                                              email: _emailController.text,
+                                              password: _passwordController.text,
+                                            );
+                                          } catch (e) {
+                                            // Handle error (e.g., show snackbar)
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text("Sign in failed: $e")),
+                                            );
+                                          } finally {
+                                            ref.read(loadingProvider.notifier).state = false;
+                                          }
+                                        }
+                                      },
+                                      bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
+                                      animationDuration: 5,
+                                    ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: height * 0.05),
+                      TextButton(
+                        onPressed: () {
+                          context.push("/signup");
+                        },
+                        child: DefaultText(
+                          text: "I don't have an account",
+                          size: 12,
+                          color: Colors.grey,
+                          underlined: true,
+                        ),
+                      ),
+                      SizedBox(height: height * 0.009),
+                      TextButton(
+                        onPressed: () {
+                          context.push("/forgotpassword");
+                        },
+                        child: DefaultText(
+                          text: "I forgot my password",
+                          size: 12,
+                          color: Colors.grey,
+                          underlined: true,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(height: height * 0.05),
-                TextButton(
-                  onPressed: () {
-                    context.go("/signup");
-                  },
-                  child: DefaultText(
-                    text: "I don't have an account",
-                    size: 12,
-                    color: Colors.grey,
-                    underlined: true,
-                  ),
-                ),
-                SizedBox(height: height * 0.009),
-                TextButton(
-                  onPressed: () {
-                    context.go("/forgotpassword");
-                  },
-                  child: DefaultText(
-                    text: "I forgot my password",
-                    size: 12,
-                    color: Colors.grey,
-                    underlined: true,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
+          );
+        }
+      },
+      loading: () => const SplashScreen(), // Show splash screen while checking auth
+      error: (error, stackTrace) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          context.go('/error-page');
+        });
+        return const SplashScreen(); // Show splash while navigating to error
+      },
     );
   }
 }

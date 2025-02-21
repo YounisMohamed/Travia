@@ -1,6 +1,8 @@
-String timeAgo(DateTime dateTime) {
-  final now = DateTime.now();
-  final difference = now.difference(dateTime);
+String timeAgo(DateTime utcDateTime) {
+  // Convert UTC DateTime to local timezone
+  final localDateTime = utcDateTime.toLocal();
+  final now = DateTime.now(); // This is already in local time
+  final difference = now.difference(localDateTime);
 
   if (difference.inSeconds < 60) {
     return 'Just Now';

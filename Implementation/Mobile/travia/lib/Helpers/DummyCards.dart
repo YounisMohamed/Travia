@@ -131,7 +131,7 @@ class DummyCommentCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: commentCardColor, // Placeholder color
+        color: contrastCommentCardColor, // Placeholder color
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

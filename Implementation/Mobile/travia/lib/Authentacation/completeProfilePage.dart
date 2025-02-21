@@ -14,6 +14,7 @@ import '../Helpers/DefaultFormField.dart';
 import '../Helpers/Loading.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/LoadingProvider.dart';
+import '../main.dart';
 
 class CompleteProfilePage extends ConsumerStatefulWidget {
   const CompleteProfilePage({super.key});
@@ -33,6 +34,8 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController(text: "@");
+
   final relationshipOptions = ['Single', 'Married'];
   String? selectedRelationship;
   String? selectedGender;
@@ -65,6 +68,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
               children: [
                 Image.asset("assets/TraviaLogo.png"),
                 SizedBox(height: height * 0.02),
+                // User name field
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
@@ -93,6 +97,44 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     padding: padding,
                     child: Column(
                       children: [
+                        // Username Field
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                              ),
+                            ],
+                          ),
+                          child: DefaultTextFormField(
+                            type: TextInputType.text,
+                            controller: _usernameController,
+                            label: "Username",
+                            icon: const Icon(Icons.alternate_email, size: 20, color: Colors.grey),
+                            validatorFun: (val) {
+                              final username = val?.trim() ?? '';
+                              if (username.length < 4) return "Username must be at least 3 characters";
+                              final validUsernameRegExp = RegExp(r'^@[a-zA-Z0-9._]+$');
+                              if (!validUsernameRegExp.hasMatch(username)) {
+                                return "Only letters, numbers, . and _ allowed";
+                              }
+                              return null;
+                            },
+                            onChanged: (val) {
+                              if (!val!.startsWith("@")) {
+                                _usernameController.text = "@";
+                                _usernameController.selection = TextSelection.fromPosition(
+                                  TextPosition(offset: _usernameController.text.length),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        SizedBox(height: height * 0.02),
                         // Display Name Field
                         Container(
                           decoration: BoxDecoration(
@@ -249,21 +291,30 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                               widthFactorPressed: 0.45,
                               text: "Complete Profile",
                               onPressed: () async {
-                                if (!_formKey.currentState!.validate()) {
-                                  print("Form is not valid");
-                                  return;
-                                }
-                                if (FirebaseAuth.instance.currentUser == null) {
-                                  context.go("/signin");
-                                  return;
-                                }
                                 try {
                                   ref.read(loadingProvider.notifier).setLoadingToTrue();
+                                  if (!_formKey.currentState!.validate()) {
+                                    print("Form is not valid");
+                                    ref.read(loadingProvider.notifier).setLoadingToFalse();
+                                    return;
+                                  }
+                                  if (FirebaseAuth.instance.currentUser == null) {
+                                    context.go("/signin");
+                                    return;
+                                  }
+                                  String username = _usernameController.text.substring(1).toLowerCase();
+                                  bool userNameExists = await checkIfUsernameExists(username);
+                                  if (userNameExists) {
+                                    Popup.showPopUp(text: "Username already exists", context: context);
+                                    ref.read(loadingProvider.notifier).setLoadingToFalse();
+                                    return;
+                                  }
                                   final user = FirebaseAuth.instance.currentUser!;
                                   await user.updateDisplayName(_displayNameController.text);
                                   await insertUser(
                                     userId: user!.uid,
                                     email: user!.email ?? "",
+                                    username: username,
                                     displayName: _displayNameController.text,
                                     age: toInt(_ageController.text) ?? 25,
                                     gender: selectedGender?.split(" ").first ?? "Male",
@@ -272,10 +323,12 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                   );
                                   await user.updateDisplayName(_displayNameController.text);
                                   ref.read(loadingProvider.notifier).setLoadingToFalse();
-                                  context.go("/homepage"); // Navigate to home
+                                  context.go("/"); // Navigate to home
                                 } catch (e) {
                                   Popup.showPopUp(text: "Error while updating profile", context: context);
                                   print(e);
+                                } finally {
+                                  ref.read(loadingProvider.notifier).setLoadingToFalse();
                                 }
                               },
                               bgGradient: LinearGradient(
@@ -296,5 +349,15 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         ),
       ),
     );
+  }
+
+  Future<bool> checkIfUsernameExists(String username) async {
+    try {
+      final response = await supabase.from('users').select('username').eq('username', username).limit(1);
+      return response.isNotEmpty;
+    } catch (e) {
+      print('Error checking username existence: $e');
+      return true; // rg3 true 3al e7tyat
+    }
   }
 }

@@ -9,6 +9,8 @@ import 'package:travia/Authentacation/ForgotPassword.dart';
 import 'package:travia/Authentacation/SignInPage.dart';
 import 'package:travia/Authentacation/SignUpPage.dart';
 import 'package:travia/Authentacation/completeProfilePage.dart';
+import 'package:travia/Helpers/SplashScreen.dart';
+import 'package:travia/MainFlow/ErrorPage.dart';
 import 'package:travia/MainFlow/HomePage.dart';
 import 'package:travia/MainFlow/NotificationsPage.dart';
 
@@ -42,8 +44,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    print(user?.uid);
+    print(user?.email);
+    print(user?.photoURL);
+    print(user?.displayName);
+    print("------------");
     final GoRouter router = GoRouter(
-      initialLocation: '/notifications', // initial location
+      initialLocation: '/signin', // initial location
       routes: [
         // ======================
         // AUTH ROUTES
@@ -62,7 +70,7 @@ class MyApp extends StatelessWidget {
         // ======================
         // MAIN FLOW ROUTES
         GoRoute(
-          path: '/homepage',
+          path: '/',
           builder: (context, state) => HomePage(),
         ),
         GoRoute(
@@ -73,25 +81,15 @@ class MyApp extends StatelessWidget {
           path: '/notifications',
           builder: (context, state) => NotificationsPage(),
         ),
+        GoRoute(
+          path: '/error-page',
+          builder: (context, state) => ErrorPage(),
+        ),
+        GoRoute(
+          path: '/splash-screen',
+          builder: (context, state) => SplashScreen(),
+        ),
       ],
-      redirect: (context, state) {
-        final isAuthenticated = FirebaseAuth.instance.currentUser != null;
-        final isOnSignInPage = state.uri.toString() == "/signin";
-        final isVerified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
-        final isProfileComplete = FirebaseAuth.instance.currentUser?.displayName != null;
-
-        if (isAuthenticated && isVerified && !isProfileComplete) {
-          // If authenticated, verified, but no display name, redirect to name page
-          return '/complete-profile';
-        }
-
-        if (isAuthenticated && isVerified && isOnSignInPage && isProfileComplete) {
-          // If authenticated, verified, and has display name, redirect to homepage if on sign-in page
-          return '/homepage';
-        }
-
-        return null;
-      },
     );
 
     return MaterialApp.router(

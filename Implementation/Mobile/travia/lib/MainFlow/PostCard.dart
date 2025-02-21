@@ -6,6 +6,7 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/HelperMethods.dart';
 import 'package:travia/MainFlow/HomePage.dart';
+import 'package:travia/database/DatabaseMethods.dart';
 
 import '../Providers/DatabaseProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
@@ -105,12 +106,7 @@ class PostCard extends StatelessWidget {
               // Post Image Section
               GestureDetector(
                 onDoubleTap: () {
-                  ref.read(likePostProvider.notifier).toggleLike(
-                        postId: postId,
-                        likerId: FirebaseAuth.instance.currentUser!.uid,
-                        posterId: userId,
-                      );
-                  ref.read(postLikeCountProvider((postId: postId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
+                  likePost(ref, isLiked);
                 },
                 child: Container(
                   height: 300,
@@ -134,12 +130,7 @@ class PostCard extends StatelessWidget {
                         // Like Button
                         GestureDetector(
                             onTap: () {
-                              ref.read(likePostProvider.notifier).toggleLike(
-                                    postId: postId,
-                                    likerId: FirebaseAuth.instance.currentUser!.uid,
-                                    posterId: userId,
-                                  );
-                              ref.read(postLikeCountProvider((postId: postId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
+                              likePost(ref, isLiked);
                             },
                             child: Image.asset(
                               isLiked ? "assets/liked.png" : "assets/unliked.png",
@@ -184,7 +175,7 @@ class PostCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${ref.watch(postCommentCountProvider(postId))}', // ✅ Watches live updates
+                          '${ref.watch(postCommentCountProvider(postId))}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -229,5 +220,16 @@ class PostCard extends StatelessWidget {
         );
       },
     );
+  }
+
+  void likePost(WidgetRef ref, bool isLiked) {
+    String likerId = FirebaseAuth.instance.currentUser!.uid;
+    ref.read(likePostProvider.notifier).toggleLike(
+          postId: postId,
+          likerId: likerId,
+          posterId: userId,
+        );
+    ref.read(postLikeCountProvider((postId: postId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
+    if (!isLiked) sendNotification(type: 'like', content: 'liked your post', target_user_id: userId, source_id: postId, sender_user_id: likerId);
   }
 }

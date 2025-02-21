@@ -10,6 +10,7 @@ Widget DefaultTextFormField({
   required Icon? icon,
   double? borderRadius,
   TextInputType? type,
+  String? Function(String?)? onChanged,
 }) {
   return Container(
     height: height ?? 60,
@@ -54,6 +55,7 @@ Widget DefaultTextFormField({
           color: Colors.black,
           fontSize: 16,
         ),
+        onChanged: onChanged,
       ),
     ),
   );
