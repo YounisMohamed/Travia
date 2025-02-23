@@ -17,7 +17,7 @@ class DefaultText extends StatelessWidget {
     return Text(
       text,
       textAlign: center ? TextAlign.center : TextAlign.start,
-      style: GoogleFonts.lexendDeca(
+      style: GoogleFonts.redHatDisplay(
         color: color,
         fontSize: size,
         fontWeight: isBold ? FontWeight.bold : FontWeight.normal,

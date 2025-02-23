@@ -195,14 +195,17 @@ class PostCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       child: Row(
-                        children: const [
-                          Icon(
-                            Icons.send,
-                            color: Colors.grey,
-                            size: 20,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.send,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                            onPressed: () {},
                           ),
-                          SizedBox(width: 4),
-                          Text(
+                          const SizedBox(width: 4),
+                          const Text(
                             'Share',
                             style: TextStyle(
                               color: Colors.grey,

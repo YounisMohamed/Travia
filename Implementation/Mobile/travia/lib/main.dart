@@ -14,6 +14,7 @@ import 'package:travia/MainFlow/ErrorPage.dart';
 import 'package:travia/MainFlow/HomePage.dart';
 import 'package:travia/MainFlow/NotificationsPage.dart';
 
+import 'MainFlow/PostDetails.dart';
 import 'firebase_options.dart';
 
 final supabase = Supabase.instance.client;
@@ -88,6 +89,13 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/splash-screen',
           builder: (context, state) => SplashScreen(),
+        ),
+        GoRoute(
+          path: '/post/:postId',
+          builder: (context, state) {
+            final postId = state.pathParameters['postId']!;
+            return PostDetailsPage(postId: postId);
+          },
         ),
       ],
     );

@@ -72,7 +72,6 @@ class _CommentModalState extends ConsumerState<CommentModal> {
 
   @override
   Widget build(BuildContext context) {
-    final commentsAsync = ref.watch(commentsProvider(widget.postId));
     final replyState = ref.watch(replyStateProvider);
     final isLoading = ref.watch(loadingProvider);
 
@@ -215,7 +214,10 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                         String userId = FirebaseAuth.instance.currentUser!.uid;
                         String content = _commentController.text.trim();
 
-                        if (content.isEmpty) return;
+                        if (content.isEmpty) {
+                          ref.read(loadingProvider.notifier).setLoadingToFalse();
+                          return;
+                        }
 
                         try {
                           String commentId = Uuid().v4();

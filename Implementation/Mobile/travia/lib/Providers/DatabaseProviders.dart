@@ -10,11 +10,6 @@ class PostsNotifier extends AsyncNotifier<List<Post>> {
   Future<List<Post>> build() async {
     return await fetchPosts();
   }
-
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => fetchPosts());
-  }
 }
 
 final postsProvider = AsyncNotifierProvider<PostsNotifier, List<Post>>(() {

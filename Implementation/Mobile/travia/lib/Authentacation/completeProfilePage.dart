@@ -7,7 +7,6 @@ import 'package:modular_ui/modular_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
-import 'package:travia/MainFlow/HomePage.dart';
 import 'package:travia/database/DatabaseMethods.dart';
 
 import '../Helpers/DefaultFormField.dart';
@@ -318,7 +317,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                     displayName: _displayNameController.text,
                                     age: toInt(_ageController.text) ?? 25,
                                     gender: selectedGender?.split(" ").first ?? "Male",
-                                    photoUrl: user.photoURL ?? dummyDefaultUser,
+                                    photoUrl: user.photoURL,
                                     relationshipStatus: selectedRelationship ?? "Single",
                                   );
                                   await user.updateDisplayName(_displayNameController.text);

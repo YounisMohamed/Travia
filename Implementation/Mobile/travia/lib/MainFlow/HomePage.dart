@@ -6,7 +6,6 @@ import 'package:modular_ui/modular_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/Constants.dart';
-import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 
 import '../Authentacation/AuthMethods.dart';
@@ -120,27 +119,34 @@ class _HomePageState extends ConsumerState<HomePage> {
                         itemBuilder: (context, index) => DummyPostCard(),
                       ),
                     ),
-                    error: (error, stackTrace) => Center(
-                      child: DefaultText(
-                        text: "Posts not available",
-                        center: true,
+                    error: (error, stackTrace) => const Center(
+                      child: Text(
+                        "Posts not available",
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     data: (posts) => posts.isEmpty
-                        ? Center(child: DefaultText(text: "No posts to show for now"))
+                        ? const Center(child: Text("No posts to show for now"))
                         : ListView.builder(
                             itemCount: posts.length,
                             itemBuilder: (context, index) {
-                              return PostCard(
-                                profilePicUrl: posts[index].userPhotoUrl,
-                                name: posts[index].userDisplayName,
-                                postImageUrl: posts[index].mediaUrl,
-                                commentCount: posts[index].commentCount,
-                                postId: posts[index].postId,
-                                userId: posts[index].userId,
-                                likeCount: posts[index].likeCount,
+                              final post = posts[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  context.push('/post/${post.postId}');
+                                },
+                                child: PostCard(
+                                  profilePicUrl: post.userPhotoUrl,
+                                  name: post.userDisplayName,
+                                  postImageUrl: post.mediaUrl,
+                                  commentCount: post.commentCount,
+                                  postId: post.postId,
+                                  userId: post.userId,
+                                  likeCount: post.likeCount,
+                                ),
                               );
-                            }),
+                            },
+                          ),
                   );
                 },
               ),
