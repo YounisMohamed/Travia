@@ -9,11 +9,13 @@ import 'package:travia/Authentacation/ForgotPassword.dart';
 import 'package:travia/Authentacation/SignInPage.dart';
 import 'package:travia/Authentacation/SignUpPage.dart';
 import 'package:travia/Authentacation/completeProfilePage.dart';
-import 'package:travia/Helpers/SplashScreen.dart';
 import 'package:travia/MainFlow/ErrorPage.dart';
 import 'package:travia/MainFlow/HomePage.dart';
 import 'package:travia/MainFlow/NotificationsPage.dart';
+import 'package:travia/MainFlow/SplashScreen.dart';
+import 'package:travia/MainFlow/UploadPost.dart';
 
+import 'MainFlow/PermissionsPage.dart';
 import 'MainFlow/PostDetails.dart';
 import 'firebase_options.dart';
 
@@ -27,9 +29,6 @@ void main() async {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY3Nnd2xza2h1eWxnYnFlZ256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkwMjE0MTMsImV4cCI6MjA1NDU5NzQxM30.j-sQL5Ez7hOt9YbwevWe77ac8w0Y9eJ-4vIb7n6YqGc',
     realtimeClientOptions: const RealtimeClientOptions(
       logLevel: RealtimeLogLevel.info,
-    ),
-    storageOptions: const StorageClientOptions(
-      retryAttempts: 10,
     ),
   );
 
@@ -52,7 +51,7 @@ class MyApp extends StatelessWidget {
     print(user?.displayName);
     print("------------");
     final GoRouter router = GoRouter(
-      initialLocation: '/signin', // initial location
+      initialLocation: '/splash-screen', // initial location
       routes: [
         // ======================
         // AUTH ROUTES
@@ -83,6 +82,10 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => NotificationsPage(),
         ),
         GoRoute(
+          path: '/permissions',
+          builder: (context, state) => PermissionPage(),
+        ),
+        GoRoute(
           path: '/error-page',
           builder: (context, state) => ErrorPage(),
         ),
@@ -96,6 +99,10 @@ class MyApp extends StatelessWidget {
             final postId = state.pathParameters['postId']!;
             return PostDetailsPage(postId: postId);
           },
+        ),
+        GoRoute(
+          path: '/upload-post',
+          builder: (context, state) => UploadPostPage(),
         ),
       ],
     );

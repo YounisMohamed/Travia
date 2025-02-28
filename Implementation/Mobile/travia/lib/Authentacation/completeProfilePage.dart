@@ -7,12 +7,12 @@ import 'package:modular_ui/modular_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
-import 'package:travia/database/DatabaseMethods.dart';
 
 import '../Helpers/DefaultFormField.dart';
 import '../Helpers/Loading.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/LoadingProvider.dart';
+import '../database/DatabaseMethods.dart';
 import '../main.dart';
 
 class CompleteProfilePage extends ConsumerStatefulWidget {
@@ -117,6 +117,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                             validatorFun: (val) {
                               final username = val?.trim() ?? '';
                               if (username.length < 4) return "Username must be at least 3 characters";
+                              if (username.length > 15) return "Username must be be less than 15 characters";
                               final validUsernameRegExp = RegExp(r'^@[a-zA-Z0-9._]+$');
                               if (!validUsernameRegExp.hasMatch(username)) {
                                 return "Only letters, numbers, . and _ allowed";
@@ -130,6 +131,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                   TextPosition(offset: _usernameController.text.length),
                                 );
                               }
+                              return null;
                             },
                           ),
                         ),
@@ -311,13 +313,12 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                   final user = FirebaseAuth.instance.currentUser!;
                                   await user.updateDisplayName(_displayNameController.text);
                                   await insertUser(
-                                    userId: user!.uid,
-                                    email: user!.email ?? "",
+                                    userId: user.uid,
+                                    email: user.email ?? "",
                                     username: username,
                                     displayName: _displayNameController.text,
                                     age: toInt(_ageController.text) ?? 25,
                                     gender: selectedGender?.split(" ").first ?? "Male",
-                                    photoUrl: user.photoURL,
                                     relationshipStatus: selectedRelationship ?? "Single",
                                   );
                                   await user.updateDisplayName(_displayNameController.text);

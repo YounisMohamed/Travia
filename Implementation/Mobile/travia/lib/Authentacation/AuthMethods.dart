@@ -11,7 +11,7 @@ import 'package:travia/Helpers/PopUp.dart';
 import '../Providers/LoadingProvider.dart';
 import '../main.dart';
 
-Future<bool> checkIfUserExists(String userId) async {
+Future<bool> checkIfProfileExists(String userId) async {
   try {
     final response = await supabase
         .from('users')
@@ -52,7 +52,7 @@ Future<void> signInWithEmailAndPassword(
       return;
     }
 
-    bool userExists = await checkIfUserExists(user!.uid);
+    bool userExists = await checkIfProfileExists(user!.uid);
     if (userExists) {
       context.go("/");
     } else {
@@ -220,7 +220,8 @@ Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
     if (user == null) {
       throw Exception("Error");
     }
-    bool userExists = await checkIfUserExists(user!.uid);
+
+    bool userExists = await checkIfProfileExists(user.uid);
 
     if (userExists) {
       context.go("/");
@@ -230,7 +231,7 @@ Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
     }
   } catch (e) {
     print("Login error: $e");
-    Popup.showPopUp(text: "Google sign-in failed. Please try again.", context: context);
+    Popup.showPopUp(text: "Google sign-in failed. Please check your internet and try again.", context: context);
   } finally {
     ref.read(loadingProvider.notifier).setLoadingToFalse();
   }

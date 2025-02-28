@@ -1,5 +1,3 @@
-import '../MainFlow/HomePage.dart';
-
 class Post {
   final DateTime createdAt;
   final String userId;
@@ -9,7 +7,7 @@ class Post {
   final String postId;
   // User details
   final String userDisplayName;
-  final String? userPhotoUrl;
+  final String userPhotoUrl;
   final String userUserName;
   // Engagement counts
   final int commentCount;
@@ -22,7 +20,7 @@ class Post {
     this.caption,
     this.location,
     required this.userDisplayName,
-    this.userPhotoUrl,
+    required this.userPhotoUrl,
     required this.userUserName,
     required this.commentCount,
     required this.likeCount,
@@ -37,7 +35,7 @@ class Post {
       caption: map['caption'],
       location: map['location'],
       userDisplayName: map['poster_display_name'],
-      userPhotoUrl: map['poster_photo_url'] ?? dummyImageUrl,
+      userPhotoUrl: map['poster_photo_url'],
       userUserName: map['poster_username'],
       commentCount: map['comments_count'],
       likeCount: map['likes_count'],

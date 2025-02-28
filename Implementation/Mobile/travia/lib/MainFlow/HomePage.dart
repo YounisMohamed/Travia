@@ -1,5 +1,7 @@
+import 'package:dismissible_page/dismissible_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:modular_ui/modular_ui.dart';
@@ -7,11 +9,14 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
+import 'package:travia/Providers/LoadingProvider.dart';
 
 import '../Authentacation/AuthMethods.dart';
+import '../Helpers/Loading.dart';
 import '../Providers/DatabaseProviders.dart';
 import '../main.dart';
 import 'PostCard.dart';
+import 'UploadPost.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -21,7 +26,6 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 final dummyImageUrl = "https://picsum.photos/200";
-final dummyDefaultUser = "assets/defaultUser.png";
 
 class _HomePageState extends ConsumerState<HomePage> {
   final user = FirebaseAuth.instance.currentUser;
@@ -56,11 +60,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               print('Change received: ${payload.toString()}');
             })
         .subscribe();
-    print(user?.uid);
-    print(user?.email);
-    print(user?.photoURL);
-    print(user?.displayName);
-    print("------------");
     super.initState();
   }
 
@@ -68,24 +67,33 @@ class _HomePageState extends ConsumerState<HomePage> {
   void dispose() {
     supabase.channel('public:notifications').unsubscribe();
     supabase.channel('public:comments').unsubscribe();
-
     super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    await Future.delayed(Duration(milliseconds: 500));
+    Phoenix.rebirth(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isLoading = ref.watch(loadingProvider);
     return Scaffold(
       appBar: AppBar(
         forceMaterialTransparency: true,
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(
-          "Home",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+        title: Row(
+          children: [
+            Text("Home"),
+            SizedBox(width: 10),
+            if (isLoading)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: LoadingWidget(),
+              ),
+          ],
         ),
         actions: [
           Padding(
@@ -111,42 +119,49 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: Consumer(
                 builder: (context, ref, child) {
                   final postsAsync = ref.watch(postsProvider);
-                  return postsAsync.when(
-                    loading: () => Skeletonizer(
-                      enabled: true,
-                      child: ListView.builder(
-                        itemCount: 3,
-                        itemBuilder: (context, index) => DummyPostCard(),
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    displacement: 32,
+                    color: Colors.black,
+                    backgroundColor: Colors.white,
+                    child: postsAsync.when(
+                      loading: () => Skeletonizer(
+                        enabled: true,
+                        child: ListView.builder(
+                          itemCount: 3,
+                          itemBuilder: (context, index) => DummyPostCard(),
+                        ),
                       ),
-                    ),
-                    error: (error, stackTrace) => const Center(
-                      child: Text(
-                        "Posts not available",
-                        textAlign: TextAlign.center,
+                      error: (error, stackTrace) => const Center(
+                        child: Text(
+                          "Posts not available",
+                          textAlign: TextAlign.center,
+                        ),
                       ),
+                      data: (posts) => posts.isEmpty
+                          ? const Center(child: Text("No posts to show for now"))
+                          : ListView.builder(
+                              physics: AlwaysScrollableScrollPhysics(),
+                              itemCount: posts.length,
+                              itemBuilder: (context, index) {
+                                final post = posts[index];
+                                return GestureDetector(
+                                  onTap: () {
+                                    context.push('/post/${post.postId}');
+                                  },
+                                  child: PostCard(
+                                    profilePicUrl: post.userPhotoUrl,
+                                    username: post.userUserName,
+                                    postImageUrl: post.mediaUrl,
+                                    commentCount: post.commentCount,
+                                    postId: post.postId,
+                                    userId: post.userId,
+                                    likeCount: post.likeCount,
+                                  ),
+                                );
+                              },
+                            ),
                     ),
-                    data: (posts) => posts.isEmpty
-                        ? const Center(child: Text("No posts to show for now"))
-                        : ListView.builder(
-                            itemCount: posts.length,
-                            itemBuilder: (context, index) {
-                              final post = posts[index];
-                              return GestureDetector(
-                                onTap: () {
-                                  context.push('/post/${post.postId}');
-                                },
-                                child: PostCard(
-                                  profilePicUrl: post.userPhotoUrl,
-                                  name: post.userDisplayName,
-                                  postImageUrl: post.mediaUrl,
-                                  commentCount: post.commentCount,
-                                  postId: post.postId,
-                                  userId: post.userId,
-                                  likeCount: post.likeCount,
-                                ),
-                              );
-                            },
-                          ),
                   );
                 },
               ),
@@ -172,10 +187,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                   },
                   bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
                 ),
+                SizedBox(
+                  width: 15,
+                ),
               ],
             )
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          context.pushTransparentRoute(UploadPostPage());
+        },
+        child: Icon(Icons.add_a_photo),
       ),
     );
   }

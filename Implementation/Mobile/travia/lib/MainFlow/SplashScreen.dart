@@ -1,10 +1,65 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
-import 'DefaultText.dart';
+import '../Authentacation/AuthMethods.dart';
+import '../Helpers/DefaultText.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAppState();
+  }
+
+  Future<void> _checkAppState() async {
+    bool allGranted = await checkPermissions();
+
+    if (!allGranted) {
+      if (mounted) context.go('/permissions');
+      return;
+    }
+
+    // Check Firebase authentication
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) context.go('/signin');
+      return;
+    }
+
+    // Check if user profile exists in Supabase
+    bool profileExists = await checkIfProfileExists(user.uid);
+    if (!profileExists) {
+      if (mounted) context.go('/complete-profile');
+      return;
+    }
+
+    // If everything is good, navigate to home
+    if (mounted) context.go('/');
+  }
+
+  Future<bool> checkPermissions() async {
+    return true; // will need later
+    /*
+    final storageStatus = await Permission.storage.status;
+
+    print('Initial Storage Status: $storageStatus');
+
+    if (storageStatus.isGranted) {
+      return true;
+    }
+    return false;
+
+     */
+  }
 
   @override
   Widget build(BuildContext context) {

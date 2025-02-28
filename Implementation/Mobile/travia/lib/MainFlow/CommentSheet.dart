@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
@@ -74,24 +75,27 @@ class _CommentModalState extends ConsumerState<CommentModal> {
   Widget build(BuildContext context) {
     final replyState = ref.watch(replyStateProvider);
     final isLoading = ref.watch(loadingProvider);
+    final height = MediaQuery.of(context).size.height;
 
     return SafeArea(
-      child: Padding(
-        // Add padding to handle keyboard
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Container(
-          // Remove fixed height to allow dynamic resizing
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-          ),
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Container(
           decoration: BoxDecoration(
             color: commentSheetColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 12,
+                spreadRadius: 3,
+              )
+            ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Allow column to shrink
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Modal Header
+              // **Modal Header**
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 decoration: BoxDecoration(
@@ -104,15 +108,17 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                 ),
                 child: Row(
                   children: [
-                    const Text(
+                    const SizedBox(width: 8),
+                    Text(
                       "Comments",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: contrastCommentCardColor),
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: contrastCommentCardColor,
+                      ),
                     ),
-                    SizedBox(
-                      width: 16,
-                    ),
-                    isLoading ? LoadingWidget() : SizedBox.shrink(),
-                    Expanded(child: Container()),
+                    const Spacer(),
+                    isLoading ? LoadingWidget() : const SizedBox.shrink(),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close, color: contrastCommentCardColor, size: 26),
@@ -123,12 +129,102 @@ class _CommentModalState extends ConsumerState<CommentModal> {
 
               const Divider(height: 1, color: Colors.white24),
 
-              // Comments List
+              // **Comment Input Field**
+              Container(
+                margin: const EdgeInsets.all(10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: commentInputBackground,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                    )
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final replyState = ref.watch(replyStateProvider);
+                          return TextField(
+                            controller: _commentController,
+                            style: GoogleFonts.poppins(color: commentTextColor, fontSize: 15),
+                            decoration: InputDecoration(
+                              hintText: replyState != null ? "Replying to @${replyState.username}..." : "Add a comment...",
+                              hintStyle: GoogleFonts.poppins(color: hintTextColor, fontSize: 15),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    // **Cancel Reply Button**
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final isReplying = ref.watch(replyStateProvider) != null;
+                        return isReplying
+                            ? GestureDetector(
+                                onTap: () => ref.read(replyStateProvider.notifier).cancelReply(),
+                                child: Icon(Icons.close, color: cancelButtonColor, size: 22),
+                              )
+                            : const SizedBox.shrink();
+                      },
+                    ),
+
+                    // **Send Button**
+                    AnimatedOpacity(
+                      opacity: _commentController.text.isNotEmpty ? 1.0 : 0.5,
+                      duration: const Duration(milliseconds: 200),
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (_commentController.text.trim().isEmpty) return;
+                          ref.read(loadingProvider.notifier).setLoadingToTrue();
+                          String userId = FirebaseAuth.instance.currentUser!.uid;
+                          String content = _commentController.text.trim();
+
+                          try {
+                            String commentId = Uuid().v4();
+                            await sendComment(
+                              postId: widget.postId,
+                              userId: userId,
+                              content: content,
+                              id: commentId,
+                              parentCommentId: replyState?.parentCommentId,
+                            );
+                            await sendNotification(
+                              type: 'comment',
+                              content: 'commented on your post: "$content"',
+                              target_user_id: widget.posterId,
+                              source_id: widget.postId,
+                              sender_user_id: userId,
+                            );
+
+                            _commentController.clear();
+                            ref.read(replyStateProvider.notifier).cancelReply();
+                            ref.read(postCommentCountProvider(widget.postId).notifier).increment();
+                          } catch (e) {
+                            Popup.showPopUp(text: "Error adding comment", context: context);
+                          } finally {
+                            ref.read(loadingProvider.notifier).setLoadingToFalse();
+                          }
+                        },
+                        child: Icon(Icons.send, color: sendButtonColor, size: 22),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // **Comments List**
               Flexible(
                 child: Consumer(
                   builder: (context, ref, child) {
                     final commentsAsync = ref.watch(commentsProvider(widget.postId));
-
                     return commentsAsync.when(
                       loading: () => Skeletonizer(
                         ignoreContainers: true,
@@ -139,9 +235,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                       ),
                       error: (error, stackTrace) {
                         print(error);
-                        return Center(
-                          child: Text("Error loading comments", style: TextStyle(color: contrastCommentCardColor)),
-                        );
+                        return const Center(child: LoadingWidget());
                       },
                       data: (comments) {
                         final threadedComments = _organizeComments(comments);
@@ -151,7 +245,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                           itemCount: rootComments.length,
                           itemBuilder: (context, index) {
                             final rootComment = rootComments[index];
-                            return _buildCommentTree(rootComment, threadedComments, 0);
+                            return _buildCommentTree(rootComment, threadedComments, 0, ref);
                           },
                         );
                       },
@@ -159,93 +253,8 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                   },
                 ),
               ),
-              // Comment Input Field
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: contrastCommentCardColor,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Consumer(
-                        builder: (context, ref, child) {
-                          final replyState = ref.watch(replyStateProvider);
 
-                          return TextField(
-                            controller: _commentController,
-                            style: const TextStyle(color: commentSheetColor),
-                            decoration: InputDecoration(
-                              hintText: replyState != null ? "Replying to @${replyState.username}..." : "Add a comment...",
-                              hintStyle: TextStyle(color: commentSheetColor),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor: Colors.black12,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    // Cancel Reply Button (Only visible when replying)
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final isReplying = ref.watch(replyStateProvider) != null;
-                        return isReplying
-                            ? IconButton(
-                                icon: const Icon(Icons.close, color: Colors.red),
-                                onPressed: () {
-                                  ref.read(replyStateProvider.notifier).cancelReply();
-                                },
-                              )
-                            : const SizedBox.shrink(); // Hide if not replying
-                      },
-                    ),
-
-                    // Send Button
-                    IconButton(
-                      icon: const Icon(Icons.send, color: Colors.blueAccent),
-                      onPressed: () async {
-                        ref.read(loadingProvider.notifier).setLoadingToTrue();
-                        String userId = FirebaseAuth.instance.currentUser!.uid;
-                        String content = _commentController.text.trim();
-
-                        if (content.isEmpty) {
-                          ref.read(loadingProvider.notifier).setLoadingToFalse();
-                          return;
-                        }
-
-                        try {
-                          String commentId = Uuid().v4();
-                          await sendComment(
-                            postId: widget.postId,
-                            userId: userId,
-                            content: content,
-                            id: commentId,
-                            parentCommentId: replyState?.parentCommentId, // Ensure correct threading
-                          );
-                          await sendNotification(type: 'comment', content: 'commented on your post: "$content"', target_user_id: widget.posterId, source_id: widget.postId, sender_user_id: userId);
-
-                          // Clear input field and reset reply state
-                          _commentController.clear();
-                          ref.read(replyStateProvider.notifier).cancelReply();
-
-                          // Increment the comment count
-                          ref.read(postCommentCountProvider(widget.postId).notifier).increment();
-                        } catch (e) {
-                          Popup.showPopUp(text: "Error adding comment", context: context);
-                        } finally {
-                          ref.read(loadingProvider.notifier).setLoadingToFalse();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -253,11 +262,14 @@ class _CommentModalState extends ConsumerState<CommentModal> {
     );
   }
 
-  Widget _buildCommentTree(Comment comment, Map<String, List<Comment>> threadedComments, int depth) {
+  final replyExpandProvider = StateProvider.family<bool, String>((ref, commentId) => false);
+
+  Widget _buildCommentTree(Comment comment, Map<String, List<Comment>> threadedComments, double depth, WidgetRef ref) {
     List<Comment> replies = threadedComments[comment.id] ?? [];
+    final isExpanded = ref.watch(replyExpandProvider(comment.id));
 
     return Padding(
-      padding: EdgeInsets.only(left: depth * 16.0),
+      padding: EdgeInsets.only(left: depth >= 3 ? depth : depth * 7.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -274,43 +286,137 @@ class _CommentModalState extends ConsumerState<CommentModal> {
             posterId: widget.posterId,
             isReply: comment.parentCommentId != null,
             userNameOfParentComment: comment.usernameOfParentComment,
-          ).animate().fadeIn(duration: 280.ms, delay: 280.ms),
+          ),
 
-          // Render Replies (Recursive)
-          ...replies.map((reply) => _buildCommentTree(reply, threadedComments, depth)),
+          // Show "Show all replies" button if replies exist
+          if (replies.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(left: depth == 0 ? MediaQuery.of(context).size.width * 0.201 : MediaQuery.of(context).size.width * 0.24, bottom: 10),
+              child: GestureDetector(
+                onTap: () {
+                  // Toggle the state with minimal rebuild
+                  ref.read(replyExpandProvider(comment.id).notifier).state = !isExpanded;
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      size: 14,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isExpanded ? "Hide replies" : "Show replies (${replies.length})",
+                      style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Simple and reliable animation approach
+          AnimatedCrossFade(
+            firstChild: const SizedBox(height: 0, width: double.infinity),
+            secondChild: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: replies.map((reply) => _buildCommentTree(reply, threadedComments, depth + 1, ref)).toList(),
+            ),
+            crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 400),
+            sizeCurve: Curves.easeInOut,
+            firstCurve: Curves.easeOut,
+            secondCurve: Curves.easeIn,
+          ),
         ],
       ),
     );
   }
 }
 
+// Main Comment Card Widget that decides which card to render
 class CommentCard extends ConsumerWidget {
+  final String commentId;
+  final String userId;
   final String userName;
   final String userPhotoUrl;
   final String content;
   final String createdAt;
-  final String commentId;
-  final String userId;
   final int likeCount;
-  final String postId;
   final String posterId;
+  final String postId;
   final bool isReply;
   final String? userNameOfParentComment;
 
   const CommentCard({
-    super.key,
+    Key? key,
+    required this.commentId,
+    required this.userId,
     required this.userName,
     required this.userPhotoUrl,
     required this.content,
     required this.createdAt,
     required this.likeCount,
+    required this.posterId,
+    required this.postId,
+    required this.isReply,
+    this.userNameOfParentComment,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Return either a regular comment card or a reply card based on isReply
+    return isReply
+        ? ReplyCommentCard(
+            commentId: commentId,
+            userId: userId,
+            userName: userName,
+            userPhotoUrl: userPhotoUrl,
+            content: content,
+            createdAt: createdAt,
+            likeCount: likeCount,
+            posterId: posterId,
+            postId: postId,
+            userNameOfParentComment: userNameOfParentComment,
+          )
+        : RegularCommentCard(
+            commentId: commentId,
+            userId: userId,
+            userName: userName,
+            userPhotoUrl: userPhotoUrl,
+            content: content,
+            createdAt: createdAt,
+            likeCount: likeCount,
+            posterId: posterId,
+            postId: postId,
+          );
+  }
+}
+
+// Regular Comment Card
+class RegularCommentCard extends ConsumerWidget {
+  final String commentId;
+  final String userId;
+  final String userName;
+  final String userPhotoUrl;
+  final String content;
+  final String createdAt;
+  final int likeCount;
+  final String posterId;
+  final String postId;
+
+  const RegularCommentCard({
+    Key? key,
     required this.commentId,
     required this.userId,
-    required this.postId,
+    required this.userName,
+    required this.userPhotoUrl,
+    required this.content,
+    required this.createdAt,
+    required this.likeCount,
     required this.posterId,
-    this.isReply = false,
-    this.userNameOfParentComment,
-  });
+    required this.postId,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -333,8 +439,8 @@ class CommentCard extends ConsumerWidget {
             ref.read(commentLikeCountProvider((commentId: commentId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
           },
           child: Container(
-            margin: EdgeInsets.only(
-              left: isReply ? 48 : 16,
+            margin: const EdgeInsets.only(
+              left: 16,
               right: 16,
               top: 8,
               bottom: 8,
@@ -343,245 +449,483 @@ class CommentCard extends ConsumerWidget {
               color: commentSheetColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: IntrinsicHeight(
+            // Using a Stack with Padding instead of IntrinsicHeight
+            child: Padding(
+              padding: const EdgeInsets.all(12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Profile Picture Column
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: GestureDetector(
-                      onTap: () {
-                        // TODO: GO TO PROFILE PAGE
-                      },
-                      child: CircleAvatar(
-                        backgroundImage: NetworkImage(userPhotoUrl),
-                        radius: isReply ? 16 : 20,
-                      ),
+                  // Profile Picture - Now directly in the row with proper alignment
+                  GestureDetector(
+                    onTap: () {
+                      // TODO: GO TO PROFILE PAGE
+                    },
+                    child: CircleAvatar(
+                      backgroundImage: NetworkImage(userPhotoUrl),
+                      radius: 20,
                     ),
                   ),
-
-                  // Main Content Column
+                  const SizedBox(width: 12), // Add spacing between avatar and content
+                  // Main Content Column - Using Expanded to take remaining space
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12, top: 12, bottom: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Username and Timestamp Row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextButton(
-                                  onPressed: () {
-                                    // TODO: Go to profile page
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                    alignment: Alignment.centerLeft,
-                                  ),
-                                  child: Text(
-                                    "@$userName",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: contrastCommentCardColor,
-                                      fontSize: isReply ? 13 : 15,
-                                    ),
-                                  ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Username and Timestamp Row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () {
+                                  // TODO: Go to profile page
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  alignment: Alignment.centerLeft,
                                 ),
-                              ),
-                              Text(
-                                createdAt,
-                                style: TextStyle(
-                                  fontSize: isReply ? 11 : 13,
-                                  color: contrastCommentCardColor.withOpacity(0.7),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // Reply Reference (if applicable)
-                          if (isReply && userNameOfParentComment != null)
-                            Row(
-                              children: [
-                                Text(
-                                  'Replying to ',
+                                child: Text(
+                                  "@$userName",
                                   style: TextStyle(
-                                    color: contrastCommentCardColor.withOpacity(0.7),
-                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: contrastCommentCardColor,
+                                    fontSize: 15,
                                   ),
                                 ),
-                                TextButton(
-                                  onPressed: () {
-                                    // TODO: Go to profile page
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                  ),
-                                  child: Text(
-                                    "@$userNameOfParentComment",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-
-                          // Comment Content
-                          RichText(
-                            text: TextSpan(
-                              children: content.split(' ').map((word) {
-                                if (word.startsWith('@')) {
-                                  return TextSpan(
-                                    text: "$word ",
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: isReply ? 13 : 15,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () {
-                                        print("Tapped on: $word");
-                                      },
-                                  );
-                                }
+                            Text(
+                              createdAt,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: contrastCommentCardColor.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Comment Content
+                        RichText(
+                          text: TextSpan(
+                            children: content.split(' ').map((word) {
+                              if (word.startsWith('@')) {
                                 return TextSpan(
                                   text: "$word ",
                                   style: TextStyle(
-                                    color: contrastCommentCardColor,
-                                    fontSize: isReply ? 13 : 15,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          SizedBox(
-                            height: 16,
-                          ),
-
-                          // Interaction Row
-                          Row(
-                            children: [
-                              // Like Button and Count
-                              GestureDetector(
-                                onTap: () {
-                                  ref.read(likeCommentProvider.notifier).toggleLike(
-                                        commentId: commentId,
-                                        likerId: FirebaseAuth.instance.currentUser!.uid,
-                                        posterId: userId,
-                                      );
-                                  ref.read(commentLikeCountProvider((commentId: commentId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
-                                },
-                                child: Row(
-                                  children: [
-                                    Image.asset(
-                                      isLiked ? "assets/liked.png" : "assets/unliked.png",
-                                      width: isReply ? 18 : 22,
-                                      height: isReply ? 18 : 22,
-                                      color: Colors.purple,
-                                    )
-                                        .animate(target: isLiked ? 1 : 0)
-                                        .rotate(
-                                          begin: 0.0,
-                                          end: 0.2,
-                                          duration: 100.ms,
-                                        )
-                                        .then()
-                                        .rotate(
-                                          begin: 0.2,
-                                          end: -0.2,
-                                          duration: 100.ms,
-                                          curve: Curves.easeInOut,
-                                        )
-                                        .then()
-                                        .rotate(
-                                          begin: -0.2,
-                                          end: 0,
-                                          duration: 80.ms,
-                                        )
-                                        .moveY(
-                                          begin: 0,
-                                          end: -5,
-                                          duration: 150.ms,
-                                          curve: Curves.easeOut,
-                                        )
-                                        .then()
-                                        .moveY(
-                                          begin: -5,
-                                          end: 0,
-                                          duration: 120.ms,
-                                          curve: Curves.bounceOut,
-                                        ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      formatCount(displayNumberOfLikes),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: isReply ? 12 : 14,
-                                        color: contrastCommentCardColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(width: 16),
-
-                              // Reply Button
-                              GestureDetector(
-                                onTap: () {
-                                  ref.read(replyStateProvider.notifier).startReply(
-                                        commentId,
-                                        userName,
-                                      );
-                                },
-                                child: Text(
-                                  "Reply",
-                                  style: TextStyle(
                                     color: Colors.blue,
-                                    fontSize: isReply ? 12 : 14,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () {
+                                      print("Tapped on: $word");
+                                    },
+                                );
+                              }
+                              return TextSpan(
+                                text: "$word ",
+                                style: TextStyle(
+                                  color: contrastCommentCardColor,
+                                  fontSize: 15,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 16,
+                        ),
+                        // Interaction Row
+                        Row(
+                          children: [
+                            // Like Button and Count
+                            GestureDetector(
+                              onTap: () {
+                                ref.read(likeCommentProvider.notifier).toggleLike(
+                                      commentId: commentId,
+                                      likerId: FirebaseAuth.instance.currentUser!.uid,
+                                      posterId: userId,
+                                    );
+                                ref.read(commentLikeCountProvider((commentId: commentId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
+                              },
+                              child: Row(
+                                children: [
+                                  Image.asset(
+                                    isLiked ? "assets/liked.png" : "assets/unliked.png",
+                                    width: 22,
+                                    height: 22,
+                                    color: Colors.purple,
+                                  )
+                                      .animate(target: isLiked ? 1 : 0)
+                                      .rotate(
+                                        begin: 0.0,
+                                        end: 0.2,
+                                        duration: 100.ms,
+                                      )
+                                      .then()
+                                      .rotate(
+                                        begin: 0.2,
+                                        end: -0.2,
+                                        duration: 100.ms,
+                                        curve: Curves.easeInOut,
+                                      )
+                                      .then()
+                                      .rotate(
+                                        begin: -0.2,
+                                        end: 0,
+                                        duration: 80.ms,
+                                      )
+                                      .moveY(
+                                        begin: 0,
+                                        end: -5,
+                                        duration: 150.ms,
+                                        curve: Curves.easeOut,
+                                      )
+                                      .then()
+                                      .moveY(
+                                        begin: -5,
+                                        end: 0,
+                                        duration: 120.ms,
+                                        curve: Curves.bounceOut,
+                                      ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    formatCount(displayNumberOfLikes),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: contrastCommentCardColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Reply Button
+                            GestureDetector(
+                              onTap: () {
+                                ref.read(replyStateProvider.notifier).startReply(
+                                      commentId,
+                                      userName,
+                                    );
+                              },
+                              child: Text(
+                                "Reply",
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
+                            ),
+                            const Spacer(),
+                            // Delete Button (if applicable)
+                            if (canDelete)
+                              IconButton(
+                                onPressed: () async {
+                                  try {
+                                    ref.read(loadingProvider.notifier).setLoadingToTrue();
+                                    await deleteComment(commentId: commentId);
+                                    ref.read(postCommentCountProvider(postId).notifier).decrement();
+                                    ref.invalidate(commentsProvider(postId));
+                                  } catch (e) {
+                                    print("Could not delete the comment: $e");
+                                  } finally {
+                                    ref.read(loadingProvider.notifier).setLoadingToFalse();
+                                  }
+                                },
+                                style: IconButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                ),
+                                icon: Icon(
+                                  Icons.delete,
+                                  size: 20,
+                                  color: contrastCommentCardColor,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
-                              const Spacer(),
+// Reply Comment Card
+class ReplyCommentCard extends ConsumerWidget {
+  final String commentId;
+  final String userId;
+  final String userName;
+  final String userPhotoUrl;
+  final String content;
+  final String createdAt;
+  final int likeCount;
+  final String posterId;
+  final String postId;
+  final String? userNameOfParentComment;
 
-                              // Delete Button (if applicable)
-                              if (canDelete)
-                                IconButton(
-                                  onPressed: () async {
-                                    try {
-                                      ref.read(loadingProvider.notifier).setLoadingToTrue();
-                                      await deleteComment(commentId: commentId);
-                                      ref.read(postCommentCountProvider(postId).notifier).decrement();
-                                      ref.invalidate(commentsProvider(postId));
-                                    } catch (e) {
-                                      print("Could not delete the comment: $e");
-                                    } finally {
-                                      ref.read(loadingProvider.notifier).setLoadingToFalse();
-                                    }
-                                  },
-                                  style: IconButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                  ),
-                                  icon: Icon(
-                                    Icons.delete,
-                                    size: isReply ? 18 : 20,
+  const ReplyCommentCard({
+    Key? key,
+    required this.commentId,
+    required this.userId,
+    required this.userName,
+    required this.userPhotoUrl,
+    required this.content,
+    required this.createdAt,
+    required this.likeCount,
+    required this.posterId,
+    required this.postId,
+    this.userNameOfParentComment,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isLoading = ref.watch(loadingProvider);
+    return Consumer(
+      builder: (context, ref, child) {
+        final likeState = ref.watch(likeCommentProvider);
+        final isLiked = likeState[commentId] ?? false;
+        final displayNumberOfLikes = ref.watch(commentLikeCountProvider((commentId: commentId, initialLikeCount: likeCount)));
+        final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+        final canDelete = currentUserId == userId || currentUserId == posterId;
+
+        return GestureDetector(
+          onDoubleTap: () {
+            ref.read(likeCommentProvider.notifier).toggleLike(
+                  commentId: commentId,
+                  likerId: currentUserId,
+                  posterId: userId,
+                );
+            ref.read(commentLikeCountProvider((commentId: commentId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
+          },
+          child: Container(
+            margin: const EdgeInsets.only(
+              left: 32,
+              right: 16,
+              top: 8,
+              bottom: 8,
+            ),
+            decoration: BoxDecoration(
+              color: commentSheetColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      // TODO: GO TO PROFILE PAGE
+                    },
+                    child: CircleAvatar(
+                      backgroundImage: NetworkImage(userPhotoUrl),
+                      radius: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  // TODO GO TO PROFILE PAGE
+                                },
+                                child: Text(
+                                  "@$userName",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
                                     color: contrastCommentCardColor,
+                                    fontSize: 14,
                                   ),
                                 ),
+                              ),
+                            ),
+                            Text(
+                              createdAt,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: contrastCommentCardColor.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        if (userNameOfParentComment != null)
+                          Row(
+                            children: [
+                              Text(
+                                'Replying to ',
+                                style: TextStyle(
+                                  color: contrastCommentCardColor.withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  // TODO GO TO PROFILE PAGE
+                                },
+                                child: Text(
+                                  "@$userNameOfParentComment",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
-                        ],
-                      ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        RichText(
+                          text: TextSpan(
+                            children: content.split(' ').map((word) {
+                              if (word.startsWith('@')) {
+                                return TextSpan(
+                                  text: "$word ",
+                                  style: TextStyle(
+                                    color: Colors.blue,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () {
+                                      print("Tapped on: $word");
+                                    },
+                                );
+                              }
+                              return TextSpan(
+                                text: "$word ",
+                                style: TextStyle(
+                                  color: contrastCommentCardColor,
+                                  fontSize: 14,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                ref.read(likeCommentProvider.notifier).toggleLike(
+                                      commentId: commentId,
+                                      likerId: FirebaseAuth.instance.currentUser!.uid,
+                                      posterId: userId,
+                                    );
+                                ref.read(commentLikeCountProvider((commentId: commentId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
+                              },
+                              child: Row(
+                                children: [
+                                  Image.asset(
+                                    isLiked ? "assets/liked.png" : "assets/unliked.png",
+                                    width: 20,
+                                    height: 20,
+                                    color: Colors.purple,
+                                  )
+                                      .animate(target: isLiked ? 1 : 0)
+                                      .rotate(
+                                        begin: 0.0,
+                                        end: 0.2,
+                                        duration: 100.ms,
+                                      )
+                                      .then()
+                                      .rotate(
+                                        begin: 0.2,
+                                        end: -0.2,
+                                        duration: 100.ms,
+                                        curve: Curves.easeInOut,
+                                      )
+                                      .then()
+                                      .rotate(
+                                        begin: -0.2,
+                                        end: 0,
+                                        duration: 80.ms,
+                                      )
+                                      .moveY(
+                                        begin: 0,
+                                        end: -5,
+                                        duration: 150.ms,
+                                        curve: Curves.easeOut,
+                                      )
+                                      .then()
+                                      .moveY(
+                                        begin: -5,
+                                        end: 0,
+                                        duration: 120.ms,
+                                        curve: Curves.bounceOut,
+                                      ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    formatCount(displayNumberOfLikes),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: contrastCommentCardColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            GestureDetector(
+                              onTap: () {
+                                ref.read(replyStateProvider.notifier).startReply(
+                                      commentId,
+                                      userName,
+                                    );
+                              },
+                              child: Text(
+                                "Reply",
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            if (canDelete)
+                              IconButton(
+                                onPressed: () async {
+                                  try {
+                                    ref.read(loadingProvider.notifier).setLoadingToTrue();
+                                    await deleteComment(commentId: commentId);
+                                    ref.read(postCommentCountProvider(postId).notifier).decrement();
+                                    ref.invalidate(commentsProvider(postId));
+                                  } catch (e) {
+                                    print("Could not delete the comment: $e");
+                                  } finally {
+                                    ref.read(loadingProvider.notifier).setLoadingToFalse();
+                                  }
+                                },
+                                icon: Icon(
+                                  Icons.delete,
+                                  size: 18,
+                                  color: contrastCommentCardColor,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],

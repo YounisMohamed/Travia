@@ -1,9 +1,24 @@
 String timeAgo(DateTime utcDateTime) {
-  // Convert UTC DateTime to local timezone
-  final localDateTime = utcDateTime.toLocal();
-  final now = DateTime.now(); // This is already in local time
-  final difference = now.difference(localDateTime);
+  // Force the input to UTC (Every body's time is different so its a time mw7d)
+  final utcTime = utcDateTime.isUtc
+      ? utcDateTime
+      : DateTime.utc(
+          utcDateTime.year,
+          utcDateTime.month,
+          utcDateTime.day,
+          utcDateTime.hour,
+          utcDateTime.minute,
+          utcDateTime.second,
+          utcDateTime.millisecond,
+          utcDateTime.microsecond,
+        );
 
+  final now = DateTime.now().toUtc();
+  print('Current time isUtc: ${now.isUtc}');
+  print('Current time: $now');
+
+  final difference = now.difference(utcTime);
+  print('Time difference: $difference');
   if (difference.inSeconds < 60) {
     return 'Just Now';
   } else if (difference.inMinutes < 60) {
@@ -32,6 +47,10 @@ String formatCount(int count) {
   } else if (count >= 1000000 && count < 1000000000000) {
     return '${(count / 1000000).toStringAsFixed(1)}M';
   } else {
-    return '${(count / 1000000000000).toStringAsFixed(1)}B';
+    if (count > 1000000000000) {
+      return "Too many views 😯";
+    } else {
+      return '${(count / 1000000000000).toStringAsFixed(1)}B';
+    }
   }
 }

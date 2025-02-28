@@ -372,7 +372,12 @@ class PostDetailsPage extends ConsumerWidget {
         children: [
           Icon(icon, size: 20, color: color ?? Colors.grey[700]),
           const SizedBox(width: 4),
-          DefaultText(text: label, size: 14, color: color ?? Colors.grey.shade700),
+          DefaultText(
+            text: label,
+            size: 14,
+            color: color ?? Colors.grey.shade700,
+            isBold: true,
+          ),
         ],
       ),
     );

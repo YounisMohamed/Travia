@@ -7,6 +7,7 @@ import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
+import 'package:travia/Providers/VisiblePasswordProvider.dart';
 
 import '../Helpers/DefaultFormField.dart';
 import '../Helpers/Icons.dart';
@@ -51,6 +52,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
     // State when the user asks to sign in
     final isLoading = ref.watch(loadingProvider);
+    final visiblePassword = ref.watch(visibleProvider);
 
     return Container(
       color: backgroundColor,
@@ -135,9 +137,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                             Checkbox(
                               value: visiblePassword,
                               onChanged: (bool? newValue) {
-                                setState(() {
-                                  visiblePassword = newValue!;
-                                });
+                                ref.read(visibleProvider.notifier).toggleVisible(newValue!);
                               },
                             ),
                           ],

@@ -6,6 +6,6 @@ import '../Authentacation/AuthMethods.dart';
 final authProvider = FutureProvider<User?>((ref) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) return null;
-  final userExists = await checkIfUserExists(user.uid);
+  final userExists = await checkIfProfileExists(user.uid);
   return userExists ? user : null;
 });

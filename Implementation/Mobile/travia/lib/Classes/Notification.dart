@@ -46,7 +46,7 @@ class NotificationModel {
       'target_user_id': targetUserId,
       'type': type,
       'content': content,
-      'created_at': createdAt.toIso8601String(),
+      'created_at': createdAt,
       'is_read': isRead,
       'source_id': sourceId,
       'sender_user_id': senderUserId,

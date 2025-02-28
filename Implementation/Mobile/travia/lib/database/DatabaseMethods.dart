@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../Classes/Comment.dart';
 import '../Classes/Post.dart';
 import '../main.dart';
@@ -7,7 +9,6 @@ Future<void> insertUser({
   required String email,
   required String username,
   required String displayName,
-  String? photoUrl,
   String? bio,
   bool isPrivate = false,
   String gender = 'Male',
@@ -15,6 +16,14 @@ Future<void> insertUser({
   int age = 25,
 }) async {
   try {
+    String photoUrl = "";
+    String? googlePhoto = FirebaseAuth.instance.currentUser!.photoURL;
+    if (googlePhoto != null) {
+      photoUrl = googlePhoto;
+    } else {
+      photoUrl = "https://ui-avatars.com/api/?name=$username&rounded=true&background=random";
+    }
+
     await supabase.from('users').upsert({
       'id': userId,
       'email': email,
@@ -66,7 +75,6 @@ Future<void> sendComment({required String postId, required String userId, requir
       'parent_comment_id': parentCommentId,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     });
-    print("Hour: ${DateTime.now().toUtc().hour}");
 
     print('Comment added successfully');
   } catch (e) {
@@ -82,6 +90,26 @@ Future<void> deleteComment({required String commentId}) async {
   } catch (e) {
     print('Error deleting comment: $e');
     rethrow;
+  }
+}
+
+Future<void> removeLikeNotification({
+  required String targetUserId,
+  required String postId,
+  required String likerId,
+}) async {
+  try {
+    print("UNLIKING POST..");
+    await supabase.from('notifications').delete().match({
+      'type': 'like',
+      'target_user_id': targetUserId,
+      'source_id': postId,
+      'sender_user_id': likerId,
+    });
+
+    print('Like notification removed successfully');
+  } catch (e) {
+    print('Error removing like notification: $e');
   }
 }
 
@@ -101,11 +129,78 @@ Future<void> sendNotification({
       'sender_user_id': sender_user_id,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     });
-    print("Hour: ${DateTime.now().toUtc().hour}");
 
     print('Notification sent successfully');
   } catch (e) {
     print('Error sending notification: $e');
     rethrow;
+  }
+}
+
+Future<void> savePostToDatabase(String userId, String imageUrl, String caption, String location) async {
+  try {
+    await supabase.from('posts').insert({
+      'user_id': userId,
+      'media_url': imageUrl,
+      'caption': caption,
+      'location': location,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  } catch (e) {
+    print("Database Error: $e");
+  }
+}
+
+Future<void> deletePostFromDatabase(String postId) async {
+  print("Starting post deletion for ID: $postId");
+
+  try {
+    final post = await supabase.from('posts').select('media_url').eq('id', postId).maybeSingle();
+    print("Post data retrieved: $post");
+
+    if (post == null || post['media_url'] == null) {
+      print("No media URL found, skipping storage deletion.");
+    } else {
+      final String mediaUrl = post['media_url'];
+      print("Media URL found: $mediaUrl");
+
+      try {
+        final Uri uri = Uri.parse(mediaUrl);
+        print("Parsed URI: $uri");
+        final String filePath = uri.pathSegments.skip(5).join('/');
+        print("File path extracted: $filePath");
+
+        final result = await supabase.storage.from('posts').remove([filePath]);
+        print(result.toString());
+        print("Image deleted from storage: $filePath");
+      } catch (e) {
+        print("Error deleting image from storage: $e");
+      }
+    }
+
+    try {
+      await supabase.from('posts').delete().eq('id', postId);
+      print("Post deleted from database: $postId");
+    } catch (e) {
+      print("Error deleting post from database: $e");
+    }
+
+    print("Finished post deletion process for ID: $postId");
+  } catch (e) {
+    print("Error in deletePostFromDatabase function: $e");
+    rethrow;
+  }
+}
+
+Future<void> addViewedPost(String userId, String postId) async {
+  try {
+    await supabase.from('users').update({
+      'viewed_posts': supabase.rpc(
+        'add_viewed_post',
+        params: {'user_id': userId, 'post_id': postId},
+      )
+    });
+  } catch (e) {
+    print('Error adding viewed post: $e');
   }
 }

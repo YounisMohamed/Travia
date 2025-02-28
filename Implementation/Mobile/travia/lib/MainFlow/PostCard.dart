@@ -5,16 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:travia/Helpers/DefaultText.dart';
 import 'package:travia/Helpers/HelperMethods.dart';
-import 'package:travia/MainFlow/HomePage.dart';
+import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/database/DatabaseMethods.dart';
 
+import '../Helpers/PopUp.dart';
 import '../Providers/DatabaseProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
 import 'CommentSheet.dart';
 
 class PostCard extends StatelessWidget {
-  final String? profilePicUrl;
-  final String name;
+  final String profilePicUrl;
+  final String username;
   final String postImageUrl;
   final int commentCount;
   final String postId;
@@ -24,7 +25,7 @@ class PostCard extends StatelessWidget {
   const PostCard({
     super.key,
     required this.profilePicUrl,
-    required this.name,
+    required this.username,
     required this.postImageUrl,
     required this.commentCount,
     required this.postId,
@@ -39,6 +40,7 @@ class PostCard extends StatelessWidget {
         final likeState = ref.watch(likePostProvider);
         final isLiked = likeState[postId] ?? false;
         final displayNumberOfLikes = ref.watch(postLikeCountProvider((postId: postId, initialLikeCount: likeCount)));
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -66,7 +68,7 @@ class PostCard extends StatelessWidget {
                       ),
                       child: ClipOval(
                         child: Image(
-                          image: profilePicUrl != null ? NetworkImage(profilePicUrl!) : AssetImage(dummyDefaultUser) as ImageProvider,
+                          image: NetworkImage(profilePicUrl),
                           fit: BoxFit.cover,
                           width: 50,
                           height: 50,
@@ -79,7 +81,7 @@ class PostCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            name,
+                            username,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -95,9 +97,36 @@ class PostCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    IconButton(
+
+                    // More Button (Popup Menu)
+                    PopupMenuButton<String>(
+                      onSelected: (String result) async {
+                        if (result == 'delete') {
+                          try {
+                            ref.read(loadingProvider.notifier).setLoadingToTrue();
+                            await deletePostFromDatabase(postId);
+                          } catch (e) {
+                            Popup.showPopUp(text: "Error deleting post..", context: context);
+                          } finally {
+                            ref.invalidate(postsProvider);
+                            ref.read(loadingProvider.notifier).setLoadingToFalse();
+                          }
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        if (userId == currentUserId) // Show delete only if the user owns the post
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, color: Colors.red),
+                                SizedBox(width: 10),
+                                Text('Delete Post'),
+                              ],
+                            ),
+                          ),
+                      ],
                       icon: const Icon(Icons.more_vert),
-                      onPressed: () {},
                     ),
                   ],
                 ),
@@ -139,7 +168,7 @@ class PostCard extends StatelessWidget {
                             )
                                 .animate(target: isLiked ? 1 : 0)
                                 .shake(
-                                  hz: 8, // Number of shakes per second
+                                  hz: 8,
                                   curve: Curves.easeOut,
                                   duration: 600.ms,
                                 )
@@ -225,14 +254,34 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  void likePost(WidgetRef ref, bool isLiked) {
+  void likePost(WidgetRef ref, bool isLiked) async {
     String likerId = FirebaseAuth.instance.currentUser!.uid;
+
     ref.read(likePostProvider.notifier).toggleLike(
           postId: postId,
           likerId: likerId,
           posterId: userId,
         );
+
     ref.read(postLikeCountProvider((postId: postId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
-    if (!isLiked) sendNotification(type: 'like', content: 'liked your post', target_user_id: userId, source_id: postId, sender_user_id: likerId);
+
+    if (!isLiked) {
+      // Send notification when the post is liked
+      sendNotification(
+        type: 'like',
+        content: 'liked your post',
+        target_user_id: userId,
+        source_id: postId,
+        sender_user_id: likerId,
+      );
+    } else {
+      print("ELSE");
+      // Remove notification when the post is unliked
+      removeLikeNotification(
+        targetUserId: userId,
+        postId: postId,
+        likerId: likerId,
+      );
+    }
   }
 }
