@@ -194,13 +194,22 @@ Future<void> deletePostFromDatabase(String postId) async {
 
 Future<void> addViewedPost(String userId, String postId) async {
   try {
-    await supabase.from('users').update({
-      'viewed_posts': supabase.rpc(
-        'add_viewed_post',
-        params: {'user_id': userId, 'post_id': postId},
-      )
-    });
+    await supabase.rpc(
+      'add_viewed_post',
+      params: {'user_id': userId, 'post_id': postId},
+    );
   } catch (e) {
     print('Error adding viewed post: $e');
+  }
+}
+
+Future<void> addSavedPost(String userId, String postId) async {
+  try {
+    await supabase.rpc(
+      'add_saved_post',
+      params: {'user_id': userId, 'post_id': postId},
+    );
+  } catch (e) {
+    print('Error saving post: $e');
   }
 }

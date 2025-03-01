@@ -11,6 +11,7 @@ import 'package:travia/database/DatabaseMethods.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/DatabaseProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
+import '../Providers/SavedPostsProvider.dart';
 import 'CommentSheet.dart';
 
 class PostCard extends StatelessWidget {
@@ -41,6 +42,8 @@ class PostCard extends StatelessWidget {
         final isLiked = likeState[postId] ?? false;
         final displayNumberOfLikes = ref.watch(postLikeCountProvider((postId: postId, initialLikeCount: likeCount)));
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        final savedState = ref.watch(savedPostsProvider);
+        final isSaved = savedState[postId] ?? false;
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -213,36 +216,13 @@ class PostCard extends StatelessWidget {
                       ],
                     ),
 
-                    // Share Button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.send,
-                              color: Colors.grey,
-                              size: 20,
-                            ),
-                            onPressed: () {},
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Share',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                    // Save Button
+
+                    IconButton(
+                      icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border),
+                      onPressed: () {
+                        ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
+                      },
                     ),
                   ],
                 ),

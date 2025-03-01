@@ -12,6 +12,7 @@ class Post {
   // Engagement counts
   final int commentCount;
   final int likeCount;
+  final int viewCount;
 
   Post({
     required this.createdAt,
@@ -25,6 +26,7 @@ class Post {
     required this.commentCount,
     required this.likeCount,
     required this.postId,
+    required this.viewCount,
   });
 
   factory Post.fromMap(Map<String, dynamic> map) {
@@ -40,6 +42,7 @@ class Post {
       commentCount: map['comments_count'],
       likeCount: map['likes_count'],
       postId: map['id'],
+      viewCount: map['views'],
     );
   }
 }

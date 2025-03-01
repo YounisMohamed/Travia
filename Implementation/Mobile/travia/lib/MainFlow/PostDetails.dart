@@ -12,6 +12,7 @@ import '../Helpers/PopUp.dart';
 import '../Providers/DatabaseProviders.dart';
 import '../Providers/LoadingProvider.dart';
 import '../Providers/PostsLikesProvider.dart';
+import '../Providers/SavedPostsProvider.dart';
 import '../database/DatabaseMethods.dart';
 import 'CommentSheet.dart';
 import 'HomePage.dart';
@@ -33,6 +34,12 @@ class PostDetailsPage extends ConsumerWidget {
     final likeState = ref.watch(likePostProvider);
     final isLiked = likeState[postId] ?? false;
     final isLoading = ref.watch(loadingProvider);
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+    final savedState = ref.watch(savedPostsProvider);
+    final isSaved = savedState[postId] ?? false;
+    Future.microtask(() async {
+      await addViewedPost(userId, postId);
+    });
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -45,8 +52,8 @@ class PostDetailsPage extends ConsumerWidget {
             orElse: () => throw Exception('Post not found'),
           );
           final displayNumberOfLikes = ref.watch(postLikeCountProvider((postId: postId, initialLikeCount: post.likeCount)));
-
           return CustomScrollView(
+            // rest of code..
             slivers: [
               SliverAppBar(
                 forceMaterialTransparency: true,
@@ -112,14 +119,19 @@ class PostDetailsPage extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
                           _buildEngagementStat(
-                            icon: Icons.favorite,
-                            label: 'Likes',
-                            count: displayNumberOfLikes.toString(),
+                            icon: Icons.mode_comment_outlined,
+                            count: '${ref.watch(postCommentCountProvider(postId))}',
+                            color: Colors.blueAccent,
                           ),
                           _buildEngagementStat(
-                            icon: Icons.mode_comment_outlined,
-                            label: 'Comments',
-                            count: '${ref.watch(postCommentCountProvider(postId))}',
+                            icon: Icons.favorite,
+                            count: displayNumberOfLikes.toString(),
+                            color: Colors.pinkAccent,
+                          ),
+                          _buildEngagementStat(
+                            icon: Icons.remove_red_eye,
+                            count: '${post.viewCount}',
+                            color: Colors.green,
                           ),
                         ],
                       ),
@@ -142,12 +154,13 @@ class PostDetailsPage extends ConsumerWidget {
                                   onTap: () {
                                     likePost(ref, isLiked, post.likeCount, post.userId);
                                   },
-                                  color: isLiked ? Colors.red : Colors.grey[700], // Change color when liked
+                                  color: isLiked ? Colors.red : Colors.black, // Change color when liked
                                 ),
                                 SizedBox(width: screenWidth * 0.03),
                                 _buildActionButton(
                                   icon: Icons.mode_comment_outlined,
                                   label: 'Comments',
+                                  color: Colors.black,
                                   onTap: () {
                                     showMaterialModalBottomSheet(
                                       context: context,
@@ -169,15 +182,19 @@ class PostDetailsPage extends ConsumerWidget {
                                 _buildActionButton(
                                   icon: Icons.share_outlined,
                                   label: 'Share',
+                                  color: Colors.black,
                                   onTap: () {
                                     sharePost(postId);
                                   },
                                 ),
                                 SizedBox(width: screenWidth * 0.03),
                                 _buildActionButton(
-                                  icon: Icons.bookmark_border,
-                                  label: 'Save',
-                                  onTap: () {},
+                                  icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
+                                  label: isSaved ? "Saved" : "Save",
+                                  color: Colors.black,
+                                  onTap: () {
+                                    ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
+                                  },
                                 ),
                               ],
                             ),
@@ -323,8 +340,8 @@ class PostDetailsPage extends ConsumerWidget {
 
   Widget _buildEngagementStat({
     required IconData icon,
-    required String label,
     required String count,
+    required Color color, // New: Dynamic color per stat type
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -332,21 +349,36 @@ class PostDetailsPage extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: Colors.grey.shade700),
-            const SizedBox(width: 4),
+            // Colorful Icon with Shadow
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [color.withOpacity(0.8), color.withOpacity(1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 20, color: Colors.white),
+            ),
+            const SizedBox(width: 6),
+
+            // Count with a more vibrant style
             DefaultText(
               text: count,
               size: 16,
               isBold: true,
-              color: Colors.grey.shade800,
+              color: color,
             ),
           ],
-        ),
-        const SizedBox(height: 2),
-        DefaultText(
-          text: label,
-          size: 12,
-          color: Colors.grey.shade600,
         ),
       ],
     );
