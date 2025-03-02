@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
-import '../Authentacation/AuthMethods.dart';
 import '../Helpers/DefaultText.dart';
+import '../main.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -35,30 +35,49 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Check if user profile exists in Supabase
-    bool profileExists = await checkIfProfileExists(user.uid);
-    if (!profileExists) {
-      if (mounted) context.go('/complete-profile');
-      return;
+    String? cachedUserId = prefs?.getString('supabase_user_id_${user.uid}');
+
+    if (cachedUserId == null) {
+      String? supabaseUserId = await getSupabaseUserId(user.uid);
+      if (supabaseUserId == null) {
+        if (mounted) context.go('/complete-profile');
+        return;
+      } else {
+        await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
+      }
+    } else {
+      if (cachedUserId != user.uid) {
+        String? supabaseUserId = await getSupabaseUserId(user.uid);
+        if (supabaseUserId == null) {
+          if (mounted) context.go('/complete-profile');
+          return;
+        } else {
+          await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
+        }
+      }
     }
 
     // If everything is good, navigate to home
     if (mounted) context.go('/');
   }
 
+  Future<String?> getSupabaseUserId(String firebaseUserId) async {
+    try {
+      final response = await supabase.from('users').select('id').eq('id', firebaseUserId).limit(1);
+
+      if (response.isNotEmpty) {
+        return response.first['id'] as String;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error getting Supabase user ID: $e');
+      return null;
+    }
+  }
+
   Future<bool> checkPermissions() async {
     return true; // will need later
-    /*
-    final storageStatus = await Permission.storage.status;
-
-    print('Initial Storage Status: $storageStatus');
-
-    if (storageStatus.isGranted) {
-      return true;
-    }
-    return false;
-
-     */
   }
 
   @override

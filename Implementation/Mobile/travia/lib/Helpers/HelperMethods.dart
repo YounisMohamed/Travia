@@ -14,11 +14,8 @@ String timeAgo(DateTime utcDateTime) {
         );
 
   final now = DateTime.now().toUtc();
-  print('Current time isUtc: ${now.isUtc}');
-  print('Current time: $now');
 
   final difference = now.difference(utcTime);
-  print('Time difference: $difference');
   if (difference.inSeconds < 60) {
     return 'Just Now';
   } else if (difference.inMinutes < 60) {

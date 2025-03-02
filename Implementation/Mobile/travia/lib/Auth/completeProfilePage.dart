@@ -33,7 +33,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
-  final TextEditingController _usernameController = TextEditingController(text: "@");
+  final TextEditingController _usernameController = TextEditingController();
 
   final relationshipOptions = ['Single', 'Married'];
   String? selectedRelationship;
@@ -118,18 +118,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                               final username = val?.trim() ?? '';
                               if (username.length < 4) return "Username must be at least 3 characters";
                               if (username.length > 15) return "Username must be be less than 15 characters";
-                              final validUsernameRegExp = RegExp(r'^@[a-zA-Z0-9._]+$');
+                              final validUsernameRegExp = RegExp(r'^[a-zA-Z0-9._]+');
                               if (!validUsernameRegExp.hasMatch(username)) {
                                 return "Only letters, numbers, . and _ allowed";
-                              }
-                              return null;
-                            },
-                            onChanged: (val) {
-                              if (!val!.startsWith("@")) {
-                                _usernameController.text = "@";
-                                _usernameController.selection = TextSelection.fromPosition(
-                                  TextPosition(offset: _usernameController.text.length),
-                                );
                               }
                               return null;
                             },
@@ -303,7 +294,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                     context.go("/signin");
                                     return;
                                   }
-                                  String username = _usernameController.text.substring(1).toLowerCase();
+                                  String username = _usernameController.text.trim().toLowerCase();
                                   bool userNameExists = await checkIfUsernameExists(username);
                                   if (userNameExists) {
                                     Popup.showPopUp(text: "Username already exists", context: context);

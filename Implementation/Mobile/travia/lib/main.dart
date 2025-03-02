@@ -4,25 +4,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:travia/Authentacation/ForgotPassword.dart';
-import 'package:travia/Authentacation/SignInPage.dart';
-import 'package:travia/Authentacation/SignUpPage.dart';
-import 'package:travia/Authentacation/completeProfilePage.dart';
+import 'package:travia/MainFlow/DMsPage.dart';
 import 'package:travia/MainFlow/ErrorPage.dart';
 import 'package:travia/MainFlow/HomePage.dart';
 import 'package:travia/MainFlow/NotificationsPage.dart';
 import 'package:travia/MainFlow/SplashScreen.dart';
 import 'package:travia/MainFlow/UploadPost.dart';
 
+import 'Auth/ForgotPassword.dart';
+import 'Auth/SignInPage.dart';
+import 'Auth/SignUpPage.dart';
+import 'Auth/completeProfilePage.dart';
 import 'MainFlow/PermissionsPage.dart';
 import 'MainFlow/PostDetails.dart';
 import 'firebase_options.dart';
 
 final supabase = Supabase.instance.client;
+SharedPreferences? prefs;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Supabase.initialize(
     url: 'https://cqcsgwlskhuylgbqegnz.supabase.co',
     anonKey:
@@ -35,6 +39,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  prefs = await SharedPreferences.getInstance();
 
   runApp(Phoenix(child: ProviderScope(child: Directionality(textDirection: TextDirection.ltr, child: MyApp()))));
 }
@@ -86,8 +92,11 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => PermissionPage(),
         ),
         GoRoute(
-          path: '/error-page',
-          builder: (context, state) => ErrorPage(),
+          path: '/error-page/:error',
+          builder: (context, state) {
+            final error = state.pathParameters['error']!;
+            return ErrorPage(error: error);
+          },
         ),
         GoRoute(
           path: '/splash-screen',
@@ -103,6 +112,10 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/upload-post',
           builder: (context, state) => UploadPostPage(),
+        ),
+        GoRoute(
+          path: '/dms-page',
+          builder: (context, state) => DMsPage(),
         ),
       ],
     );

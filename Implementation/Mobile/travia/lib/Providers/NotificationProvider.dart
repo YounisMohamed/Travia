@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../Classes/Notification.dart';
 import '../main.dart';
 
-class NotificationReadState extends StateNotifier<Map<String, dynamic>> {
-  NotificationReadState()
+class NotificationReadDeleteState extends StateNotifier<Map<String, dynamic>> {
+  NotificationReadDeleteState()
       : super({
           'read': {}, // Map of notificationId -> isRead
           'removed': {}, // Map of notificationId -> true for removed notifications
@@ -49,23 +49,16 @@ class NotificationReadState extends StateNotifier<Map<String, dynamic>> {
   }
 }
 
-final notificationReadProvider = StateNotifierProvider<NotificationReadState, Map<String, dynamic>>(
-  (ref) => NotificationReadState(),
+final notificationReadProvider = StateNotifierProvider<NotificationReadDeleteState, Map<String, dynamic>>(
+  (ref) => NotificationReadDeleteState(),
 );
 
-// Updated notificationsProvider to filter out removed notifications
 final notificationsProvider = StreamProvider<List<NotificationModel>>((ref) {
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return Stream.value([]); // Handle logged-out state
+  if (user == null) return Stream.value([]);
   final currentUserId = user.uid;
 
-  // Watch the read/removed state
-  final readState = ref.watch(notificationReadProvider);
-
-  return supabase.from('notifications').stream(primaryKey: ['id']).map((data) {
-    return data
-        .map((json) => NotificationModel.fromMap(json))
-        .where((notification) => (notification.targetUserId == currentUserId || notification.targetUserId == null) && !(readState['removed'].containsKey(notification.id)))
-        .toList();
-  });
+  return supabase.from('notifications').stream(primaryKey: ['id']).order('created_at', ascending: false).map((data) {
+        return data.map((json) => NotificationModel.fromMap(json)).where((notification) => notification.targetUserId == currentUserId || notification.targetUserId == null).toList();
+      });
 });

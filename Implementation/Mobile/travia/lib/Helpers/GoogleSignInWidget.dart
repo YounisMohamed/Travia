@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:travia/Authentacation/AuthMethods.dart';
+
+import '../Auth/AuthMethods.dart';
 
 class GoogleSignInButton extends StatelessWidget {
   final BuildContext contextOfParent;

@@ -68,7 +68,7 @@ class PostDetailsPage extends ConsumerWidget {
                     CircleAvatar(
                       radius: screenWidth * 0.04,
                       backgroundColor: Colors.grey.shade300,
-                      backgroundImage: NetworkImage(post.userPhotoUrl!),
+                      backgroundImage: NetworkImage(post.userPhotoUrl),
                     ),
                     SizedBox(width: screenWidth * 0.02),
                     Expanded(

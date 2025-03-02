@@ -8,7 +8,7 @@ class NotificationModel {
   final String? sourceId;
   final String? senderUserId;
   final String? senderPhoto;
-  final String? displayName;
+  final String? senderUsername;
 
   NotificationModel({
     required this.id,
@@ -20,23 +20,22 @@ class NotificationModel {
     this.sourceId,
     this.senderUserId,
     this.senderPhoto,
-    this.displayName,
+    this.senderUsername,
   });
 
   // Convert JSON/Map from Supabase to NotificationModel
   factory NotificationModel.fromMap(Map<String, dynamic> map) {
     return NotificationModel(
-      id: map['id'] as String,
-      targetUserId: map['target_user_id'] as String?,
-      type: map['type'] as String,
-      content: map['content'] as String,
-      createdAt: DateTime.parse(map['created_at']),
-      isRead: map['is_read'] as bool,
-      sourceId: map['source_id'] as String?,
-      senderUserId: map['sender_user_id'] as String?,
-      senderPhoto: map['sender_photo'] as String?,
-      displayName: map['user_display_name'] as String?,
-    );
+        id: map['id'] as String,
+        targetUserId: map['target_user_id'] as String?,
+        type: map['type'] as String,
+        content: map['content'] as String,
+        createdAt: DateTime.parse(map['created_at']),
+        isRead: map['is_read'] as bool,
+        sourceId: map['source_id'] as String?,
+        senderUserId: map['sender_user_id'] as String?,
+        senderPhoto: map['sender_photo'] as String?,
+        senderUsername: map['user_username']);
   }
 
   // Convert NotificationModel to JSON/Map (for Supabase insertion)
@@ -51,7 +50,7 @@ class NotificationModel {
       'source_id': sourceId,
       'sender_user_id': senderUserId,
       'sender_photo': senderPhoto,
-      'user_display_name': displayName,
+      'user_username': senderUsername,
     };
   }
 }

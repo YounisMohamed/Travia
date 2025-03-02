@@ -6,7 +6,6 @@ class Post {
   final String? location;
   final String postId;
   // User details
-  final String userDisplayName;
   final String userPhotoUrl;
   final String userUserName;
   // Engagement counts
@@ -20,7 +19,6 @@ class Post {
     required this.mediaUrl,
     this.caption,
     this.location,
-    required this.userDisplayName,
     required this.userPhotoUrl,
     required this.userUserName,
     required this.commentCount,
@@ -36,7 +34,6 @@ class Post {
       mediaUrl: map['media_url'],
       caption: map['caption'],
       location: map['location'],
-      userDisplayName: map['poster_display_name'],
       userPhotoUrl: map['poster_photo_url'],
       userUserName: map['poster_username'],
       commentCount: map['comments_count'],

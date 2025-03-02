@@ -6,7 +6,6 @@ class Comment {
   final String content;
   final int likeCount;
   final DateTime createdAt;
-  final String userDisplayName;
   final String userPhotoUrl;
   final String userUsername;
   final bool isReplyToParentComment;
@@ -20,7 +19,6 @@ class Comment {
     required this.content,
     required this.likeCount,
     required this.createdAt,
-    required this.userDisplayName,
     required this.userPhotoUrl,
     required this.userUsername,
     this.isReplyToParentComment = false,
@@ -37,7 +35,6 @@ class Comment {
       content: map['content'],
       likeCount: map['likes_count'],
       createdAt: DateTime.parse(map['created_at']),
-      userDisplayName: map['user_display_name'],
       userPhotoUrl: map['user_photo_url'],
       userUsername: map['user_username'],
       usernameOfParentComment: map['username_of_parent_comment'],
@@ -53,7 +50,6 @@ class Comment {
       content: json['content'] as String,
       likeCount: json['likes_count'] as int,
       createdAt: DateTime.parse(json['created_at'] as String),
-      userDisplayName: json['user_display_name'] as String,
       userPhotoUrl: json['user_photo_url'] as String,
       userUsername: json['user_username'] as String,
       isReplyToParentComment: json['parent_comment_id'] == null,

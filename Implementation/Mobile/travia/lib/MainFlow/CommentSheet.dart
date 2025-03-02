@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/Constants.dart';
@@ -234,7 +235,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                         ),
                       ),
                       error: (error, stackTrace) {
-                        print(error);
+                        context.go("/error-page/${Uri.encodeComponent(error.toString())}");
                         return const Center(child: LoadingWidget());
                       },
                       data: (comments) {
@@ -349,7 +350,7 @@ class CommentCard extends ConsumerWidget {
   final String? userNameOfParentComment;
 
   const CommentCard({
-    Key? key,
+    super.key,
     required this.commentId,
     required this.userId,
     required this.userName,
@@ -361,7 +362,7 @@ class CommentCard extends ConsumerWidget {
     required this.postId,
     required this.isReply,
     this.userNameOfParentComment,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -406,7 +407,7 @@ class RegularCommentCard extends ConsumerWidget {
   final String postId;
 
   const RegularCommentCard({
-    Key? key,
+    super.key,
     required this.commentId,
     required this.userId,
     required this.userName,
@@ -416,7 +417,7 @@ class RegularCommentCard extends ConsumerWidget {
     required this.likeCount,
     required this.posterId,
     required this.postId,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -673,7 +674,7 @@ class ReplyCommentCard extends ConsumerWidget {
   final String? userNameOfParentComment;
 
   const ReplyCommentCard({
-    Key? key,
+    super.key,
     required this.commentId,
     required this.userId,
     required this.userName,
@@ -684,7 +685,7 @@ class ReplyCommentCard extends ConsumerWidget {
     required this.posterId,
     required this.postId,
     this.userNameOfParentComment,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

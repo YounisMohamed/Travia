@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../Helpers/DefaultText.dart';
 
 class ErrorPage extends StatelessWidget {
-  const ErrorPage({super.key});
+  final String error;
+  const ErrorPage({super.key, required this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +19,7 @@ class ErrorPage extends StatelessWidget {
             // Error Icon or Image (you can replace with your own asset)
             Icon(
               Icons.error_outline,
-              color: Colors.deepPurple, // Purple for the error icon
+              color: Colors.red, // Purple for the error icon
               size: 80,
             ),
             const SizedBox(height: 20), // Spacing
@@ -26,20 +27,41 @@ class ErrorPage extends StatelessWidget {
             // Error Title
             DefaultText(
               text: "Oops! Something Went Wrong",
-              color: Colors.deepPurple, // Purple text
+              color: Colors.red, // Purple text
               isBold: true,
-              size: 24,
+              size: 22,
               center: true,
             ),
             const SizedBox(height: 10), // Spacing
 
             // Error Message
-            DefaultText(
-              text: "We're sorry, but an error occurred. Please try again.",
-              color: Colors.grey[600]!, // Slightly darker grey for readability
-              size: 16,
-              center: true,
-            ),
+            Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    DefaultText(
+                      text: "We're sorry, but an error occurred.\n Kindly check your",
+                      color: Colors.grey[600]!, // Slightly darker grey for readability
+                      size: 16,
+                      center: true,
+                      isBold: true,
+                    ),
+                    DefaultText(
+                      text: "internet connection",
+                      color: Colors.blue[600]!, // Slightly darker grey for readability
+                      size: 16,
+                      center: true,
+                      isBold: true,
+                    ),
+                    DefaultText(
+                      text: " and please try again.",
+                      color: Colors.grey[600]!, // Slightly darker grey for readability
+                      size: 16,
+                      center: true,
+                      isBold: true,
+                    ),
+                  ],
+                )),
             const SizedBox(height: 30), // More spacing before button
 
             // Restart Button
@@ -61,6 +83,12 @@ class ErrorPage extends StatelessWidget {
                 isBold: true,
                 size: 18,
               ),
+            ),
+            DefaultText(
+              text: "Hey younis remember to remove this later: $error",
+              color: Colors.white, // White text on orange button
+              isBold: true,
+              size: 18,
             ),
           ],
         ),

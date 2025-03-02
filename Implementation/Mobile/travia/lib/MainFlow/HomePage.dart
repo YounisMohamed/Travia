@@ -11,7 +11,7 @@ import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
-import '../Authentacation/AuthMethods.dart';
+import '../Auth/AuthMethods.dart';
 import '../Helpers/Loading.dart';
 import '../Providers/DatabaseProviders.dart';
 import '../main.dart';
@@ -132,12 +132,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                           itemBuilder: (context, index) => DummyPostCard(),
                         ),
                       ),
-                      error: (error, stackTrace) => const Center(
-                        child: Text(
-                          "Posts not available",
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                      error: (error, stackTrace) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (context.mounted) {
+                            context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+                          }
+                        });
+                        return const Center(child: Text("An error occurred."));
+                      },
                       data: (posts) => posts.isEmpty
                           ? const Center(child: Text("No posts to show for now"))
                           : ListView.builder(
@@ -181,9 +183,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   width: 15,
                 ),
                 MUIGradientButton(
-                  text: "Update profile",
+                  text: "DMS BABY",
                   onPressed: () {
-                    context.push("/complete-profile");
+                    context.push("/dms-page");
                   },
                   bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
                 ),

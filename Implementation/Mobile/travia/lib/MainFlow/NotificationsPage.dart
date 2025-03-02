@@ -2,13 +2,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 
-import '../Classes/Notification.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Providers/NotificationProvider.dart';
-import '../main.dart';
 
 class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
@@ -22,33 +21,32 @@ class NotificationsPage extends ConsumerWidget {
         body: const Center(child: Text('Please log in to see notifications')),
       );
     }
-    final currentUserId = user.uid;
+
+    // Listen to the global notificationsProvider
+    final notificationsAsyncValue = ref.watch(notificationsProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         forceMaterialTransparency: true,
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: supabase.from('notifications').stream(primaryKey: ['id']).order('created_at', ascending: false),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-            return Skeletonizer(
-              ignoreContainers: true,
-              child: ListView.builder(
-                itemCount: 5,
-                itemBuilder: (context, index) => DummyCommentCard(),
-              ),
-            );
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final rawNotifications = snapshot.data ?? [];
-          final notifications = rawNotifications.map((json) => NotificationModel.fromMap(json)).where((n) => n.targetUserId == currentUserId || n.targetUserId == null).toList();
-
+      body: notificationsAsyncValue.when(
+        loading: () => Skeletonizer(
+          ignoreContainers: true,
+          child: ListView.builder(
+            itemCount: 5,
+            itemBuilder: (context, index) => DummyCommentCard(),
+          ),
+        ),
+        error: (error, stack) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+            }
+          });
+          return const Center(child: Text("An error occurred."));
+        },
+        data: (notifications) {
           if (notifications.isEmpty) {
             return const Center(
               child: Text(
@@ -57,14 +55,13 @@ class NotificationsPage extends ConsumerWidget {
               ),
             );
           }
-
           return ListView.builder(
             itemCount: notifications.length,
             itemBuilder: (context, index) {
               final notification = notifications[index];
               return NotificationTile(
                 senderPhoto: notification.senderPhoto,
-                displayName: notification.displayName,
+                username: notification.senderUsername,
                 content: notification.content,
                 isRead: notification.isRead,
                 createdAt: notification.createdAt,
@@ -74,7 +71,7 @@ class NotificationsPage extends ConsumerWidget {
                 sourceId: notification.sourceId,
                 senderUserId: notification.senderUserId,
                 ref: ref,
-              ).animate().fadeIn(duration: 280.ms, delay: 280.ms);
+              ).animate().fadeIn(duration: 120.ms, delay: 120.ms);
             },
           );
         },
@@ -93,13 +90,13 @@ class NotificationTile extends StatelessWidget {
   final String type;
   final String? sourceId;
   final String? senderUserId;
-  final String? displayName;
+  final String? username;
   final WidgetRef ref;
 
   const NotificationTile({
     super.key,
     this.senderPhoto,
-    this.displayName,
+    this.username,
     required this.content,
     required this.isRead,
     required this.createdAt,
@@ -130,7 +127,7 @@ class NotificationTile extends StatelessWidget {
             createdAt: createdAt,
             notificationId: notificationId,
             senderUserId: senderUserId,
-            displayName: displayName,
+            username: username,
             type: type,
             ref: ref,
           );
@@ -249,14 +246,14 @@ class StandardNotificationTile extends StatelessWidget {
   final DateTime createdAt;
   final String notificationId;
   final String? senderUserId;
-  final String? displayName;
+  final String? username;
   final String type;
   final WidgetRef ref;
 
   const StandardNotificationTile({
     super.key,
     this.senderPhoto,
-    this.displayName,
+    this.username,
     required this.content,
     required this.isRead,
     required this.createdAt,
@@ -386,16 +383,16 @@ class StandardNotificationTile extends StatelessWidget {
                             height: 1.3,
                           ),
                           children: [
-                            if (displayName != null)
+                            if (username != null)
                               TextSpan(
-                                text: displayName,
+                                text: username,
                                 style: TextStyle(
                                   fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
                                   color: isRead ? Colors.black87 : Colors.black,
                                 ),
                               ),
                             TextSpan(
-                              text: displayName == null ? content : " $content",
+                              text: username == null ? content : " $content",
                               style: TextStyle(
                                 fontWeight: isRead ? FontWeight.normal : FontWeight.w500,
                               ),
