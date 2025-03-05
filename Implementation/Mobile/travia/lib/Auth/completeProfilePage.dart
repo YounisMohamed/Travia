@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:modular_ui/modular_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/Constants.dart';
-import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/GoogleTexts.dart';
 
 import '../Helpers/DefaultFormField.dart';
 import '../Helpers/Loading.dart';
@@ -81,7 +81,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                       ),
                     ],
                   ),
-                  child: DefaultText(
+                  child: RedHatText(
                     text: "Complete Your Profile",
                     color: Colors.black,
                     isBold: true,

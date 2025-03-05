@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:modular_ui/modular_ui.dart';
 import 'package:travia/Helpers/Constants.dart';
-import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/Helpers/Icons.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/VisiblePasswordProvider.dart';
@@ -62,7 +62,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               children: [
                 Image.asset("assets/TraviaLogo.png"),
                 SizedBox(height: height * 0.01),
-                DefaultText(
+                RedHatText(
                   text: "SIGN IN",
                   color: Colors.black,
                   isBold: true,
@@ -112,7 +112,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                         SizedBox(height: height * 0.009),
                         Row(
                           children: [
-                            DefaultText(
+                            RedHatText(
                               text: "Show Password",
                               color: Colors.black,
                               size: 12,
@@ -154,7 +154,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   onPressed: () {
                     context.push("/signup");
                   },
-                  child: DefaultText(
+                  child: RedHatText(
                     text: "I don't have an account",
                     size: 12,
                     color: Colors.grey,
@@ -165,7 +165,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   onPressed: () {
                     context.push("/forgotpassword");
                   },
-                  child: DefaultText(
+                  child: RedHatText(
                     text: "I forgot my password",
                     size: 12,
                     color: Colors.grey,

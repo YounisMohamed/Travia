@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
-import '../Helpers/DefaultText.dart';
+import '../Helpers/GoogleTexts.dart';
 import '../main.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -130,7 +130,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     curve: Curves.easeInOutSine,
                   ),
               const SizedBox(height: 20),
-              DefaultText(
+              RedHatText(
                 text: "Travia",
                 color: Colors.white,
                 isBold: true,
@@ -142,7 +142,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     duration: 300.ms,
                   ),
               const SizedBox(height: 10),
-              DefaultText(
+              RedHatText(
                 text: "Connect, Explore, Share",
                 color: Colors.white70,
                 size: 18,

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_sliding_toast/flutter_sliding_toast.dart';
-import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/GoogleTexts.dart';
 
 class Popup {
   static void showPopUp({required String text, required BuildContext context, Color? color, int duration = 3}) {
     InteractiveToast.pop(
       context,
-      title: DefaultText(text: text),
+      title: RedHatText(text: text),
       toastStyle: ToastStyle(
         titleLeadingGap: 10,
         backgroundColor: color ?? Colors.orangeAccent,

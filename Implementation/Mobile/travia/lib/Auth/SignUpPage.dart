@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:modular_ui/modular_ui.dart';
 import 'package:travia/Helpers/Constants.dart';
-import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/Providers/VisiblePasswordProvider.dart';
@@ -67,7 +67,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               children: [
                 Image.asset("assets/TraviaLogo.png"),
                 SizedBox(height: height * 0.01),
-                DefaultText(
+                RedHatText(
                   text: "SIGN UP",
                   color: Colors.black,
                   isBold: true,
@@ -128,7 +128,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                         SizedBox(height: height * 0.009),
                         Row(
                           children: [
-                            DefaultText(
+                            RedHatText(
                               text: "Show Password",
                               color: Colors.black,
                               size: 12,
@@ -172,7 +172,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                   onPressed: () {
                     context.go("/signin");
                   },
-                  child: DefaultText(
+                  child: RedHatText(
                     text: "I already have an account",
                     size: 12,
                     color: Colors.grey,

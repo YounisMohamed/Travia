@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../Helpers/DefaultText.dart';
+import '../Helpers/GoogleTexts.dart';
 
 class PermissionPage extends StatelessWidget {
   const PermissionPage({super.key});
@@ -153,7 +153,7 @@ class PermissionPage extends StatelessWidget {
                     ),
                     elevation: 8,
                   ),
-                  child: DefaultText(
+                  child: RedHatText(
                     text: "Lets Go!",
                     center: true,
                     italic: true,

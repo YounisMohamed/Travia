@@ -285,7 +285,7 @@ class StandardNotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dismissible(
       key: Key(notificationId),
-      direction: DismissDirection.startToEnd,
+      direction: DismissDirection.horizontal,
       confirmDismiss: (direction) async {
         ref.read(notificationReadProvider.notifier).removeNotification(notificationId);
         return true;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:go_router/go_router.dart';
 
-import '../Helpers/DefaultText.dart';
+import '../Helpers/GoogleTexts.dart';
 
 class ErrorPage extends StatelessWidget {
   final String error;
@@ -10,6 +10,7 @@ class ErrorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print(error);
     return Scaffold(
       backgroundColor: Colors.white, // White background for contrast
       body: Center(
@@ -25,7 +26,7 @@ class ErrorPage extends StatelessWidget {
             const SizedBox(height: 20), // Spacing
 
             // Error Title
-            DefaultText(
+            RedHatText(
               text: "Oops! Something Went Wrong",
               color: Colors.red, // Purple text
               isBold: true,
@@ -39,21 +40,21 @@ class ErrorPage extends StatelessWidget {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    DefaultText(
+                    RedHatText(
                       text: "We're sorry, but an error occurred.\n Kindly check your",
                       color: Colors.grey[600]!, // Slightly darker grey for readability
                       size: 16,
                       center: true,
                       isBold: true,
                     ),
-                    DefaultText(
+                    RedHatText(
                       text: "internet connection",
                       color: Colors.blue[600]!, // Slightly darker grey for readability
                       size: 16,
                       center: true,
                       isBold: true,
                     ),
-                    DefaultText(
+                    RedHatText(
                       text: " and please try again.",
                       color: Colors.grey[600]!, // Slightly darker grey for readability
                       size: 16,
@@ -77,14 +78,14 @@ class ErrorPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: DefaultText(
+              child: RedHatText(
                 text: "Restart App",
                 color: Colors.white, // White text on orange button
                 isBold: true,
                 size: 18,
               ),
             ),
-            DefaultText(
+            RedHatText(
               text: "Hey younis remember to remove this later: $error",
               color: Colors.white, // White text on orange button
               isBold: true,

@@ -7,7 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:uuid/uuid.dart';
 
-import '../Helpers/DefaultText.dart';
+import '../Helpers/GoogleTexts.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/DatabaseProviders.dart';
 import '../Providers/LoadingProvider.dart';
@@ -45,7 +45,7 @@ class PostDetailsPage extends ConsumerWidget {
       backgroundColor: Colors.white,
       body: postsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => Center(child: DefaultText(text: 'Error: $error')),
+        error: (error, stackTrace) => Center(child: RedHatText(text: 'Error: $error')),
         data: (posts) {
           final post = posts.firstWhere(
             (p) => p.postId == postId,
@@ -72,7 +72,7 @@ class PostDetailsPage extends ConsumerWidget {
                     ),
                     SizedBox(width: screenWidth * 0.02),
                     Expanded(
-                      child: DefaultText(
+                      child: RedHatText(
                         text: post.userUserName,
                         size: 18,
                         isBold: true,
@@ -241,7 +241,7 @@ class PostDetailsPage extends ConsumerWidget {
                             ),
                             SizedBox(width: screenWidth * 0.01),
                             Expanded(
-                              child: DefaultText(
+                              child: RedHatText(
                                 text: post.location!,
                                 size: 12,
                                 color: Colors.grey.shade600,
@@ -372,7 +372,7 @@ class PostDetailsPage extends ConsumerWidget {
             const SizedBox(width: 6),
 
             // Count with a more vibrant style
-            DefaultText(
+            RedHatText(
               text: count,
               size: 16,
               isBold: true,
@@ -404,7 +404,7 @@ class PostDetailsPage extends ConsumerWidget {
         children: [
           Icon(icon, size: 20, color: color ?? Colors.grey[700]),
           const SizedBox(width: 4),
-          DefaultText(
+          RedHatText(
             text: label,
             size: 14,
             color: color ?? Colors.grey.shade700,
@@ -422,12 +422,42 @@ class PostDetailsPage extends ConsumerWidget {
 
   void likePost(WidgetRef ref, bool isLiked, int likeCount, String userId) {
     String likerId = FirebaseAuth.instance.currentUser!.uid;
+
     ref.read(likePostProvider.notifier).toggleLike(
           postId: postId,
           likerId: likerId,
           posterId: userId,
         );
+
     ref.read(postLikeCountProvider((postId: postId, initialLikeCount: likeCount)).notifier).updateLikeCount(!isLiked);
-    if (!isLiked) sendNotification(type: 'like', content: 'liked your post', target_user_id: userId, source_id: postId, sender_user_id: likerId);
+
+    if (!isLiked) {
+      // Send notification when the post is liked
+      if (likerId == userId) {
+        sendNotification(
+          type: 'like',
+          content: 'liked his own post :)',
+          target_user_id: userId,
+          source_id: postId,
+          sender_user_id: likerId,
+        );
+      } else {
+        sendNotification(
+          type: 'like',
+          content: 'liked your post',
+          target_user_id: userId,
+          source_id: postId,
+          sender_user_id: likerId,
+        );
+      }
+    } else {
+      print("ELSE");
+      // Remove notification when the post is unliked
+      removeLikeNotification(
+        targetUserId: userId,
+        postId: postId,
+        likerId: likerId,
+      );
+    }
   }
 }

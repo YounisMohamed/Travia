@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:modular_ui/modular_ui.dart';
 import 'package:travia/Helpers/Constants.dart';
-import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/Helpers/Icons.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
@@ -63,7 +63,7 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
               children: [
                 Image.asset("assets/TraviaLogo.png"),
                 SizedBox(height: height * 0.01),
-                DefaultText(
+                RedHatText(
                   text: "Reset your password",
                   color: Colors.black,
                   isBold: true,
@@ -106,7 +106,7 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
                                 animationDuration: 5,
                               ),
                         SizedBox(height: height * 0.05),
-                        DefaultText(
+                        RedHatText(
                           text: "A link will be sent to your email address, If the email is not registered you won't recieve a link",
                           italic: true,
                           center: true,
@@ -121,7 +121,7 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
                   onPressed: () {
                     context.go("/signin");
                   },
-                  child: DefaultText(
+                  child: RedHatText(
                     text: "Go back to Sign In",
                     size: 12,
                     color: Colors.grey,

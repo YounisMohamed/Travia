@@ -33,7 +33,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     if (user == null) {
-      context.go("/signin");
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go("/signin");
+      });
     }
     supabase
         .channel('public:notifications')

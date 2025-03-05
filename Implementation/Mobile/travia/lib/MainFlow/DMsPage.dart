@@ -1,182 +1,79 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:travia/Helpers/DummyCards.dart';
+import 'package:travia/Providers/ConversationNotificationsProvider.dart';
 
-import '../Classes/Conversation.dart';
-import '../Classes/ConversationParticipants.dart';
+import '../Helpers/HelperMethods.dart';
+import '../Providers/ConversationProvider.dart';
+import '../main.dart';
 
-class DMsPage extends StatefulWidget {
+class DMsPage extends ConsumerStatefulWidget {
   const DMsPage({super.key});
 
   @override
-  State<DMsPage> createState() => _DMsPageState();
+  ConsumerState<DMsPage> createState() => _DMsPageState();
 }
 
-class _DMsPageState extends State<DMsPage> {
-  // Dummy data for conversations
-  final List<Conversation> _conversations = [
-    Conversation(
-      conversationId: '1',
-      conversationType: 'direct',
-      createdAt: DateTime.now().subtract(const Duration(days: 30)),
-      updatedAt: DateTime.now().subtract(const Duration(hours: 1)),
-      lastMessageAt: DateTime.now().subtract(const Duration(hours: 1)),
-      lastMessageId: 'm1',
-      lastMessageContent: 'Hey, are we still meeting tomorrow?',
-    ),
-    Conversation(
-      conversationId: '2',
-      conversationType: 'group',
-      title: 'Project Alpha Team',
-      createdAt: DateTime.now().subtract(const Duration(days: 14)),
-      updatedAt: DateTime.now().subtract(const Duration(hours: 3)),
-      lastMessageAt: DateTime.now().subtract(const Duration(hours: 3)),
-      adminId: 'user123',
-      chatTheme: 'purple',
-      lastMessageId: 'm2',
-      lastMessageContent: 'I just pushed the latest changes to the repo',
-    ),
-    Conversation(
-      conversationId: '3',
-      conversationType: 'direct',
-      createdAt: DateTime.now().subtract(const Duration(days: 5)),
-      updatedAt: DateTime.now().subtract(const Duration(hours: 12)),
-      lastMessageAt: DateTime.now().subtract(const Duration(hours: 12)),
-      lastMessageId: 'm3',
-      lastMessageContent: 'The designs look great! Ill review them tonight.',
-    ),
-    Conversation(
-      conversationId: '4',
-      conversationType: 'group',
-      title: 'Weekend Plans 🎉',
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      updatedAt: DateTime.now().subtract(const Duration(hours: 6)),
-      lastMessageAt: DateTime.now().subtract(const Duration(hours: 6)),
-      adminId: 'user456',
-      chatTheme: 'orange',
-      lastMessageId: 'm4',
-      lastMessageContent: 'I found this great place for dinner on Saturday',
-    ),
-    Conversation(
-      conversationId: '5',
-      conversationType: 'direct',
-      createdAt: DateTime.now().subtract(const Duration(days: 60)),
-      updatedAt: DateTime.now().subtract(const Duration(days: 2)),
-      lastMessageAt: DateTime.now().subtract(const Duration(days: 2)),
-      lastMessageId: 'm5',
-      lastMessageContent: 'Thanks for your help with the presentation',
-    ),
-  ];
-
-  // Dummy data for conversation participants
-  final List<ConversationParticipants> _participants = [
-    ConversationParticipants(
-      conversationId: '1',
-      userId: 'user456',
-      joinedAt: DateTime.now().subtract(const Duration(days: 30)),
-      isTyping: false,
-      notificationsEnabled: true,
-      userUsername: 'Alex Johnson',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=1',
-      lastReadAt: DateTime.now().subtract(const Duration(hours: 3)),
-    ),
-    ConversationParticipants(
-      conversationId: '2',
-      userId: 'user123',
-      joinedAt: DateTime.now().subtract(const Duration(days: 14)),
-      isTyping: false,
-      notificationsEnabled: true,
-      userUsername: 'Sarah Miller',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=2',
-      lastReadAt: DateTime.now().subtract(const Duration(hours: 4)),
-    ),
-    ConversationParticipants(
-      conversationId: '2',
-      userId: 'user456',
-      joinedAt: DateTime.now().subtract(const Duration(days: 14)),
-      isTyping: false,
-      notificationsEnabled: true,
-      userUsername: 'Alex Johnson',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=1',
-      lastReadAt: DateTime.now().subtract(const Duration(hours: 5)),
-    ),
-    ConversationParticipants(
-      conversationId: '3',
-      userId: 'user789',
-      joinedAt: DateTime.now().subtract(const Duration(days: 5)),
-      isTyping: true,
-      notificationsEnabled: true,
-      userUsername: 'Michael Chen',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=3',
-      lastReadAt: DateTime.now().subtract(const Duration(hours: 12)),
-    ),
-    ConversationParticipants(
-      conversationId: '4',
-      userId: 'user123',
-      joinedAt: DateTime.now().subtract(const Duration(days: 2)),
-      isTyping: false,
-      notificationsEnabled: true,
-      userUsername: 'Sarah Miller',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=2',
-      lastReadAt: DateTime.now().subtract(const Duration(hours: 8)),
-    ),
-    ConversationParticipants(
-      conversationId: '4',
-      userId: 'user789',
-      joinedAt: DateTime.now().subtract(const Duration(days: 2)),
-      isTyping: false,
-      notificationsEnabled: true,
-      userUsername: 'Michael Chen',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=3',
-      lastReadAt: DateTime.now().subtract(const Duration(hours: 6)),
-    ),
-    ConversationParticipants(
-      conversationId: '4',
-      userId: 'user101',
-      joinedAt: DateTime.now().subtract(const Duration(days: 2)),
-      isTyping: false,
-      notificationsEnabled: true,
-      userUsername: 'Emma Wong',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=4',
-      lastReadAt: DateTime.now().subtract(const Duration(hours: 7)),
-    ),
-    ConversationParticipants(
-      conversationId: '5',
-      userId: 'user202',
-      joinedAt: DateTime.now().subtract(const Duration(days: 60)),
-      isTyping: false,
-      notificationsEnabled: false,
-      userUsername: 'Jordan Smith',
-      userPhotoUrl: 'https://i.pravatar.cc/150?img=5',
-      lastReadAt: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-  ];
-
-  // Get the other participant in a direct message conversation.
-  ConversationParticipants? _getDirectMessageParticipant(String conversationId) {
-    final participants = _participants.where((p) => p.conversationId == conversationId).toList();
-    // In a real app, you would filter out the current user and return the other participant.
-    return participants.isNotEmpty ? participants.first : null;
-  }
-
-  // Get the sender of the last message in a group conversation.
-  ConversationParticipants? _getLastMessageSender(String conversationId) {
-    // In a real app, you would get this from the actual message data.
-    final participants = _participants.where((p) => p.conversationId == conversationId).toList();
-    return participants.isNotEmpty ? participants.first : null;
-  }
-
-  // Check if there are unread messages.
-  int _getUnreadCount(Conversation conversation) {
-    if (conversation.lastMessageAt == null) return 0;
-    final participant = _getDirectMessageParticipant(conversation.conversationId);
-    if (participant == null || participant.lastReadAt == null) return 0;
-    if (conversation.lastMessageAt!.isAfter(participant.lastReadAt!)) {
-      return int.parse(conversation.conversationId) % 3 == 0 ? 0 : (int.parse(conversation.conversationId) % 2 == 0 ? 3 : 1);
+class _DMsPageState extends ConsumerState<DMsPage> {
+  final user = FirebaseAuth.instance.currentUser;
+  @override
+  void initState() {
+    if (user == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go("/signin");
+      });
     }
-    return 0;
+    supabase
+        .channel('public:messages') // TODO: Messages page later
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'messages',
+            callback: (payload) {
+              print('Change received: ${payload.toString()}');
+            })
+        .subscribe();
+    supabase
+        .channel('public:conversations')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'conversations',
+            callback: (payload) {
+              print('Change received: ${payload.toString()}');
+            })
+        .subscribe();
+    supabase
+        .channel('public:conversation_participants')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'conversation_participants',
+            callback: (payload) {
+              print('Change received: ${payload.toString()}');
+            })
+        .subscribe();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    supabase.channel('public:messages').unsubscribe();
+    supabase.channel('public:conversations').unsubscribe();
+    supabase.channel('public:conversation_participants').unsubscribe();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Use the new streamlined provider
+    final detailsAsync = ref.watch(conversationDetailsProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Conversations"),
@@ -185,17 +82,75 @@ class _DMsPageState extends State<DMsPage> {
         elevation: 1,
         forceMaterialTransparency: true,
       ),
-      body: ListView.separated(
-        itemCount: _conversations.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final conversation = _conversations[index];
-          final unreadCount = _getUnreadCount(conversation);
-          final participant = conversation.conversationType == 'direct' ? _getDirectMessageParticipant(conversation.conversationId) : _getLastMessageSender(conversation.conversationId);
-          return ConversationTile(
-            conversation: conversation,
-            participant: participant,
-            unreadCount: unreadCount,
+      body: detailsAsync.when(
+        loading: () => ListView.builder(
+          itemCount: 6,
+          itemBuilder: (context, index) {
+            return Skeletonizer(
+              child: DummyChatCard(),
+            );
+          },
+        ),
+        error: (error, stack) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error loading conversations: ${error.toString()}'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+            }
+          });
+          return Center(
+            child: Text('Failed to load conversations.'),
+          );
+        },
+        data: (conversationDetails) {
+          if (conversationDetails.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No conversations yet',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                  SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      // TODO
+                    },
+                    child: Text('Start a conversation'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.separated(
+            itemCount: conversationDetails.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final detail = conversationDetails[index];
+              return ConversationTile(
+                typingCount: detail.typingCount,
+                conversationId: detail.conversationId,
+                conversationType: detail.conversationType,
+                title: detail.title,
+                lastMessageContent: detail.lastMessageContent,
+                lastMessageAt: detail.lastMessageAt,
+                userUsername: detail.userUsername,
+                userPhotoUrl: detail.userPhotoUrl,
+                unreadCount: detail.unreadCount,
+                isPinned: detail.isPinned,
+                isTyping: detail.isTyping,
+                sender: detail.sender,
+              );
+            },
           );
         },
       ),
@@ -204,58 +159,189 @@ class _DMsPageState extends State<DMsPage> {
 }
 
 /// A modular widget for a conversation tile in the list.
-class ConversationTile extends StatelessWidget {
-  final Conversation conversation;
-  final ConversationParticipants? participant;
+class ConversationTile extends ConsumerWidget {
+  final String conversationId;
+  final String conversationType;
+  final String? title;
+  final String? lastMessageContent;
+  final DateTime? lastMessageAt;
+  final String? userUsername;
+  final String? userPhotoUrl;
   final int unreadCount;
+  final String? sender;
+  final bool isTyping;
+  final bool isPinned;
+  final String? chatTheme;
+  final int typingCount;
 
   const ConversationTile({
-    Key? key,
-    required this.conversation,
-    this.participant,
+    super.key,
+    required this.conversationId,
+    required this.conversationType,
+    this.title,
+    this.lastMessageContent,
+    this.lastMessageAt,
+    this.userUsername,
+    this.userPhotoUrl,
     required this.unreadCount,
-  }) : super(key: key);
+    this.sender,
+    required this.isTyping,
+    required this.isPinned,
+    required this.typingCount,
+    this.chatTheme,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    print("ConversationTile: conversationId=$conversationId");
+    print("ConversationTile: conversationType=$conversationType");
+    print("ConversationTile: title=$title");
+    print("ConversationTile: lastMessageContent=$lastMessageContent");
+    print("ConversationTile: lastMessageAt=$lastMessageAt");
+    print("ConversationTile: userUsername=$userUsername");
+    print("ConversationTile: userPhotoUrl=$userPhotoUrl");
+    print("ConversationTile: unreadCount=$unreadCount");
+    print("ConversationTile: sender=$sender");
+    print("ConversationTile: isTyping=$isTyping");
+    print("ConversationTile: isPinned=$isPinned");
+    print("ConversationTile: chatTheme=$chatTheme");
+    print("Typing count: typeCount=$typingCount}");
     // For direct messages, show the participant's username;
     // for group conversations, show the conversation title.
-    String title = conversation.conversationType == 'direct' ? (participant?.userUsername ?? 'Direct Message') : (conversation.title ?? 'Group Conversation');
+    final notificationState = ref.watch(convNotificationsProvider);
+    final isNotificationEnabled = notificationState[conversationId] ?? false;
+    bool isDirect = conversationType == 'direct';
+    bool isGroup = conversationType == 'group';
+
+    String displayTitle = isDirect ? (userUsername ?? 'Direct Message') : (title ?? 'Group Conversation');
+    String? content = "";
+    if (lastMessageContent != null) {
+      content = isDirect ? lastMessageContent : lastMessageContent;
+      // Note: sender isn't available in the current parameters; we'll leave it empty for now
+    } else {
+      content = isDirect ? ("Start a new conversation with $displayTitle") : ("Start chatting in the group");
+    }
+    String time = lastMessageAt != null ? timeAgo(lastMessageAt!) : "";
+
+    String typingText = '';
+    if (isTyping && isDirect) {
+      typingText = "$userUsername is typing...";
+    } else if (isGroup && typingCount > 0) {
+      if (typingCount == 1 && isTyping) {
+        typingText = "$userUsername is typing..."; // Current user is the only one typing
+      } else {
+        typingText = "$typingCount people are typing..."; // Multiple people typing
+      }
+    }
 
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      horizontalTitleGap: 12,
       leading: CircleAvatar(
-        backgroundColor: Colors.blue, // variable color reference
-        backgroundImage: conversation.conversationType == 'direct' && participant?.userPhotoUrl != null ? NetworkImage(participant!.userPhotoUrl!) : null,
-        child: conversation.conversationType == 'group' ? const Icon(Icons.group, color: Colors.white) : null,
+        radius: 22,
+        backgroundColor: Colors.blue.shade100,
+        backgroundImage: isDirect && userPhotoUrl != null ? NetworkImage(userPhotoUrl!) : null,
+        child: isGroup ? Icon(Icons.group, color: Colors.blue.shade700, size: 22) : null,
       ),
-      title: Text(title),
-      subtitle: Text(conversation.lastMessageContent ?? ''),
-      trailing: unreadCount > 0 ? UnreadBadge(count: unreadCount) : null,
+      title: Text(
+        displayTitle,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          color: Colors.black87,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            isTyping
+                ? Text(
+                    typingText,
+                    style: TextStyle(fontSize: 13, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+                  )
+                : RichText(
+                    text: TextSpan(
+                      style: GoogleFonts.roboto(
+                        fontSize: 13,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                      children: [
+                        if (!isDirect && (sender != null))
+                          TextSpan(
+                            text: "$sender: ",
+                            style: GoogleFonts.roboto(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        TextSpan(text: content),
+                      ],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 3,
+                  ),
+            if (time.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  time,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      trailing: Padding(
+        padding: const EdgeInsets.only(
+          right: 10,
+          bottom: 10,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              onPressed: () {
+                ref.read(convNotificationsProvider.notifier).toggleConvNotifications(conversationId: conversationId);
+              },
+              icon: Icon(
+                isNotificationEnabled ? Icons.notifications : Icons.notifications_off,
+                size: 18,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            if (unreadCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade600,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            // Note: notificationsEnabled isn't in the new parameters; removed this section
+            // If you need it, add it to ConversationDetail and pass it through
+          ],
+        ),
+      ),
       onTap: () {
-        // Button does nothing for now.
+        // Handle navigation or tap action here
+        print('Tapped conversation: $conversationId');
       },
-    );
-  }
-}
-
-/// A small badge widget to display the number of unread messages.
-class UnreadBadge extends StatelessWidget {
-  final int count;
-
-  const UnreadBadge({Key? key, required this.count}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        color: Colors.red, // using variable color from the Colors class
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        count.toString(),
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-      ),
     );
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-import 'package:travia/Helpers/DefaultText.dart';
+import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/Helpers/HelperMethods.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/database/DatabaseMethods.dart';
@@ -181,7 +181,7 @@ class PostCard extends StatelessWidget {
                                   duration: 700.ms,
                                 )),
                         const SizedBox(width: 8),
-                        DefaultText(
+                        RedHatText(
                           text: formatCount(displayNumberOfLikes),
                           isBold: true,
                           size: 16,
@@ -247,13 +247,23 @@ class PostCard extends StatelessWidget {
 
     if (!isLiked) {
       // Send notification when the post is liked
-      sendNotification(
-        type: 'like',
-        content: 'liked your post',
-        target_user_id: userId,
-        source_id: postId,
-        sender_user_id: likerId,
-      );
+      if (likerId == userId) {
+        sendNotification(
+          type: 'like',
+          content: 'liked his own post :)',
+          target_user_id: userId,
+          source_id: postId,
+          sender_user_id: likerId,
+        );
+      } else {
+        sendNotification(
+          type: 'like',
+          content: 'liked your post',
+          target_user_id: userId,
+          source_id: postId,
+          sender_user_id: likerId,
+        );
+      }
     } else {
       print("ELSE");
       // Remove notification when the post is unliked
