@@ -455,8 +455,8 @@ class PostDetailsPage extends ConsumerWidget {
       // Remove notification when the post is unliked
       removeLikeNotification(
         targetUserId: userId,
-        postId: postId,
-        likerId: likerId,
+        sourceId: postId,
+        senderId: likerId,
       );
     }
   }

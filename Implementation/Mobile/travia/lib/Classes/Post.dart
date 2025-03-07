@@ -42,4 +42,20 @@ class Post {
       viewCount: map['views'],
     );
   }
+
+  factory Post.fromJson(Map<String, dynamic> json) {
+    return Post(
+      createdAt: DateTime.parse(json['created_at']),
+      userId: json['user_id'],
+      mediaUrl: json['media_url'],
+      caption: json['caption'],
+      location: json['location'],
+      userPhotoUrl: json['poster_photo_url'],
+      userUserName: json['poster_username'],
+      commentCount: json['comments_count'],
+      likeCount: json['likes_count'],
+      postId: json['id'],
+      viewCount: json['views'],
+    );
+  }
 }

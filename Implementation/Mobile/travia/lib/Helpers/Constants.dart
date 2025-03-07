@@ -15,5 +15,4 @@ final Color commentInputBackground = Colors.white;
 final Color commentInputBorder = Colors.grey.shade300;
 final Color commentTextColor = Colors.black;
 final Color hintTextColor = Colors.grey.shade600;
-final Color sendButtonColor = Colors.blueAccent;
 final Color cancelButtonColor = Colors.red;

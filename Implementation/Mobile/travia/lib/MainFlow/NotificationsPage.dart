@@ -128,6 +128,7 @@ class NotificationTile extends StatelessWidget {
             notificationId: notificationId,
             senderUserId: senderUserId,
             username: username,
+            sourceId: sourceId,
             type: type,
             ref: ref,
           );
@@ -248,6 +249,7 @@ class StandardNotificationTile extends StatelessWidget {
   final String? senderUserId;
   final String? username;
   final String type;
+  final String? sourceId;
   final WidgetRef ref;
 
   const StandardNotificationTile({
@@ -259,6 +261,7 @@ class StandardNotificationTile extends StatelessWidget {
     required this.createdAt,
     required this.notificationId,
     required this.senderUserId,
+    this.sourceId,
     required this.type,
     required this.ref,
   });
@@ -317,6 +320,9 @@ class StandardNotificationTile extends StatelessWidget {
           onTap: () {
             if (!isRead) {
               ref.read(notificationReadProvider.notifier).markAsRead(notificationId);
+            }
+            if (type == "comment" || type == "post" || type == "like") {
+              context.push('/post/$sourceId');
             }
           },
           borderRadius: BorderRadius.circular(14),

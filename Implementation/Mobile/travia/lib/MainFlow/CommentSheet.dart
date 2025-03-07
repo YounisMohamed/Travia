@@ -119,7 +119,11 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                       ),
                     ),
                     const Spacer(),
-                    isLoading ? LoadingWidget() : const SizedBox.shrink(),
+                    isLoading
+                        ? LoadingWidget(
+                            size: 23,
+                          )
+                        : const SizedBox.shrink(),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close, color: contrastCommentCardColor, size: 26),
@@ -178,44 +182,40 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                     ),
 
                     // **Send Button**
-                    AnimatedOpacity(
-                      opacity: _commentController.text.isNotEmpty ? 1.0 : 0.5,
-                      duration: const Duration(milliseconds: 200),
-                      child: GestureDetector(
-                        onTap: () async {
-                          if (_commentController.text.trim().isEmpty) return;
-                          ref.read(loadingProvider.notifier).setLoadingToTrue();
-                          String userId = FirebaseAuth.instance.currentUser!.uid;
-                          String content = _commentController.text.trim();
+                    GestureDetector(
+                      onTap: () async {
+                        if (_commentController.text.trim().isEmpty) return;
+                        ref.read(loadingProvider.notifier).setLoadingToTrue();
+                        String userId = FirebaseAuth.instance.currentUser!.uid;
+                        String content = _commentController.text.trim();
 
-                          try {
-                            String commentId = Uuid().v4();
-                            await sendComment(
-                              postId: widget.postId,
-                              userId: userId,
-                              content: content,
-                              id: commentId,
-                              parentCommentId: replyState?.parentCommentId,
-                            );
-                            await sendNotification(
-                              type: 'comment',
-                              content: 'commented on your post: "$content"',
-                              target_user_id: widget.posterId,
-                              source_id: widget.postId,
-                              sender_user_id: userId,
-                            );
+                        try {
+                          String commentId = Uuid().v4();
+                          await sendComment(
+                            postId: widget.postId,
+                            userId: userId,
+                            content: content,
+                            id: commentId,
+                            parentCommentId: replyState?.parentCommentId,
+                          );
+                          await sendNotification(
+                            type: 'comment',
+                            content: 'commented on your post: "$content"',
+                            target_user_id: widget.posterId,
+                            source_id: widget.postId,
+                            sender_user_id: userId,
+                          );
 
-                            _commentController.clear();
-                            ref.read(replyStateProvider.notifier).cancelReply();
-                            ref.read(postCommentCountProvider(widget.postId).notifier).increment();
-                          } catch (e) {
-                            Popup.showPopUp(text: "Error adding comment", context: context);
-                          } finally {
-                            ref.read(loadingProvider.notifier).setLoadingToFalse();
-                          }
-                        },
-                        child: Icon(Icons.send, color: sendButtonColor, size: 22),
-                      ),
+                          _commentController.clear();
+                          ref.read(replyStateProvider.notifier).cancelReply();
+                          ref.read(postCommentCountProvider(widget.postId).notifier).increment();
+                        } catch (e) {
+                          Popup.showPopUp(text: "Error adding comment", context: context);
+                        } finally {
+                          ref.read(loadingProvider.notifier).setLoadingToFalse();
+                        }
+                      },
+                      child: Icon(Icons.send, color: Colors.blueAccent, size: 22),
                     ),
                   ],
                 ),
@@ -270,7 +270,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
     final isExpanded = ref.watch(replyExpandProvider(comment.id));
 
     return Padding(
-      padding: EdgeInsets.only(left: depth >= 3 ? depth : depth * 7.0),
+      padding: EdgeInsets.only(left: depth > 3 ? depth : depth * 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -641,7 +641,7 @@ class RegularCommentCard extends ConsumerWidget {
                                 ),
                                 icon: Icon(
                                   Icons.delete,
-                                  size: 20,
+                                  size: 18,
                                   color: contrastCommentCardColor,
                                 ),
                               ),
@@ -911,7 +911,7 @@ class ReplyCommentCard extends ConsumerWidget {
                                     ref.read(loadingProvider.notifier).setLoadingToTrue();
                                     await deleteComment(commentId: commentId);
                                     ref.read(postCommentCountProvider(postId).notifier).decrement();
-                                    ref.invalidate(commentsProvider(postId));
+                                    // ref.invalidate(commentsProvider(postId));
                                   } catch (e) {
                                     print("Could not delete the comment: $e");
                                   } finally {

@@ -206,18 +206,18 @@ class ConversationTile extends ConsumerWidget {
     print("ConversationTile: isPinned=$isPinned");
     print("ConversationTile: chatTheme=$chatTheme");
     print("Typing count: typeCount=$typingCount}");
-    // For direct messages, show the participant's username;
+    // for direct messages, show the participant username;
     // for group conversations, show the conversation title.
     final notificationState = ref.watch(convNotificationsProvider);
     final isNotificationEnabled = notificationState[conversationId] ?? false;
+    print("NOTIFICATIONS ENABLED: $isNotificationEnabled");
     bool isDirect = conversationType == 'direct';
     bool isGroup = conversationType == 'group';
 
     String displayTitle = isDirect ? (userUsername ?? 'Direct Message') : (title ?? 'Group Conversation');
     String? content = "";
     if (lastMessageContent != null) {
-      content = isDirect ? lastMessageContent : lastMessageContent;
-      // Note: sender isn't available in the current parameters; we'll leave it empty for now
+      content = lastMessageContent;
     } else {
       content = isDirect ? ("Start a new conversation with $displayTitle") : ("Start chatting in the group");
     }
@@ -299,47 +299,43 @@ class ConversationTile extends ConsumerWidget {
           ],
         ),
       ),
-      trailing: Padding(
-        padding: const EdgeInsets.only(
-          right: 10,
-          bottom: 10,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              onPressed: () {
-                ref.read(convNotificationsProvider.notifier).toggleConvNotifications(conversationId: conversationId);
-              },
-              icon: Icon(
-                isNotificationEnabled ? Icons.notifications : Icons.notifications_off,
-                size: 18,
-                color: Colors.grey.shade600,
-              ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            iconSize: 24,
+            padding: const EdgeInsets.all(8),
+            onPressed: () {
+              ref.read(convNotificationsProvider.notifier).toggleConvNotifications(conversationId: conversationId);
+            },
+            icon: Icon(
+              isNotificationEnabled ? Icons.notifications : Icons.notifications_off,
+              color: Colors.grey.shade600,
             ),
-            if (unreadCount > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade600,
-                  borderRadius: BorderRadius.circular(16),
-                ),
+          ),
+          if (unreadCount > 0)
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.blue.shade600,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
                 child: Text(
                   unreadCount.toString(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            // Note: notificationsEnabled isn't in the new parameters; removed this section
-            // If you need it, add it to ConversationDetail and pass it through
-          ],
-        ),
+            ),
+        ],
       ),
       onTap: () {
-        // Handle navigation or tap action here
+        context.push("/messages");
         print('Tapped conversation: $conversationId');
       },
     );

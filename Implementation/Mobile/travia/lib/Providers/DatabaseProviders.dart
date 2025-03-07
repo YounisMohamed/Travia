@@ -2,22 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../Classes/Comment.dart';
 import '../Classes/Post.dart';
-import '../database/DatabaseMethods.dart';
 import '../main.dart';
 
-class PostsNotifier extends AsyncNotifier<List<Post>> {
-  @override
-  Future<List<Post>> build() async {
-    return await fetchPosts();
-  }
-}
-
-final postsProvider = AsyncNotifierProvider<PostsNotifier, List<Post>>(() {
-  return PostsNotifier();
+final postsProvider = StreamProvider<List<Post>>((ref) {
+  return supabase.from('posts').stream(primaryKey: ['id']).order('created_at', ascending: false).map((data) => data.map((json) => Post.fromJson(json)).toList());
 });
 
 final commentsProvider = StreamProvider.family<List<Comment>, String>((ref, postId) {
-  return supabase.from('comments').stream(primaryKey: ['id']).eq('post_id', postId).order('created_at', ascending: false).map((data) => data.map((json) => Comment.fromJson(json)).toList());
+  return supabase.from('comments').stream(primaryKey: ['id']).eq('post_id', postId).map((data) => data.map((json) => Comment.fromJson(json)).toList());
 });
 
 class PostCommentCountNotifier extends FamilyNotifier<int, String> {

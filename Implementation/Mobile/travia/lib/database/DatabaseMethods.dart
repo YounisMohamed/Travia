@@ -82,21 +82,21 @@ Future<void> deleteComment({required String commentId}) async {
 
 Future<void> removeLikeNotification({
   required String targetUserId,
-  required String postId,
-  required String likerId,
+  required String sourceId,
+  required String senderId,
 }) async {
   try {
-    print("UNLIKING POST..");
+    print("REMOVING NOTIFICATION..");
     await supabase.from('notifications').delete().match({
-      'type': 'like',
+      'type': "like",
       'target_user_id': targetUserId,
-      'source_id': postId,
-      'sender_user_id': likerId,
+      'source_id': sourceId,
+      'sender_user_id': senderId,
     });
 
-    print('Like notification removed successfully');
+    print('notification removed successfully');
   } catch (e) {
-    print('Error removing like notification: $e');
+    print('Error removing notification: $e');
     rethrow;
   }
 }

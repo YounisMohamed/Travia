@@ -48,6 +48,16 @@ class _HomePageState extends ConsumerState<HomePage> {
             })
         .subscribe();
     supabase
+        .channel('public:posts')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'posts',
+            callback: (payload) {
+              print('Change received: ${payload.toString()}');
+            })
+        .subscribe();
+    supabase
         .channel('public:comments')
         .onPostgresChanges(
             event: PostgresChangeEvent.all,
@@ -68,6 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void dispose() {
     supabase.channel('public:notifications').unsubscribe();
+    supabase.channel('public:posts').unsubscribe();
     supabase.channel('public:comments').unsubscribe();
     super.dispose();
   }
@@ -161,6 +172,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     postId: post.postId,
                                     userId: post.userId,
                                     likeCount: post.likeCount,
+                                    postCaption: post.caption,
+                                    postLocation: post.location,
+                                    createdAt: post.createdAt,
                                   ),
                                 );
                               },
@@ -185,7 +199,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   width: 15,
                 ),
                 MUIGradientButton(
-                  text: "DMS BABY",
+                  text: "DMs Page",
                   onPressed: () {
                     context.push("/dms-page");
                   },

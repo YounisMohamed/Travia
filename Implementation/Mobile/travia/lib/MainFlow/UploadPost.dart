@@ -250,25 +250,6 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                   ],
                 ),
               ),
-              if (isUploading)
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        LoadingWidget(),
-                        SizedBox(height: 16),
-                        Text(
-                          "Uploading your post...",
-                          style: TextStyle(
-                            color: theme.primaryColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

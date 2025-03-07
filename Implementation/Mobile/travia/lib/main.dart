@@ -17,6 +17,7 @@ import 'Auth/ForgotPassword.dart';
 import 'Auth/SignInPage.dart';
 import 'Auth/SignUpPage.dart';
 import 'Auth/completeProfilePage.dart';
+import 'MainFlow/ChatPage.dart';
 import 'MainFlow/PermissionsPage.dart';
 import 'MainFlow/PostDetails.dart';
 import 'firebase_options.dart';
@@ -116,6 +117,10 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/dms-page',
           builder: (context, state) => DMsPage(),
+        ),
+        GoRoute(
+          path: '/messages',
+          builder: (context, state) => ChatPage(),
         ),
       ],
     );
