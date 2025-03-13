@@ -27,6 +27,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _preloadAppData() async {
+    await Future.delayed(Duration(milliseconds: 500));
+
     bool allGranted = checkPermissions();
     if (!mounted) return;
     if (!allGranted) {
@@ -52,8 +54,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       _fetchNotifications(),
       _fetchUserData(user.uid),
     ]);
-
-    await Future.delayed(Duration(milliseconds: 500));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.go('/');

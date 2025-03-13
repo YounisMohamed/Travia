@@ -114,11 +114,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  Future<void> _refresh() async {
-    await Future.delayed(Duration(milliseconds: 500));
-    Phoenix.rebirth(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     bool isLoading = ref.watch(loadingProvider);
@@ -155,93 +150,119 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      body: PageView(
-        controller: pageController,
+      body: PopScope(
+        canPop: pageController.hasClients && (pageController.page?.round() == 1),
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && pageController.hasClients && pageController.page?.round() != 1) {
+            pageController.animateToPage(
+              1, // Target index
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        },
+        child: PageView(
+          controller: pageController,
+          children: [
+            UploadPostPage(),
+            HomeWidget(),
+            DMsPage(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class HomeWidget extends ConsumerWidget {
+  const HomeWidget({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> refresh() async {
+      await Future.delayed(Duration(milliseconds: 300));
+      Phoenix.rebirth(context);
+    }
+
+    return Container(
+      color: backgroundColor,
+      child: Column(
         children: [
-          UploadPostPage(),
-          Container(
-            color: backgroundColor,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Consumer(
-                    builder: (context, ref, child) {
-                      final postsAsync = ref.watch(postsProvider);
-                      return RefreshIndicator(
-                        onRefresh: _refresh,
-                        displacement: 32,
-                        color: Colors.black,
-                        backgroundColor: Colors.white,
-                        child: postsAsync.when(
-                          loading: () => Skeletonizer(
-                            enabled: true,
-                            child: ListView.builder(
-                              itemCount: 3,
-                              itemBuilder: (context, index) => DummyPostCard(),
-                            ),
-                          ),
-                          error: (error, stackTrace) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (context.mounted) {
-                                context.go("/error-page/${Uri.encodeComponent(error.toString())}");
-                              }
-                            });
-                            return const Center(child: Text("An error occurred."));
-                          },
-                          data: (posts) => posts.isEmpty
-                              ? const Center(child: Text("No posts to show for now"))
-                              : ListView.builder(
-                                  physics: AlwaysScrollableScrollPhysics(),
-                                  itemCount: posts.length,
-                                  itemBuilder: (context, index) {
-                                    final post = posts[index];
-                                    return GestureDetector(
-                                      onTap: () {
-                                        context.push('/post/${post.postId}');
-                                      },
-                                      child: PostCard(
-                                        profilePicUrl: post.userPhotoUrl,
-                                        username: post.userUserName,
-                                        postImageUrl: post.mediaUrl,
-                                        commentCount: post.commentCount,
-                                        postId: post.postId,
-                                        userId: post.userId,
-                                        likeCount: post.likeCount,
-                                        postCaption: post.caption,
-                                        postLocation: post.location,
-                                        createdAt: post.createdAt,
-                                      ),
-                                    );
-                                  },
-                                ),
-                        ),
-                      );
+          Expanded(
+            child: Consumer(
+              builder: (context, ref, child) {
+                final postsAsync = ref.watch(postsProvider);
+                return RefreshIndicator(
+                  onRefresh: refresh,
+                  displacement: 32,
+                  color: Colors.black,
+                  backgroundColor: Colors.white,
+                  child: postsAsync.when(
+                    loading: () => Skeletonizer(
+                      enabled: true,
+                      child: ListView.builder(
+                        itemCount: 3,
+                        itemBuilder: (context, index) => DummyPostCard(),
+                      ),
+                    ),
+                    error: (error, stackTrace) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (context.mounted) {
+                          context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+                        }
+                      });
+                      return const Center(child: Text("An error occurred."));
                     },
+                    data: (posts) => posts.isEmpty
+                        ? const Center(child: Text("No posts to show for now"))
+                        : ListView.builder(
+                            physics: AlwaysScrollableScrollPhysics(),
+                            itemCount: posts.length,
+                            itemBuilder: (context, index) {
+                              final post = posts[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  context.push('/post/${post.postId}');
+                                },
+                                child: PostCard(
+                                  profilePicUrl: post.userPhotoUrl,
+                                  username: post.userUserName,
+                                  postImageUrl: post.mediaUrl,
+                                  commentCount: post.commentCount,
+                                  postId: post.postId,
+                                  userId: post.userId,
+                                  likeCount: post.likeCount,
+                                  postCaption: post.caption,
+                                  postLocation: post.location,
+                                  createdAt: post.createdAt,
+                                ),
+                              );
+                            },
+                          ),
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    MUIGradientButton(
-                      text: "Sign out",
-                      onPressed: () async {
-                        await signOut(context, ref);
-                      },
-                      bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
-                    ),
-                    SizedBox(
-                      width: 15,
-                    ),
-                    SizedBox(
-                      width: 15,
-                    ),
-                  ],
-                )
-              ],
+                );
+              },
             ),
           ),
-          DMsPage(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              MUIGradientButton(
+                text: "Sign out",
+                onPressed: () async {
+                  await signOut(context, ref);
+                },
+                bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
+              ),
+              SizedBox(
+                width: 15,
+              ),
+              SizedBox(
+                width: 15,
+              ),
+            ],
+          )
         ],
       ),
     );
