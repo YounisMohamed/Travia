@@ -1,4 +1,3 @@
-import 'package:dismissible_page/dismissible_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
@@ -9,14 +8,16 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
+import 'package:travia/MainFlow/DMsPage.dart';
+import 'package:travia/MainFlow/UploadPost.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
 import '../Auth/AuthMethods.dart';
 import '../Helpers/Loading.dart';
-import '../Providers/DatabaseProviders.dart';
+import '../Providers/PostsCommentsProviders.dart';
+import '../Services/UserPresenceService.dart';
 import '../main.dart';
 import 'PostCard.dart';
-import 'UploadPost.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -29,6 +30,9 @@ final dummyImageUrl = "https://picsum.photos/200";
 
 class _HomePageState extends ConsumerState<HomePage> {
   final user = FirebaseAuth.instance.currentUser;
+  PageController pageController = PageController(
+    initialPage: 1,
+  );
 
   @override
   void initState() {
@@ -37,12 +41,43 @@ class _HomePageState extends ConsumerState<HomePage> {
         context.go("/signin");
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(userPresenceServiceProvider).initialize();
+    });
+
+    final currentUserId = user!.uid;
+
+    supabase
+        .channel('public:conversation_participants')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'conversation_participants',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: currentUserId,
+          ),
+          callback: (payload) {
+            print('conversation_participants channel: Change received');
+            print('conversation_participants channel: Event type: ${payload.eventType}');
+            print('conversation_participants channel: Errors: ${payload.errors}');
+            print('conversation_participants channel: Table: ${payload.table}');
+            print('conversation_participants channel: toString(): ${payload.toString()}');
+          },
+        )
+        .subscribe();
     supabase
         .channel('public:notifications')
         .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'notifications',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'target_user_id',
+              value: currentUserId,
+            ),
             callback: (payload) {
               print('Change received: ${payload.toString()}');
             })
@@ -63,11 +98,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'comments',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'user_id',
-              value: user!.uid,
-            ),
             callback: (payload) {
               print('Change received: ${payload.toString()}');
             })
@@ -80,6 +110,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     supabase.channel('public:notifications').unsubscribe();
     supabase.channel('public:posts').unsubscribe();
     supabase.channel('public:comments').unsubscribe();
+    supabase.channel('public:conversation_participants').unsubscribe();
     super.dispose();
   }
 
@@ -98,7 +129,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         elevation: 0,
         title: Row(
           children: [
-            Text("Home"),
+            Text("Travia"),
             SizedBox(width: 10),
             if (isLoading)
               SizedBox(
@@ -124,100 +155,94 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      body: Container(
-        color: backgroundColor,
-        child: Column(
-          children: [
-            Expanded(
-              child: Consumer(
-                builder: (context, ref, child) {
-                  final postsAsync = ref.watch(postsProvider);
-                  return RefreshIndicator(
-                    onRefresh: _refresh,
-                    displacement: 32,
-                    color: Colors.black,
-                    backgroundColor: Colors.white,
-                    child: postsAsync.when(
-                      loading: () => Skeletonizer(
-                        enabled: true,
-                        child: ListView.builder(
-                          itemCount: 3,
-                          itemBuilder: (context, index) => DummyPostCard(),
-                        ),
-                      ),
-                      error: (error, stackTrace) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (context.mounted) {
-                            context.go("/error-page/${Uri.encodeComponent(error.toString())}");
-                          }
-                        });
-                        return const Center(child: Text("An error occurred."));
-                      },
-                      data: (posts) => posts.isEmpty
-                          ? const Center(child: Text("No posts to show for now"))
-                          : ListView.builder(
-                              physics: AlwaysScrollableScrollPhysics(),
-                              itemCount: posts.length,
-                              itemBuilder: (context, index) {
-                                final post = posts[index];
-                                return GestureDetector(
-                                  onTap: () {
-                                    context.push('/post/${post.postId}');
-                                  },
-                                  child: PostCard(
-                                    profilePicUrl: post.userPhotoUrl,
-                                    username: post.userUserName,
-                                    postImageUrl: post.mediaUrl,
-                                    commentCount: post.commentCount,
-                                    postId: post.postId,
-                                    userId: post.userId,
-                                    likeCount: post.likeCount,
-                                    postCaption: post.caption,
-                                    postLocation: post.location,
-                                    createdAt: post.createdAt,
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+      body: PageView(
+        controller: pageController,
+        children: [
+          UploadPostPage(),
+          Container(
+            color: backgroundColor,
+            child: Column(
               children: [
-                MUIGradientButton(
-                  text: "Sign out",
-                  onPressed: () async {
-                    await signOut(context, ref);
-                  },
-                  bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
+                Expanded(
+                  child: Consumer(
+                    builder: (context, ref, child) {
+                      final postsAsync = ref.watch(postsProvider);
+                      return RefreshIndicator(
+                        onRefresh: _refresh,
+                        displacement: 32,
+                        color: Colors.black,
+                        backgroundColor: Colors.white,
+                        child: postsAsync.when(
+                          loading: () => Skeletonizer(
+                            enabled: true,
+                            child: ListView.builder(
+                              itemCount: 3,
+                              itemBuilder: (context, index) => DummyPostCard(),
+                            ),
+                          ),
+                          error: (error, stackTrace) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (context.mounted) {
+                                context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+                              }
+                            });
+                            return const Center(child: Text("An error occurred."));
+                          },
+                          data: (posts) => posts.isEmpty
+                              ? const Center(child: Text("No posts to show for now"))
+                              : ListView.builder(
+                                  physics: AlwaysScrollableScrollPhysics(),
+                                  itemCount: posts.length,
+                                  itemBuilder: (context, index) {
+                                    final post = posts[index];
+                                    return GestureDetector(
+                                      onTap: () {
+                                        context.push('/post/${post.postId}');
+                                      },
+                                      child: PostCard(
+                                        profilePicUrl: post.userPhotoUrl,
+                                        username: post.userUserName,
+                                        postImageUrl: post.mediaUrl,
+                                        commentCount: post.commentCount,
+                                        postId: post.postId,
+                                        userId: post.userId,
+                                        likeCount: post.likeCount,
+                                        postCaption: post.caption,
+                                        postLocation: post.location,
+                                        createdAt: post.createdAt,
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                SizedBox(
-                  width: 15,
-                ),
-                MUIGradientButton(
-                  text: "DMs Page",
-                  onPressed: () {
-                    context.push("/dms-page");
-                  },
-                  bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
-                ),
-                SizedBox(
-                  width: 15,
-                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    MUIGradientButton(
+                      text: "Sign out",
+                      onPressed: () async {
+                        await signOut(context, ref);
+                      },
+                      bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
+                    ),
+                    SizedBox(
+                      width: 15,
+                    ),
+                    SizedBox(
+                      width: 15,
+                    ),
+                  ],
+                )
               ],
-            )
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.pushTransparentRoute(UploadPostPage());
-        },
-        child: Icon(Icons.add_a_photo),
+            ),
+          ),
+          DMsPage(),
+        ],
       ),
     );
   }

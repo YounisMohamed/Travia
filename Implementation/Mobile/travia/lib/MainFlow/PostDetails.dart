@@ -9,7 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../Helpers/GoogleTexts.dart';
 import '../Helpers/PopUp.dart';
-import '../Providers/DatabaseProviders.dart';
+import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/LoadingProvider.dart';
 import '../Providers/PostsLikesProvider.dart';
 import '../Providers/SavedPostsProvider.dart';

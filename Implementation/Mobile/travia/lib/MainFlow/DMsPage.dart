@@ -1,3 +1,6 @@
+import 'dart:developer';
+
+import 'package:dismissible_page/dismissible_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/DummyCards.dart';
+import 'package:travia/MainFlow/ChatPage.dart';
 import 'package:travia/Providers/ConversationNotificationsProvider.dart';
 
 import '../Helpers/HelperMethods.dart';
@@ -28,60 +32,48 @@ class _DMsPageState extends ConsumerState<DMsPage> {
         context.go("/signin");
       });
     }
-    supabase
-        .channel('public:messages') // TODO: Messages page later
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'messages',
-            callback: (payload) {
-              print('Change received: ${payload.toString()}');
-            })
-        .subscribe();
-    supabase
-        .channel('public:conversations')
-        .onPostgresChanges(
+    Future<List<String>> fetchConversationIds() async {
+      final response = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', user!.uid);
+      return (response as List).map((row) => row['conversation_id'] as String).toList();
+    }
+
+    fetchConversationIds().then((conversationIds) {
+      supabase
+          .channel('public:conversations')
+          .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'conversations',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.inFilter,
+              column: 'conversation_id',
+              value: conversationIds,
+            ),
             callback: (payload) {
-              print('Change received: ${payload.toString()}');
-            })
-        .subscribe();
-    supabase
-        .channel('public:conversation_participants')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'conversation_participants',
-            callback: (payload) {
-              print('Change received: ${payload.toString()}');
-            })
-        .subscribe();
+              print('conversations channel: Change received');
+              print('conversations channel: Event type: ${payload.eventType}');
+              print('conversations channel: Errors: ${payload.errors}');
+              print('conversations channel: Table: ${payload.table}');
+              print('conversations channel: toString(): ${payload.toString()}');
+            },
+          )
+          .subscribe();
+    });
+
     super.initState();
   }
 
   @override
   void dispose() {
-    supabase.channel('public:messages').unsubscribe();
     supabase.channel('public:conversations').unsubscribe();
-    supabase.channel('public:conversation_participants').unsubscribe();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use the new streamlined provider
     final detailsAsync = ref.watch(conversationDetailsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Conversations"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
-        forceMaterialTransparency: true,
-      ),
       body: detailsAsync.when(
         loading: () => ListView.builder(
           itemCount: 6,
@@ -92,17 +84,14 @@ class _DMsPageState extends ConsumerState<DMsPage> {
           },
         ),
         error: (error, stack) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+          log(error.toString());
+          log(stack.toString());
+          /*WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error loading conversations: ${error.toString()}'),
-                  backgroundColor: Colors.red,
-                ),
-              );
               context.go("/error-page/${Uri.encodeComponent(error.toString())}");
             }
           });
+           */
           return Center(
             child: Text('Failed to load conversations.'),
           );
@@ -158,7 +147,6 @@ class _DMsPageState extends ConsumerState<DMsPage> {
   }
 }
 
-/// A modular widget for a conversation tile in the list.
 class ConversationTile extends ConsumerWidget {
   final String conversationId;
   final String conversationType;
@@ -193,24 +181,10 @@ class ConversationTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    print("ConversationTile: conversationId=$conversationId");
-    print("ConversationTile: conversationType=$conversationType");
-    print("ConversationTile: title=$title");
-    print("ConversationTile: lastMessageContent=$lastMessageContent");
-    print("ConversationTile: lastMessageAt=$lastMessageAt");
-    print("ConversationTile: userUsername=$userUsername");
-    print("ConversationTile: userPhotoUrl=$userPhotoUrl");
-    print("ConversationTile: unreadCount=$unreadCount");
-    print("ConversationTile: sender=$sender");
-    print("ConversationTile: isTyping=$isTyping");
-    print("ConversationTile: isPinned=$isPinned");
-    print("ConversationTile: chatTheme=$chatTheme");
-    print("Typing count: typeCount=$typingCount}");
     // for direct messages, show the participant username;
     // for group conversations, show the conversation title.
     final notificationState = ref.watch(convNotificationsProvider);
     final isNotificationEnabled = notificationState[conversationId] ?? false;
-    print("NOTIFICATIONS ENABLED: $isNotificationEnabled");
     bool isDirect = conversationType == 'direct';
     bool isGroup = conversationType == 'group';
 
@@ -228,9 +202,9 @@ class ConversationTile extends ConsumerWidget {
       typingText = "$userUsername is typing...";
     } else if (isGroup && typingCount > 0) {
       if (typingCount == 1 && isTyping) {
-        typingText = "$userUsername is typing..."; // Current user is the only one typing
+        typingText = "$userUsername is typing...";
       } else {
-        typingText = "$typingCount people are typing..."; // Multiple people typing
+        typingText = "$typingCount people are typing...";
       }
     }
 
@@ -335,7 +309,7 @@ class ConversationTile extends ConsumerWidget {
         ],
       ),
       onTap: () {
-        context.push("/messages");
+        context.pushTransparentRoute(ChatPage(conversationId: conversationId));
         print('Tapped conversation: $conversationId');
       },
     );

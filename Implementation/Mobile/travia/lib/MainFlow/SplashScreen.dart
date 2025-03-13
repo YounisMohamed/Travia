@@ -1,29 +1,32 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../Helpers/GoogleTexts.dart';
+import '../Providers/ConversationProvider.dart';
+import '../Providers/NotificationProvider.dart';
+import '../Providers/PostsCommentsProviders.dart';
 import '../main.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAppState();
+    _preloadAppData();
   }
 
-  Future<void> _checkAppState() async {
-    await Future.delayed(Duration(milliseconds: 1200));
-    if (!mounted) return; // Exit if widget is already disposed
-
+  Future<void> _preloadAppData() async {
     bool allGranted = checkPermissions();
     if (!mounted) return;
     if (!allGranted) {
@@ -42,9 +45,68 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    String? cachedUserId = prefs?.getString('supabase_user_id_${user.uid}');
+    // Prefetch the async providers before navigating
+    await Future.wait([
+      _fetchPosts(),
+      _fetchConversations(),
+      _fetchNotifications(),
+      _fetchUserData(user.uid),
+    ]);
+
+    await Future.delayed(Duration(milliseconds: 500));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.go('/');
+    });
+  }
+
+  Future<void> _fetchPosts() async {
+    final postsAsync = ref.read(postsProvider);
+    await postsAsync.when(
+      loading: () => Future.value(),
+      error: (err, _) => Future.error(err),
+      data: (posts) async {
+        for (var post in posts) {
+          await precacheImage(NetworkImage(post.mediaUrl), context);
+        }
+      },
+    );
+  }
+
+  Future<void> _fetchNotifications() async {
+    final notificationsAsync = ref.read(notificationsProvider);
+    await notificationsAsync.when(
+      loading: () => Future.value(),
+      error: (err, _) => Future.error(err),
+      data: (notifications) async {
+        for (var notification in notifications) {
+          if (notification.senderPhoto != null && notification.senderPhoto!.isNotEmpty) {
+            await precacheImage(NetworkImage(notification.senderPhoto!), context);
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _fetchConversations() async {
+    final conversationsAsync = ref.read(conversationDetailsProvider);
+    await conversationsAsync.when(
+      loading: () => Future.value(),
+      error: (err, _) => Future.error(err),
+      data: (conversations) async {
+        for (var conversation in conversations) {
+          if (conversation.userPhotoUrl != null && conversation.userPhotoUrl!.isNotEmpty) {
+            await precacheImage(NetworkImage(conversation.userPhotoUrl!), context);
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _fetchUserData(String uid) async {
+    String? cachedUserId = prefs?.getString('supabase_user_id_$uid');
     if (cachedUserId == null) {
-      String? supabaseUserId = await getSupabaseUserId(user.uid);
+      String? supabaseUserId = await getSupabaseUserId(uid);
       if (!mounted) return;
       if (supabaseUserId == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -52,26 +114,9 @@ class _SplashScreenState extends State<SplashScreen> {
         });
         return;
       } else {
-        await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
-      }
-    } else {
-      if (cachedUserId != user.uid) {
-        String? supabaseUserId = await getSupabaseUserId(user.uid);
-        if (!mounted) return;
-        if (supabaseUserId == null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) context.go('/complete-profile');
-          });
-          return;
-        } else {
-          await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
-        }
+        await prefs?.setString('supabase_user_id_$uid', supabaseUserId);
       }
     }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.go('/');
-    });
   }
 
   Future<String?> getSupabaseUserId(String firebaseUserId) async {

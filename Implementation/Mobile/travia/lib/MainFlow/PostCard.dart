@@ -10,7 +10,7 @@ import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/database/DatabaseMethods.dart';
 
 import '../Helpers/PopUp.dart';
-import '../Providers/DatabaseProviders.dart';
+import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
 import '../Providers/SavedPostsProvider.dart';
 import 'CommentSheet.dart';

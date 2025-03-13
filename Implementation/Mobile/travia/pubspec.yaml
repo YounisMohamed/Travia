@@ -69,6 +69,10 @@ dependencies:
   connectivity_plus: ^6.1.3
   shared_preferences: ^2.5.2
   flutter_launcher_icons: ^0.14.3
+  flutter_slidable: ^4.0.0
+  popover: ^0.3.1
+  swipe_to: ^1.0.6
+  cached_network_image: ^3.4.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -97,6 +101,7 @@ flutter:
     - assets/TraviaLogo.png
     - assets/liked.png
     - assets/unliked.png
+    - assets/placeholder_image.png
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

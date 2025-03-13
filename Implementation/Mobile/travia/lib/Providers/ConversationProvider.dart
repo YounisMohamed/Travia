@@ -16,10 +16,6 @@ final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((re
       .stream(primaryKey: ['conversation_id'])
       .order('COALESCE(last_message_at, created_at)', ascending: false)
       .order('created_at', ascending: false)
-      .map((data) {
-        print('Stream Event: $data');
-        return data;
-      })
       .asyncMap((_) async {
         final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': currentUserId});
         print('RPC Response: $response');

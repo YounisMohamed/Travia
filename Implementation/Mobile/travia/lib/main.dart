@@ -119,8 +119,11 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => DMsPage(),
         ),
         GoRoute(
-          path: '/messages',
-          builder: (context, state) => ChatPage(),
+          path: '/messages/:conversationId',
+          builder: (context, state) {
+            final conversationId = state.pathParameters['conversationId']!;
+            return ChatPage(conversationId: conversationId);
+          },
         ),
       ],
     );

@@ -15,7 +15,7 @@ import 'package:travia/Providers/CommentsLikesProvider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../Classes/Comment.dart';
-import '../Providers/DatabaseProviders.dart';
+import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/LoadingProvider.dart';
 import '../Providers/ReplyToCommentProvider.dart';
 import '../database/DatabaseMethods.dart';

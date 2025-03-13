@@ -132,7 +132,7 @@ Future<void> savePostToDatabase(String userId, String imageUrl, String caption, 
       'media_url': imageUrl,
       'caption': caption,
       'location': location,
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': DateTime.now().toUtc().toIso8601String(),
     });
   } catch (e) {
     print("Database Error: $e");
@@ -204,4 +204,33 @@ Future<void> addSavedPost(String userId, String postId) async {
     print('Error saving post: $e');
     rethrow;
   }
+}
+
+Future<void> markMessagesAsRead(String conversationId) async {
+  final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (currentUserId.isEmpty) return;
+
+  try {
+    await supabase.rpc('mark_messages_as_read', params: {
+      'p_conversation_id': conversationId,
+      'p_user_id': currentUserId,
+    });
+  } catch (e) {
+    print('Error marking messages as read: $e');
+  }
+}
+
+Future<void> removeMessage({required String messageId}) async {
+  print("REMOVING MESSAGE..");
+  await supabase.from('messages').update({
+    'is_deleted': true,
+    'content': "DELETED MESSAGE",
+  }).eq('message_id', messageId);
+}
+
+Future<void> updateMessage({required String content, required String messageId}) async {
+  await supabase.from('messages').update({
+    'content': content,
+    'is_edited': true,
+  }).eq('message_id', messageId);
 }

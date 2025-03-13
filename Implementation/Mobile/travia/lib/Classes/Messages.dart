@@ -5,13 +5,16 @@ class Message {
   final String content;
   final String contentType;
   final DateTime sentAt;
-  final DateTime? deliveredAt;
-  final DateTime? readAt;
+  final Map<String, String?>? readBy;
   final bool isEdited;
   final String? replyToMessageId;
+  final String? replyToMessageSender;
   final Map<String, dynamic>? reactions;
   final String? senderUsername;
   final String? senderProfilePic;
+  final bool isConfirmed;
+  final String? replyToMessageContent;
+  final bool isDeleted;
 
   Message({
     required this.messageId,
@@ -20,13 +23,16 @@ class Message {
     required this.content,
     required this.contentType,
     required this.sentAt,
-    this.deliveredAt,
-    this.readAt,
+    this.readBy,
     required this.isEdited,
+    required this.isDeleted,
     this.replyToMessageId,
+    this.replyToMessageSender,
+    this.replyToMessageContent,
     this.reactions,
     this.senderUsername,
     this.senderProfilePic,
+    this.isConfirmed = false,
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
@@ -37,13 +43,54 @@ class Message {
       content: map['content'],
       contentType: map['content_type'],
       sentAt: DateTime.parse(map['sent_at']),
-      deliveredAt: map['delivered_at'] != null ? DateTime.parse(map['delivered_at']) : null,
-      readAt: map['read_at'] != null ? DateTime.parse(map['read_at']) : null,
+      readBy: map['read_by'] != null ? Map<String, String?>.from(map['read_by']) : null,
       isEdited: map['is_edited'] ?? false,
       replyToMessageId: map['reply_to_message_id'],
+      replyToMessageSender: map['reply_to_message_sender'],
+      replyToMessageContent: map['reply_to_message_content'],
       reactions: map['reactions'] != null ? Map<String, dynamic>.from(map['reactions']) : null,
       senderUsername: map['sender_username'],
       senderProfilePic: map['sender_profilepic'],
+      isDeleted: map['is_deleted'],
+      isConfirmed: true,
+    );
+  }
+
+  Message copyWith({
+    String? messageId,
+    String? conversationId,
+    String? senderId,
+    String? content,
+    String? contentType,
+    DateTime? sentAt,
+    Map<String, String?>? readBy,
+    bool? isEdited,
+    String? replyToMessageId,
+    String? replyToMessageSender,
+    String? replyToMessageContent,
+    Map<String, dynamic>? reactions,
+    String? senderUsername,
+    String? senderProfilePic,
+    bool? isConfirmed,
+    bool? isDeleted,
+  }) {
+    return Message(
+      messageId: messageId ?? this.messageId,
+      conversationId: conversationId ?? this.conversationId,
+      senderId: senderId ?? this.senderId,
+      content: content ?? this.content,
+      contentType: contentType ?? this.contentType,
+      sentAt: sentAt ?? this.sentAt,
+      readBy: readBy ?? this.readBy,
+      isEdited: isEdited ?? this.isEdited,
+      replyToMessageId: replyToMessageId ?? this.replyToMessageId,
+      replyToMessageSender: replyToMessageSender ?? this.replyToMessageSender,
+      replyToMessageContent: replyToMessageContent ?? this.replyToMessageContent,
+      reactions: reactions ?? this.reactions,
+      senderUsername: senderUsername ?? this.senderUsername,
+      senderProfilePic: senderProfilePic ?? this.senderProfilePic,
+      isConfirmed: isConfirmed ?? this.isConfirmed,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 }

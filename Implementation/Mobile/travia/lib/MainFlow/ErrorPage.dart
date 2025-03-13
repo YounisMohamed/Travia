@@ -10,7 +10,6 @@ class ErrorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print(error);
     return Scaffold(
       backgroundColor: Colors.white, // White background for contrast
       body: Center(

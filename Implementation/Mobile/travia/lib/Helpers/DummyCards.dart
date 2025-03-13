@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import 'Constants.dart';
@@ -237,7 +239,7 @@ class DummyChatCard extends StatelessWidget {
         children: [
           const CircleAvatar(
             radius: 16,
-            backgroundColor: Colors.grey,
+            backgroundColor: Colors.white70,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -251,12 +253,12 @@ class DummyChatCard extends StatelessWidget {
                     Container(
                       height: 12,
                       width: 60,
-                      color: Colors.grey[300],
+                      color: Colors.grey[200],
                     ),
                     Container(
                       height: 10,
                       width: 40,
-                      color: Colors.grey[300],
+                      color: Colors.grey[200],
                     ),
                   ],
                 ),
@@ -265,8 +267,87 @@ class DummyChatCard extends StatelessWidget {
                   child: Container(
                     height: 12 * 2,
                     width: double.infinity,
-                    color: Colors.grey[300],
+                    color: Colors.grey[200],
                   ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DummyMessageBubble extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final random = Random();
+    final isCurrentUser = random.nextBool(); // Randomly switch sides
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isCurrentUser) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey[300], // Placeholder color
+            ),
+            SizedBox(width: 8),
+          ],
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.6, // Smaller for better placeholder effect
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white70,
+              borderRadius: BorderRadius.circular(20).copyWith(
+                bottomLeft: isCurrentUser ? Radius.circular(20) : Radius.circular(0),
+                bottomRight: isCurrentUser ? Radius.circular(0) : Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!isCurrentUser)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: Container(
+                      // Placeholder username
+                      width: 80, // Adjust width as needed
+                      height: 12,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                Container(
+                  //Placeholder message content
+                  width: double.infinity,
+                  height: 12,
+                  color: Colors.grey[400],
+                ),
+                SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      //Placeholder time
+                      width: 40,
+                      height: 10,
+                      color: Colors.grey[400],
+                    ),
+                    if (isCurrentUser) ...[
+                      SizedBox(width: 4),
+                      Icon(
+                        Icons.done_all, // Placeholder icon
+                        size: 14,
+                        color: Colors.grey[400],
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
