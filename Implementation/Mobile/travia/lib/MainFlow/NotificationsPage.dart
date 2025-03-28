@@ -39,9 +39,11 @@ class NotificationsPage extends ConsumerWidget {
           ),
         ),
         error: (error, stack) {
+          print(error);
+          print(stack);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) {
-              context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+              context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/notifications")}");
             }
           });
           return const Center(child: Text("An error occurred."));

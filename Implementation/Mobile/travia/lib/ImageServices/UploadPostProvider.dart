@@ -26,7 +26,7 @@ class PostUploadNotifier extends StateNotifier<bool> {
       return;
     }
 
-    state = true; // Start loading
+    state = true; // loading
 
     bool success = await PostUploader.uploadPost(
       userId: userId,

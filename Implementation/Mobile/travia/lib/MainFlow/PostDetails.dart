@@ -1,16 +1,18 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:uuid/uuid.dart';
 
+import '../Classes/Post.dart';
 import '../Helpers/GoogleTexts.dart';
 import '../Helpers/PopUp.dart';
-import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/LoadingProvider.dart';
+import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
 import '../Providers/SavedPostsProvider.dart';
 import '../database/DatabaseMethods.dart';
@@ -47,10 +49,29 @@ class PostDetailsPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(child: RedHatText(text: 'Error: $error')),
         data: (posts) {
-          final post = posts.firstWhere(
-            (p) => p.postId == postId,
-            orElse: () => throw Exception('Post not found'),
-          );
+          final post = posts.firstWhere((p) => p.postId == postId, orElse: () {
+            return Post(
+              postId: "",
+              createdAt: DateTime.now(),
+              userId: "",
+              commentCount: 0,
+              likeCount: 0,
+              mediaUrl: "",
+              userPhotoUrl: "",
+              userUserName: "",
+              viewCount: 0,
+            );
+          });
+
+          if (post.postId == "") {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go("/");
+              }
+            });
+            return const SizedBox.shrink();
+          }
+
           final displayNumberOfLikes = ref.watch(postLikeCountProvider((postId: postId, initialLikeCount: post.likeCount)));
           return CustomScrollView(
             // rest of code..

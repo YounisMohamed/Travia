@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 String timeAgo(DateTime utcDateTime) {
   // Force the input to UTC (Every body's time is different so its a time mw7d)
   final utcTime = utcDateTime.isUtc
@@ -50,4 +52,12 @@ String formatCount(int count) {
       return '${(count / 1000000000000).toStringAsFixed(1)}B';
     }
   }
+}
+
+dynamic isMostlyRtl(String text) {
+  // Lw el kalam mostly arabic, rtl, else ltr
+  final rtlChars = RegExp(r'[\u0600-\u06FF]');
+  final rtlCount = rtlChars.allMatches(text).length;
+  final totalCount = text.length;
+  return (rtlCount / totalCount > 0.5) ? TextDirection.rtl : TextDirection.ltr;
 }

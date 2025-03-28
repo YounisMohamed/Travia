@@ -10,16 +10,17 @@ import '../Helpers/GoogleTexts.dart';
 import '../Providers/ConversationProvider.dart';
 import '../Providers/NotificationProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
+import '../database/DatabaseMethods.dart';
 import '../main.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -27,16 +28,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _preloadAppData() async {
-    await Future.delayed(Duration(milliseconds: 500));
-
-    bool allGranted = checkPermissions();
-    if (!mounted) return;
-    if (!allGranted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go('/permissions');
-      });
-      return;
-    }
+    await Future.delayed(Duration(milliseconds: 0));
 
     final user = FirebaseAuth.instance.currentUser;
     if (!mounted) return;
@@ -47,17 +39,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
 
-    // Prefetch the async providers before navigating
-    await Future.wait([
-      _fetchPosts(),
-      _fetchConversations(),
-      _fetchNotifications(),
-      _fetchUserData(user.uid),
-    ]);
+    try {
+      // Set a timeout of 5 seconds
+      await Future.any([
+        Future.wait([
+          _fetchPosts(),
+          _fetchConversations(),
+          _fetchNotifications(),
+          _fetchUserData(user.uid),
+          fetchConversationIds(user.uid),
+        ]),
+        Future.delayed(Duration(seconds: 5), () => throw TimeoutException('Timeout while loading data')),
+      ]);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.go('/');
-    });
+      print("Reached");
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) context.go('/');
+        });
+      }
+    } catch (e) {
+      print("Error: $e");
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            context.go("/error-page/${Uri.encodeComponent(e.toString())}/${Uri.encodeComponent("/")}");
+          }
+        });
+      }
+    }
   }
 
   Future<void> _fetchPosts() async {
@@ -66,7 +76,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       loading: () => Future.value(),
       error: (err, _) => Future.error(err),
       data: (posts) async {
-        for (var post in posts) {
+        final recentPosts = posts.take(10).toList();
+        for (var post in recentPosts) {
           await precacheImage(NetworkImage(post.mediaUrl), context);
         }
       },
@@ -78,13 +89,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await notificationsAsync.when(
       loading: () => Future.value(),
       error: (err, _) => Future.error(err),
-      data: (notifications) async {
-        for (var notification in notifications) {
-          if (notification.senderPhoto != null && notification.senderPhoto!.isNotEmpty) {
-            await precacheImage(NetworkImage(notification.senderPhoto!), context);
-          }
-        }
-      },
+      data: (_) => Future.value(),
     );
   }
 
@@ -93,13 +98,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await conversationsAsync.when(
       loading: () => Future.value(),
       error: (err, _) => Future.error(err),
-      data: (conversations) async {
-        for (var conversation in conversations) {
-          if (conversation.userPhotoUrl != null && conversation.userPhotoUrl!.isNotEmpty) {
-            await precacheImage(NetworkImage(conversation.userPhotoUrl!), context);
-          }
-        }
-      },
+      data: (_) => Future.value(),
     );
   }
 
@@ -134,10 +133,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
   }
 
-  bool checkPermissions() {
-    return true; // will need later
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -147,9 +142,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF8A2BE2), // Deep purple
-              Color(0xFF4B0082), // Indigo
-              Color(0xFF6A5ACD), // Slate blue
+              Colors.pinkAccent, // Deep purple
+              Colors.purple, // Indigo
+              Colors.orangeAccent, // Slate blue
             ],
           ),
         ),
@@ -186,44 +181,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.flight_takeoff,
-                      color: Colors.white,
-                      size: 80,
-                    )
-                        .animate()
-                        .fade(duration: 300.ms)
-                        .scale(
-                          begin: const Offset(0.5, 0.5),
-                          end: const Offset(1, 1),
-                          duration: 400.ms,
-                          curve: Curves.elasticOut,
-                        )
-                        .then()
-                        .slideX(
-                          begin: -0.2,
-                          end: 0.2,
-                          duration: 1000.ms,
-                          curve: Curves.easeInOutSine,
-                        )
-                        .slideY(
-                          begin: 0.1,
-                          end: -0.1,
-                          duration: 1000.ms,
-                          curve: Curves.easeInOutSine,
-                        )
-                        .rotate(
-                          begin: -0.1,
-                          end: 0.1,
-                          duration: 1000.ms,
-                          curve: Curves.easeInOutSine,
-                        ),
-                  ),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.flight_takeoff,
+                        color: Colors.white,
+                        size: 80,
+                      )),
                   const SizedBox(height: 30),
                   RedHatText(
                     text: "Travia",

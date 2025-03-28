@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:travia/Helpers/PopUp.dart';
 
 import '../Helpers/GoogleTexts.dart';
+
+Future<bool> checkPermissions() async {
+  final PermissionState ps = await PhotoManager.requestPermissionExtend();
+  return ps.isAuth;
+}
 
 class PermissionPage extends StatelessWidget {
   const PermissionPage({super.key});
 
   Future<void> _requestPermissions(BuildContext context) async {
-    // Check and request permissions based on Android version
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.storage,
-    ].request();
-
-    print('Storage: ${statuses[Permission.storage]}');
-
-    bool allGranted = /* await checkPermissions(); */ true;
-
-    if (allGranted) {
-      _showSnackBar(context, 'All permissions granted!', Colors.green);
+    final PermissionState ps = await PhotoManager.requestPermissionExtend();
+    if (ps.isAuth) {
+      Popup.showPopUp(
+        text: 'Storage permission granted!',
+        context: context,
+        color: Colors.greenAccent,
+      );
+      context.go("/splash-screen");
+    } else if (ps.hasAccess) {
+      Popup.showPopUp(
+        text: 'Limited access granted!',
+        context: context,
+        color: Colors.orangeAccent,
+      );
       context.go("/splash-screen");
     } else {
-      _showSnackBar(context, 'Some permissions are missing, add them in settings', Colors.redAccent);
       _showSettingsDialog(context);
     }
   }
@@ -49,16 +58,6 @@ class PermissionPage extends StatelessWidget {
     );
   }
 
-  void _showSnackBar(BuildContext context, String text, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text, textAlign: TextAlign.center),
-        backgroundColor: color,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -69,8 +68,7 @@ class PermissionPage extends StatelessWidget {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Colors.purpleAccent,
-              Colors.deepOrange,
+              Colors.purple,
               Colors.white,
             ],
             begin: Alignment.topLeft,
@@ -157,7 +155,7 @@ class PermissionPage extends StatelessWidget {
                     text: "Lets Go!",
                     center: true,
                     italic: true,
-                    color: Colors.deepOrange,
+                    color: Colors.black,
                     size: 22,
                     isBold: true,
                   ),
@@ -229,7 +227,7 @@ class _PermissionCard extends StatelessWidget {
                   subtitle,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.black54,
+                    color: Colors.black,
                   ),
                 ),
               ],

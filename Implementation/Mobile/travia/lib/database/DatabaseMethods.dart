@@ -125,21 +125,6 @@ Future<void> sendNotification({
   }
 }
 
-Future<void> savePostToDatabase(String userId, String imageUrl, String caption, String location) async {
-  try {
-    await supabase.from('posts').insert({
-      'user_id': userId,
-      'media_url': imageUrl,
-      'caption': caption,
-      'location': location,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-    });
-  } catch (e) {
-    print("Database Error: $e");
-    rethrow;
-  }
-}
-
 Future<void> deletePostFromDatabase(String postId) async {
   print("Starting post deletion for ID: $postId");
 
@@ -224,8 +209,16 @@ Future<void> removeMessage({required String messageId}) async {
   print("REMOVING MESSAGE..");
   await supabase.from('messages').update({
     'is_deleted': true,
-    'content': "DELETED MESSAGE",
+    'content': "DELETED",
   }).eq('message_id', messageId);
+}
+
+Future<void> removeMessageForMe({required String messageId, required String currentUserId}) async {
+  print("REMOVING MESSAGE..");
+  await supabase.rpc('add_deleted_for_me_user', params: {
+    'message_id': messageId,
+    'user_id': currentUserId,
+  });
 }
 
 Future<void> updateMessage({required String content, required String messageId}) async {
@@ -233,4 +226,9 @@ Future<void> updateMessage({required String content, required String messageId})
     'content': content,
     'is_edited': true,
   }).eq('message_id', messageId);
+}
+
+Future<List<String>> fetchConversationIds(String userId) async {
+  final response = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', userId);
+  return (response as List).map((row) => row['conversation_id'] as String).toList();
 }

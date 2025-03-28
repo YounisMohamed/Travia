@@ -7,14 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/MainFlow/ChatPage.dart';
 import 'package:travia/Providers/ConversationNotificationsProvider.dart';
 
 import '../Helpers/HelperMethods.dart';
 import '../Providers/ConversationProvider.dart';
-import '../main.dart';
 
 class DMsPage extends ConsumerStatefulWidget {
   const DMsPage({super.key});
@@ -25,6 +23,7 @@ class DMsPage extends ConsumerStatefulWidget {
 
 class _DMsPageState extends ConsumerState<DMsPage> {
   final user = FirebaseAuth.instance.currentUser;
+
   @override
   void initState() {
     if (user == null) {
@@ -32,40 +31,12 @@ class _DMsPageState extends ConsumerState<DMsPage> {
         context.go("/signin");
       });
     }
-    Future<List<String>> fetchConversationIds() async {
-      final response = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', user!.uid);
-      return (response as List).map((row) => row['conversation_id'] as String).toList();
-    }
-
-    fetchConversationIds().then((conversationIds) {
-      supabase
-          .channel('public:conversations')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'conversations',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.inFilter,
-              column: 'conversation_id',
-              value: conversationIds,
-            ),
-            callback: (payload) {
-              print('conversations channel: Change received');
-              print('conversations channel: Event type: ${payload.eventType}');
-              print('conversations channel: Errors: ${payload.errors}');
-              print('conversations channel: Table: ${payload.table}');
-              print('conversations channel: toString(): ${payload.toString()}');
-            },
-          )
-          .subscribe();
-    });
 
     super.initState();
   }
 
   @override
   void dispose() {
-    supabase.channel('public:conversations').unsubscribe();
     super.dispose();
   }
 
@@ -74,6 +45,9 @@ class _DMsPageState extends ConsumerState<DMsPage> {
     final detailsAsync = ref.watch(conversationDetailsProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        title: Text("Conversations"),
+      ),
       body: detailsAsync.when(
         loading: () => ListView.builder(
           itemCount: 6,
@@ -86,12 +60,11 @@ class _DMsPageState extends ConsumerState<DMsPage> {
         error: (error, stack) {
           log(error.toString());
           log(stack.toString());
-          /*WidgetsBinding.instance.addPostFrameCallback((_) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) {
-              context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+              context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/dms-page")}");
             }
           });
-           */
           return Center(
             child: Text('Failed to load conversations.'),
           );

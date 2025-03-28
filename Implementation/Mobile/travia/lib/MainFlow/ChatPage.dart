@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:swipe_to/swipe_to.dart';
 import 'package:travia/Classes/ConversationParticipants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
@@ -19,6 +18,7 @@ import 'package:uuid/uuid.dart';
 import '../Classes/ChatDetails.dart';
 import '../Classes/Messages.dart';
 import '../Helpers/HelperMethods.dart';
+import '../ImageServices/ImagePickerProvider.dart';
 import '../Providers/ChatDetailsProvider.dart';
 import '../Services/UserPresenceService.dart';
 import '../database/DatabaseMethods.dart';
@@ -40,32 +40,12 @@ class ChatPageState extends ConsumerState<ChatPage> {
   @override
   void initState() {
     super.initState();
-    supabase
-        .channel('public:messages')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'conversation_id',
-            value: widget.conversationId,
-          ),
-          callback: (payload) {
-            print('messages channel: Change received');
-            print('messages channel: Event type: ${payload.eventType}');
-            print('messages channel: Errors: ${payload.errors}');
-            print('messages channel: Table: ${payload.table}');
-            print('messages channel: toString(): ${payload.toString()}');
-          },
-        )
-        .subscribe();
+
     Future.microtask(() => markMessagesAsRead(widget.conversationId));
   }
 
   @override
   void dispose() {
-    supabase.channel('public:messages').unsubscribe();
     _messageController.dispose();
     _scrollController.dispose();
     _debounceTimer?.cancel();
@@ -79,7 +59,6 @@ class ChatPageState extends ConsumerState<ChatPage> {
 
     final pendingMessages = ref.watch(pendingMessagesProvider);
 
-    // Setup listener for cleanup
     _setupMessageListener(currentUserId, pendingMessages);
     _setupPendingMessagesCleanup(ref);
 
@@ -157,6 +136,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
       reactions: null,
       isConfirmed: false,
       isDeleted: false,
+      deletedForMeId: [],
     );
 
     ref.read(pendingMessagesProvider.notifier).update((state) => {
@@ -186,7 +166,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
           .select('message_id')
           .single();
 
-      // Update to confirmed instead of removing
+      // Update to confirmed
       ref.read(pendingMessagesProvider.notifier).update((state) {
         final newState = Map<String, Message>.from(state);
         newState[messageId] = placeholder.copyWith(isConfirmed: true);
@@ -231,14 +211,13 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
         error: (error, stackTrace) {
           dev.log(error.toString());
           dev.log(stackTrace.toString());
-          /*
+
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) {
-              context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+              context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/dms-page")}");
             }
           });
 
-           */
           return Text('Error');
         },
       ),
@@ -300,18 +279,17 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ref.read(messageActionsProvider.notifier).clearSelectedMessages();
             },
           ),
-        if (canDelete)
-          IconButton(
-            icon: Icon(Icons.delete, color: Colors.white),
-            onPressed: () {
-              _showDeleteConfirmation(context, ref, selectedMessages.where((m) => m.senderId == currentUserId).toSet());
-            },
-          ),
+        IconButton(
+          icon: Icon(Icons.delete, color: Colors.white),
+          onPressed: () {
+            _showDeleteConfirmation(context, ref, selectedMessages.toSet(), canDelete);
+          },
+        ),
       ],
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Set<Message> messagesToDelete) {
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Set<Message> messagesToDelete, bool canDelete) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -349,7 +327,7 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
             ),
           ],
         ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actionsAlignment: MainAxisAlignment.start,
         actionsPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         actions: [
           TextButton(
@@ -366,13 +344,41 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ),
           ),
+          if (canDelete)
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                ref.read(messageActionsProvider.notifier).clearSelectedMessages();
+                try {
+                  for (final message in messagesToDelete) {
+                    await removeMessage(messageId: message.messageId);
+                  }
+                } catch (e) {
+                  Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
+                }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.redAccent, // Prominent delete color
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: Text(
+                'DELETE FOR ALL',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               ref.read(messageActionsProvider.notifier).clearSelectedMessages();
               try {
+                final currentUserId = FirebaseAuth.instance.currentUser!.uid;
                 for (final message in messagesToDelete) {
-                  await removeMessage(messageId: message.messageId);
+                  print(message.content);
+                  print(currentUserId);
+                  await removeMessageForMe(messageId: message.messageId, currentUserId: currentUserId);
                 }
               } catch (e) {
                 Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
@@ -383,7 +389,7 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child: Text(
-              'DELETE',
+              'DELETE FOR ME',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -571,6 +577,7 @@ class MessagesList extends ConsumerWidget {
 
     // Add server messages
     for (final message in messages) {
+      if (message.deletedForMeId.contains(currentUserId)) continue;
       messagesMap[message.messageId] = message;
     }
 
@@ -682,6 +689,7 @@ class MessageInputBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editingMessage = ref.watch(messageEditProvider);
+    final textDirection = ref.watch(textDirectionProvider);
 
     // Pre-fill the text field if in editing mode
     if (editingMessage != null && messageController.text.isEmpty) {
@@ -720,18 +728,18 @@ class MessageInputBar extends ConsumerWidget {
     final replyMessage = ref.watch(replyMessageProvider);
 
     return AnimatedContainer(
-      duration: Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 150),
       curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: keyboardSize > 0 ? keyboardSize * 0.01 : 0),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         color: Colors.white,
         child: Column(
           children: [
             if (replyMessage != null)
               Container(
-                padding: EdgeInsets.all(8),
-                margin: EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -741,12 +749,12 @@ class MessageInputBar extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         'Replying to: ${replyMessage.content.length > 50 ? replyMessage.content.substring(0, 50) : replyMessage.content}',
-                        style: TextStyle(color: Colors.black87, fontSize: 14),
+                        style: const TextStyle(color: Colors.black87, fontSize: 14),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close, color: Colors.red),
+                      icon: const Icon(Icons.close, color: Colors.red),
                       onPressed: cancelReply,
                     ),
                   ],
@@ -756,47 +764,41 @@ class MessageInputBar extends ConsumerWidget {
               children: [
                 if (editingMessage != null)
                   IconButton(
-                    icon: Icon(Icons.cancel, color: Colors.red),
+                    icon: const Icon(Icons.cancel, color: Colors.red),
                     onPressed: cancelEditing,
                   ),
                 IconButton(
-                  icon: Icon(Icons.add, color: Color(0xFFFF8C00)),
-                  onPressed: () {},
+                  icon: const Icon(Icons.add, color: Color(0xFFFF8C00)),
+                  onPressed: () {
+                    // TODO
+                    final pickedImage = ref.watch(imagePickerProvider);
+                  },
                 ),
                 Expanded(
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: Expanded(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: 150,
-                          ),
-                          child: TextField(
-                            controller: messageController,
-                            maxLines: null,
-                            minLines: 1,
-                            decoration: InputDecoration(
-                              hintText: editingMessage != null ? "Edit message..." : "Type a message...",
-                              border: InputBorder.none,
-                            ),
-                          ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 150),
+                      child: TextField(
+                        controller: messageController,
+                        maxLines: null,
+                        minLines: 1,
+                        textDirection: textDirection,
+                        onChanged: (text) => updateTextDirection(ref, text),
+                        decoration: InputDecoration(
+                          hintText: editingMessage != null ? "Edit message..." : "Type a message...",
+                          border: InputBorder.none,
                         ),
                       ),
                     ),
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.send, color: Color(0xFFFF8C00)),
+                  icon: const Icon(Icons.send, color: Color(0xFFFF8C00)),
                   onPressed: () => handleSendOrUpdate(),
                 ),
               ],
@@ -838,7 +840,7 @@ class MessageBubble extends ConsumerWidget {
 
     String content = "";
     if (message.isDeleted) {
-      content = "DELETED MESSAGE";
+      content = "DELETED";
     } else {
       content = "${message.content}${message.isEdited ? ' (edited)' : ''}";
     }
@@ -951,8 +953,9 @@ class MessageBubble extends ConsumerWidget {
                       ),
                     Text(
                       content,
+                      textDirection: isMostlyRtl(content),
                       style: TextStyle(
-                        color: isCurrentUser ? Colors.white : Colors.black87,
+                        color: message.isDeleted ? Colors.black54 : (isCurrentUser ? Colors.white : Colors.black87),
                         fontSize: 15,
                         fontStyle: (message.isEdited || message.isDeleted) ? FontStyle.italic : FontStyle.normal,
                       ),

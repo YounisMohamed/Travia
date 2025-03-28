@@ -9,6 +9,7 @@ import 'package:travia/Helpers/HelperMethods.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/database/DatabaseMethods.dart';
 
+import '../Helpers/MediaPreview.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
@@ -226,11 +227,9 @@ class PostCard extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Image(
-                        image: NetworkImage(postImageUrl),
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        height: 300,
+                      MediaPostPreview(
+                        mediaUrl: postImageUrl,
+                        isVideo: postImageUrl.endsWith('.mp4') || postImageUrl.endsWith('.mov'),
                       ),
                       // Location indicator
                       if (postLocation != null && postLocation!.isNotEmpty)

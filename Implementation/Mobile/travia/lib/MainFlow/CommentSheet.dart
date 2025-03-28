@@ -15,8 +15,8 @@ import 'package:travia/Providers/CommentsLikesProvider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../Classes/Comment.dart';
-import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/LoadingProvider.dart';
+import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/ReplyToCommentProvider.dart';
 import '../database/DatabaseMethods.dart';
 
@@ -235,7 +235,11 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                         ),
                       ),
                       error: (error, stackTrace) {
-                        context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (context.mounted) {
+                            context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
+                          }
+                        });
                         return const Center(child: LoadingWidget());
                       },
                       data: (comments) {

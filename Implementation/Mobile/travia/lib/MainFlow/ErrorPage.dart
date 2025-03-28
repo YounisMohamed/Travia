@@ -6,7 +6,8 @@ import '../Helpers/GoogleTexts.dart';
 
 class ErrorPage extends StatelessWidget {
   final String error;
-  const ErrorPage({super.key, required this.error});
+  final String path;
+  const ErrorPage({super.key, required this.error, required this.path});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +55,7 @@ class ErrorPage extends StatelessWidget {
                       isBold: true,
                     ),
                     RedHatText(
-                      text: " and please try again.",
+                      text: "Hey younis remember to remove this later: $error",
                       color: Colors.grey[600]!, // Slightly darker grey for readability
                       size: 16,
                       center: true,
@@ -68,7 +69,7 @@ class ErrorPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 Phoenix.rebirth(context);
-                context.go("/signin");
+                context.go(path);
               }, // Empty onPressed for now
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange, // Orange button
@@ -78,17 +79,11 @@ class ErrorPage extends StatelessWidget {
                 ),
               ),
               child: RedHatText(
-                text: "Restart App",
+                text: "Try again",
                 color: Colors.white, // White text on orange button
                 isBold: true,
                 size: 18,
               ),
-            ),
-            RedHatText(
-              text: "Hey younis remember to remove this later: $error",
-              color: Colors.white, // White text on orange button
-              isBold: true,
-              size: 18,
             ),
           ],
         ),

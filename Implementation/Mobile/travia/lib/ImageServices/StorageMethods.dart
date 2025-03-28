@@ -17,3 +17,18 @@ Future<String?> uploadImageToSupabase(File imageFile, String userId) async {
     return null;
   }
 }
+
+Future<void> savePostToDatabase(String userId, String imageUrl, String caption, String location) async {
+  try {
+    await supabase.from('posts').insert({
+      'user_id': userId,
+      'media_url': imageUrl,
+      'caption': caption,
+      'location': location,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  } catch (e) {
+    print("Database Error: $e");
+    rethrow;
+  }
+}

@@ -1,7 +1,6 @@
 import 'dart:io';
 
-import '../database/DatabaseMethods.dart';
-import 'StorageMethods.dart'; // For saving post details
+import 'StorageMethods.dart';
 
 class PostUploader {
   static Future<bool> uploadPost({

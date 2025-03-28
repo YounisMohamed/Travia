@@ -15,6 +15,7 @@ class Message {
   final bool isConfirmed;
   final String? replyToMessageContent;
   final bool isDeleted;
+  final List<dynamic> deletedForMeId;
 
   Message({
     required this.messageId,
@@ -26,6 +27,7 @@ class Message {
     this.readBy,
     required this.isEdited,
     required this.isDeleted,
+    required this.deletedForMeId,
     this.replyToMessageId,
     this.replyToMessageSender,
     this.replyToMessageContent,
@@ -52,6 +54,7 @@ class Message {
       senderUsername: map['sender_username'],
       senderProfilePic: map['sender_profilepic'],
       isDeleted: map['is_deleted'],
+      deletedForMeId: map['deleted_for_me_id'],
       isConfirmed: true,
     );
   }
@@ -73,24 +76,25 @@ class Message {
     String? senderProfilePic,
     bool? isConfirmed,
     bool? isDeleted,
+    List<dynamic>? deletedForMeId,
   }) {
     return Message(
-      messageId: messageId ?? this.messageId,
-      conversationId: conversationId ?? this.conversationId,
-      senderId: senderId ?? this.senderId,
-      content: content ?? this.content,
-      contentType: contentType ?? this.contentType,
-      sentAt: sentAt ?? this.sentAt,
-      readBy: readBy ?? this.readBy,
-      isEdited: isEdited ?? this.isEdited,
-      replyToMessageId: replyToMessageId ?? this.replyToMessageId,
-      replyToMessageSender: replyToMessageSender ?? this.replyToMessageSender,
-      replyToMessageContent: replyToMessageContent ?? this.replyToMessageContent,
-      reactions: reactions ?? this.reactions,
-      senderUsername: senderUsername ?? this.senderUsername,
-      senderProfilePic: senderProfilePic ?? this.senderProfilePic,
-      isConfirmed: isConfirmed ?? this.isConfirmed,
-      isDeleted: isDeleted ?? this.isDeleted,
-    );
+        messageId: messageId ?? this.messageId,
+        conversationId: conversationId ?? this.conversationId,
+        senderId: senderId ?? this.senderId,
+        content: content ?? this.content,
+        contentType: contentType ?? this.contentType,
+        sentAt: sentAt ?? this.sentAt,
+        readBy: readBy ?? this.readBy,
+        isEdited: isEdited ?? this.isEdited,
+        replyToMessageId: replyToMessageId ?? this.replyToMessageId,
+        replyToMessageSender: replyToMessageSender ?? this.replyToMessageSender,
+        replyToMessageContent: replyToMessageContent ?? this.replyToMessageContent,
+        reactions: reactions ?? this.reactions,
+        senderUsername: senderUsername ?? this.senderUsername,
+        senderProfilePic: senderProfilePic ?? this.senderProfilePic,
+        isConfirmed: isConfirmed ?? this.isConfirmed,
+        isDeleted: isDeleted ?? this.isDeleted,
+        deletedForMeId: deletedForMeId ?? this.deletedForMeId);
   }
 }

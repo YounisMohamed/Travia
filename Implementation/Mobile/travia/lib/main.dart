@@ -18,6 +18,7 @@ import 'Auth/SignInPage.dart';
 import 'Auth/SignUpPage.dart';
 import 'Auth/completeProfilePage.dart';
 import 'MainFlow/ChatPage.dart';
+import 'MainFlow/MediaPickerScreen.dart';
 import 'MainFlow/PermissionsPage.dart';
 import 'MainFlow/PostDetails.dart';
 import 'firebase_options.dart';
@@ -93,10 +94,18 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => PermissionPage(),
         ),
         GoRoute(
-          path: '/error-page/:error',
+          path: '/media-picker',
+          builder: (context, state) => MediaPickerScreen(),
+        ),
+        GoRoute(
+          path: '/error-page/:error/:path',
           builder: (context, state) {
             final error = state.pathParameters['error']!;
-            return ErrorPage(error: error);
+            final path = state.pathParameters['path']!;
+            return ErrorPage(
+              error: error,
+              path: path,
+            );
           },
         ),
         GoRoute(

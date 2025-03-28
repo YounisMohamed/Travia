@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -76,3 +78,10 @@ class MessageEditNotifier extends StateNotifier<Message?> {
 }
 
 final replyMessageProvider = StateProvider<Message?>((ref) => null);
+
+final textDirectionProvider = StateProvider<TextDirection>((ref) => TextDirection.ltr);
+
+void updateTextDirection(WidgetRef ref, String text) {
+  final isRtl = RegExp(r'^[\u0600-\u06FF]').hasMatch(text);
+  ref.read(textDirectionProvider.notifier).state = isRtl ? TextDirection.rtl : TextDirection.ltr;
+}

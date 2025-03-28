@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:modular_ui/modular_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/MainFlow/DMsPage.dart';
 import 'package:travia/MainFlow/UploadPost.dart';
@@ -16,6 +15,7 @@ import '../Auth/AuthMethods.dart';
 import '../Helpers/Loading.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Services/UserPresenceService.dart';
+import '../database/DatabaseMethods.dart';
 import '../main.dart';
 import 'PostCard.dart';
 
@@ -102,6 +102,49 @@ class _HomePageState extends ConsumerState<HomePage> {
               print('Change received: ${payload.toString()}');
             })
         .subscribe();
+
+    fetchConversationIds(user!.uid).then((conversationIds) {
+      supabase
+          .channel('public:conversations')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'conversations',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.inFilter,
+              column: 'conversation_id',
+              value: conversationIds,
+            ),
+            callback: (payload) {
+              print('conversations channel: Change received');
+              print('conversations channel: Event type: ${payload.eventType}');
+              print('conversations channel: Errors: ${payload.errors}');
+              print('conversations channel: Table: ${payload.table}');
+              print('conversations channel: toString(): ${payload.toString()}');
+            },
+          )
+          .subscribe();
+      supabase
+          .channel('public:messages')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'messages',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.inFilter,
+              column: 'conversation_id',
+              value: conversationIds,
+            ),
+            callback: (payload) {
+              print('messages channel: Change received');
+              print('messages channel: Event type: ${payload.eventType}');
+              print('messages channel: Errors: ${payload.errors}');
+              print('messages channel: Table: ${payload.table}');
+              print('messages channel: toString(): ${payload.toString()}');
+            },
+          )
+          .subscribe();
+    });
     super.initState();
   }
 
@@ -111,12 +154,48 @@ class _HomePageState extends ConsumerState<HomePage> {
     supabase.channel('public:posts').unsubscribe();
     supabase.channel('public:comments').unsubscribe();
     supabase.channel('public:conversation_participants').unsubscribe();
+    supabase.channel('public:messages').unsubscribe();
+    supabase.channel('public:conversations').unsubscribe();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: pageController.hasClients && (pageController.page?.round() == 1),
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && pageController.hasClients && pageController.page?.round() != 1) {
+          pageController.animateToPage(
+            1, // Target index
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      },
+      child: PageView(
+        controller: pageController,
+        children: [
+          UploadPostPage(),
+          HomeWidget(),
+          DMsPage(),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeWidget extends ConsumerWidget {
+  const HomeWidget({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> refresh() async {
+      await Future.delayed(Duration(milliseconds: 300));
+      Phoenix.rebirth(context);
+    }
+
     bool isLoading = ref.watch(loadingProvider);
+
     return Scaffold(
       appBar: AppBar(
         forceMaterialTransparency: true,
@@ -124,7 +203,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         elevation: 0,
         title: Row(
           children: [
-            Text("Travia"),
+            Text("Home"),
             SizedBox(width: 10),
             if (isLoading)
               SizedBox(
@@ -150,43 +229,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      body: PopScope(
-        canPop: pageController.hasClients && (pageController.page?.round() == 1),
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && pageController.hasClients && pageController.page?.round() != 1) {
-            pageController.animateToPage(
-              1, // Target index
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          }
-        },
-        child: PageView(
-          controller: pageController,
-          children: [
-            UploadPostPage(),
-            HomeWidget(),
-            DMsPage(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class HomeWidget extends ConsumerWidget {
-  const HomeWidget({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    Future<void> refresh() async {
-      await Future.delayed(Duration(milliseconds: 300));
-      Phoenix.rebirth(context);
-    }
-
-    return Container(
-      color: backgroundColor,
-      child: Column(
+      body: Column(
         children: [
           Expanded(
             child: Consumer(
@@ -206,9 +249,11 @@ class HomeWidget extends ConsumerWidget {
                       ),
                     ),
                     error: (error, stackTrace) {
+                      print(error);
+                      print(stackTrace);
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (context.mounted) {
-                          context.go("/error-page/${Uri.encodeComponent(error.toString())}");
+                          context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
                         }
                       });
                       return const Center(child: Text("An error occurred."));
@@ -254,9 +299,6 @@ class HomeWidget extends ConsumerWidget {
                   await signOut(context, ref);
                 },
                 bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
-              ),
-              SizedBox(
-                width: 15,
               ),
               SizedBox(
                 width: 15,
