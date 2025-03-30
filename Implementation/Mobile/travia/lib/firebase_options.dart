@@ -59,6 +59,9 @@ class DefaultFirebaseOptions {
     messagingSenderId: '536970171951',
     projectId: 'travia-aast-8b14f',
     storageBucket: 'travia-aast-8b14f.firebasestorage.app',
+    androidClientId: '536970171951-ho9vqanbr5a486ofp84timva64lmn48r.apps.googleusercontent.com',
+    iosClientId: '536970171951-su6g0ahdgf98ha64gsh7f8ski12927o1.apps.googleusercontent.com',
     iosBundleId: 'com.grad.aast',
   );
+
 }

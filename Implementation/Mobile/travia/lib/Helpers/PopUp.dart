@@ -13,6 +13,8 @@ class Popup {
         progressBarColor: Colors.grey[500],
       ),
       toastSetting: PopupToastSetting(
+        maxHeight: 15,
+        maxWidth: 25,
         animationDuration: Duration(seconds: 1),
         displayDuration: Duration(seconds: duration),
         toastAlignment: Alignment.bottomCenter,

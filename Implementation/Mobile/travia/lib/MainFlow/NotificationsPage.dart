@@ -325,6 +325,8 @@ class StandardNotificationTile extends StatelessWidget {
             }
             if (type == "comment" || type == "post" || type == "like") {
               context.push('/post/$sourceId');
+            } else if (type == "message") {
+              context.push("/messages/$sourceId");
             }
           },
           borderRadius: BorderRadius.circular(14),

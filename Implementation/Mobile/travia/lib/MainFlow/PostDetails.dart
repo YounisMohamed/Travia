@@ -17,7 +17,6 @@ import '../Providers/PostsLikesProvider.dart';
 import '../Providers/SavedPostsProvider.dart';
 import '../database/DatabaseMethods.dart';
 import 'CommentSheet.dart';
-import 'HomePage.dart';
 
 class PostDetailsPage extends ConsumerWidget {
   final String postId;
@@ -288,7 +287,7 @@ class PostDetailsPage extends ConsumerWidget {
                           CircleAvatar(
                             radius: screenWidth * 0.035,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: NetworkImage(FirebaseAuth.instance.currentUser?.photoURL ?? dummyImageUrl),
+                            backgroundImage: NetworkImage(FirebaseAuth.instance.currentUser?.photoURL ?? ""),
                           ),
                           SizedBox(width: screenWidth * 0.03),
                           Expanded(

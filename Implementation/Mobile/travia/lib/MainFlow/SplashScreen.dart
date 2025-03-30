@@ -52,7 +52,6 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
         Future.delayed(Duration(seconds: 5), () => throw TimeoutException('Timeout while loading data')),
       ]);
 
-      print("Reached");
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) context.go('/');

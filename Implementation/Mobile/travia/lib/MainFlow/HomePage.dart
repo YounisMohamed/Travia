@@ -10,6 +10,7 @@ import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/MainFlow/DMsPage.dart';
 import 'package:travia/MainFlow/UploadPost.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
+import 'package:travia/Services/NotificationService.dart';
 
 import '../Auth/AuthMethods.dart';
 import '../Helpers/Loading.dart';
@@ -26,8 +27,6 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-final dummyImageUrl = "https://picsum.photos/200";
-
 class _HomePageState extends ConsumerState<HomePage> {
   final user = FirebaseAuth.instance.currentUser;
   PageController pageController = PageController(
@@ -36,6 +35,8 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   void initState() {
+    super.initState();
+
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.go("/signin");
@@ -59,11 +60,15 @@ class _HomePageState extends ConsumerState<HomePage> {
             value: currentUserId,
           ),
           callback: (payload) {
+            /*
             print('conversation_participants channel: Change received');
             print('conversation_participants channel: Event type: ${payload.eventType}');
             print('conversation_participants channel: Errors: ${payload.errors}');
             print('conversation_participants channel: Table: ${payload.table}');
             print('conversation_participants channel: toString(): ${payload.toString()}');
+
+
+             */
           },
         )
         .subscribe();
@@ -89,7 +94,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             schema: 'public',
             table: 'posts',
             callback: (payload) {
-              print('Change received: ${payload.toString()}');
+              //print('Change received: ${payload.toString()}');
             })
         .subscribe();
     supabase
@@ -99,7 +104,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             schema: 'public',
             table: 'comments',
             callback: (payload) {
-              print('Change received: ${payload.toString()}');
+              //print('Change received: ${payload.toString()}');
             })
         .subscribe();
 
@@ -116,11 +121,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               value: conversationIds,
             ),
             callback: (payload) {
+              /*
               print('conversations channel: Change received');
               print('conversations channel: Event type: ${payload.eventType}');
               print('conversations channel: Errors: ${payload.errors}');
               print('conversations channel: Table: ${payload.table}');
               print('conversations channel: toString(): ${payload.toString()}');
+              */
             },
           )
           .subscribe();
@@ -136,16 +143,19 @@ class _HomePageState extends ConsumerState<HomePage> {
               value: conversationIds,
             ),
             callback: (payload) {
+              /*
               print('messages channel: Change received');
               print('messages channel: Event type: ${payload.eventType}');
               print('messages channel: Errors: ${payload.errors}');
               print('messages channel: Table: ${payload.table}');
               print('messages channel: toString(): ${payload.toString()}');
+
+               */
             },
           )
           .subscribe();
     });
-    super.initState();
+    NotificationService.init(context);
   }
 
   @override

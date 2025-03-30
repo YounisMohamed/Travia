@@ -18,7 +18,7 @@ final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((re
       .order('created_at', ascending: false)
       .asyncMap((_) async {
         final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': currentUserId});
-        print('RPC Response: $response');
+        //print('RPC Response: $response');
         return (response as List).map((json) => ConversationDetail.fromMap(json as Map<String, dynamic>)).toList();
       });
 });
