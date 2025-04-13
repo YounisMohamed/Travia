@@ -227,7 +227,7 @@ class PostCard extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      MediaPostPreview(
+                      MediaPreview(
                         mediaUrl: postImageUrl,
                         isVideo: postImageUrl.endsWith('.mp4') || postImageUrl.endsWith('.mov'),
                       ),
@@ -445,6 +445,7 @@ class PostCard extends StatelessWidget {
       if (likerId == userId) {
         sendNotification(
           type: 'like',
+          title: "",
           content: 'liked his own post :)',
           target_user_id: userId,
           source_id: postId,
@@ -452,8 +453,9 @@ class PostCard extends StatelessWidget {
         );
       } else {
         sendNotification(
+          title: "liked your post",
           type: 'like',
-          content: 'liked your post',
+          content: 'gave you a like',
           target_user_id: userId,
           source_id: postId,
           sender_user_id: likerId,

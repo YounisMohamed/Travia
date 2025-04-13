@@ -1,16 +1,40 @@
-class Post {
+import 'package:hive/hive.dart';
+
+part 'Post.g.dart';
+
+@HiveType(typeId: 0)
+class Post extends HiveObject {
+  @HiveField(0)
   final DateTime createdAt;
+
+  @HiveField(1)
   final String userId;
+
+  @HiveField(2)
   final String mediaUrl;
+
+  @HiveField(3)
   final String? caption;
+
+  @HiveField(4)
   final String? location;
+
+  @HiveField(5)
   final String postId;
-  // User details
+
+  @HiveField(6)
   final String userPhotoUrl;
+
+  @HiveField(7)
   final String userUserName;
-  // Engagement counts
+
+  @HiveField(8)
   final int commentCount;
+
+  @HiveField(9)
   final int likeCount;
+
+  @HiveField(10)
   final int viewCount;
 
   Post({
@@ -43,19 +67,5 @@ class Post {
     );
   }
 
-  factory Post.fromJson(Map<String, dynamic> json) {
-    return Post(
-      createdAt: DateTime.parse(json['created_at']),
-      userId: json['user_id'],
-      mediaUrl: json['media_url'],
-      caption: json['caption'],
-      location: json['location'],
-      userPhotoUrl: json['poster_photo_url'],
-      userUserName: json['poster_username'],
-      commentCount: json['comments_count'],
-      likeCount: json['likes_count'],
-      postId: json['id'],
-      viewCount: json['views'],
-    );
-  }
+  factory Post.fromJson(Map<String, dynamic> json) => Post.fromMap(json);
 }

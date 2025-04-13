@@ -9,6 +9,7 @@ class Conversation {
   final String? chatTheme;
   final String? lastMessageId;
   final String? lastMessageContent;
+  final String? lastMessageContentType;
   final String? lastMessageSender;
   final bool notificationsEnabled;
   final bool isTyping;
@@ -26,6 +27,7 @@ class Conversation {
     this.lastMessageId,
     this.lastMessageContent,
     this.lastMessageSender,
+    this.lastMessageContentType,
     required this.notificationsEnabled,
     required this.isTyping,
     required this.isPinned,
@@ -44,6 +46,7 @@ class Conversation {
       chatTheme: map['chat_theme'],
       lastMessageId: map['last_message_id'],
       lastMessageContent: map['last_message_content'],
+      lastMessageContentType: map['last_message_content_type'],
       lastMessageSender: map['last_message_sender'],
       notificationsEnabled: map['notifications_enabled'],
       isTyping: map['is_typing'],

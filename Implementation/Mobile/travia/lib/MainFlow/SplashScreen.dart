@@ -14,7 +14,9 @@ import '../database/DatabaseMethods.dart';
 import '../main.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
-  const SplashScreen({super.key});
+  final String? type;
+  final String? source_id;
+  const SplashScreen({super.key, this.type, this.source_id});
 
   @override
   ConsumerState<SplashScreen> createState() => SplashScreenState();
@@ -28,10 +30,11 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _preloadAppData() async {
-    await Future.delayed(Duration(milliseconds: 0));
+    await Future.delayed(Duration.zero);
 
     final user = FirebaseAuth.instance.currentUser;
     if (!mounted) return;
+
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go('/signin');
@@ -39,29 +42,44 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
 
+    // Check if profile exists first
+    final supabaseUserId = await getSupabaseUserId(user.uid);
+    if (!mounted) return;
+
+    if (supabaseUserId == null) {
+      // No profile yet
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/complete-profile');
+      });
+      return;
+    }
+
+    await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
+
     try {
-      // Set a timeout of 5 seconds
       await Future.any([
         Future.wait([
-          _fetchPosts(),
-          _fetchConversations(),
           _fetchNotifications(),
-          _fetchUserData(user.uid),
           fetchConversationIds(user.uid),
         ]),
         Future.delayed(Duration(seconds: 5), () => throw TimeoutException('Timeout while loading data')),
       ]);
 
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) context.go('/');
-        });
-      }
+      if (!mounted) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.type != null && widget.source_id != null) {
+          context.go("/home/${Uri.encodeComponent(widget.type!)}/${Uri.encodeComponent(widget.source_id!)}");
+        } else {
+          context.go('/home');
+        }
+      });
     } catch (e) {
       print("Error: $e");
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) {
+          if (mounted) {
             context.go("/error-page/${Uri.encodeComponent(e.toString())}/${Uri.encodeComponent("/")}");
           }
         });
@@ -119,10 +137,11 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
 
   Future<String?> getSupabaseUserId(String firebaseUserId) async {
     try {
-      final response = await supabase.from('users').select('id').eq('id', firebaseUserId).limit(1);
+      final response = await supabase.from('users').select('id').eq('id', firebaseUserId).maybeSingle();
+      print('User fetch result: $response');
 
-      if (response.isNotEmpty) {
-        return response.first['id'] as String;
+      if (response != null) {
+        return response['id'] as String;
       } else {
         return null;
       }

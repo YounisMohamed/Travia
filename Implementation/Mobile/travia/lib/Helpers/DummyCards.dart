@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'Constants.dart';
 
@@ -351,6 +352,64 @@ class DummyMessageBubble extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ChatAppBarSkeleton extends StatelessWidget implements PreferredSizeWidget {
+  const ChatAppBarSkeleton({super.key});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      containersColor: Colors.white,
+      child: AppBar(
+        forceMaterialTransparency: true,
+        elevation: 0,
+        title: Row(
+          children: [
+            // Fake avatar
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Fake username/title
+                  Container(
+                    width: 150,
+                    height: 16,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 4),
+                  // Fake subtitle
+                  Container(
+                    width: 100,
+                    height: 12,
+                    color: Colors.grey.shade300,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 8.0),
+            child: Icon(Icons.more_vert, color: Colors.transparent),
           ),
         ],
       ),

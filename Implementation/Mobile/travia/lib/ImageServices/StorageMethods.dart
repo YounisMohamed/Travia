@@ -1,5 +1,8 @@
 import 'dart:io';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+
 import '../main.dart';
 
 Future<String?> uploadImageToSupabase(File imageFile, String userId) async {
@@ -14,6 +17,26 @@ Future<String?> uploadImageToSupabase(File imageFile, String userId) async {
     return supabase.storage.from('posts').getPublicUrl(fileName);
   } catch (e) {
     print('Error uploading image: $e');
+    return null;
+  }
+}
+
+Future<String?> uploadRecordToDatabase({required String localPath, required String userId}) async {
+  final file = File(localPath);
+  final fileName = '${Uuid().v4()}.mp3';
+  final storagePath = 'audio_messages/$userId/$fileName';
+
+  try {
+    await supabase.storage.from('records').upload(
+          storagePath,
+          file,
+          fileOptions: const FileOptions(contentType: 'audio/mpeg'),
+        );
+
+    final publicUrl = supabase.storage.from('records').getPublicUrl(storagePath);
+    return publicUrl;
+  } catch (e) {
+    print(e);
     return null;
   }
 }

@@ -16,3 +16,13 @@ final Color commentInputBorder = Colors.grey.shade300;
 final Color commentTextColor = Colors.black;
 final Color hintTextColor = Colors.grey.shade600;
 final Color cancelButtonColor = Colors.red;
+
+BoxDecoration backGroundColor() {
+  return BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFFFFEFD5), Colors.white],
+    ),
+  );
+}

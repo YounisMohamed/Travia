@@ -29,7 +29,6 @@ class UserPresenceService {
         _setupLifecycleListener();
       } else {
         _setUserOffline();
-        _stopHeartbeat();
         _disposeLifecycleListener();
         _currentUserId = null;
       }
@@ -94,17 +93,11 @@ class UserPresenceService {
 
   // Start heartbeat to update last_active_at periodically
   void _startHeartbeat() {
-    _heartbeatTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 90), (_) {
       if (_currentUserId != null) {
         _updateLastActive();
       }
     });
-  }
-
-  // Stop heartbeat timer
-  void _stopHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = null;
   }
 
   // Update last_active_at timestamp in database
@@ -147,11 +140,8 @@ class UserPresenceService {
     }
   }
 
-  // Dispose resources when service is no longer needed
   void dispose() {
-    // Make this synchronous to ensure it completes
     _setUserOfflineAndUpdateLastActive();
-    _stopHeartbeat();
     _disposeLifecycleListener();
     _authSubscription?.cancel();
   }
@@ -177,49 +167,3 @@ final userLastActiveProvider = FutureProvider.family<DateTime?, String>((ref, us
 
   return DateTime.parse(response['last_active_at']);
 });
-
-// Example Usage in a Widget
-/*
-class UserStatusWidget extends ConsumerWidget {
-  final String userId;
-
-  const UserStatusWidget({required this.userId, Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final onlineStatus = ref.watch(userOnlineStatusProvider(userId));
-    final lastActive = ref.watch(userLastActiveProvider(userId));
-
-    return onlineStatus.when(
-      data: (isOnline) {
-        return Row(
-          children: [
-            // Online indicator dot
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isOnline ? Colors.green : Colors.grey,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              isOnline
-                  ? 'Online'
-                  : lastActive.when(
-                      data: (time) => time != null ? 'Last seen ${timeAgo(time)}' : 'Offline',
-                      loading: () => 'Loading...',
-                      error: (_, __) => 'Offline',
-                    ),
-            ),
-          ],
-        );
-      },
-      loading: () => const CircularProgressIndicator(),
-      error: (_, __) => const Text('Unable to fetch status'),
-    );
-  }
-}
-
- */

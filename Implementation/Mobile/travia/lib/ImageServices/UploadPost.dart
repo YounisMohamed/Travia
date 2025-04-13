@@ -16,7 +16,7 @@ class PostUploader {
       final imageUrl = await uploadImageToSupabase(imageFile, userId);
       if (imageUrl == null) return false;
 
-      // Save Post Details in Database
+      // Save Post Details in DatabaseAWGAWG
       await savePostToDatabase(userId, imageUrl, caption, location);
       return true;
     } catch (e) {

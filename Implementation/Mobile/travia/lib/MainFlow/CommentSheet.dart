@@ -15,6 +15,7 @@ import 'package:travia/Providers/CommentsLikesProvider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../Classes/Comment.dart';
+import '../Providers/ChatDetailsProvider.dart';
 import '../Providers/LoadingProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/ReplyToCommentProvider.dart';
@@ -76,7 +77,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
   Widget build(BuildContext context) {
     final replyState = ref.watch(replyStateProvider);
     final isLoading = ref.watch(loadingProvider);
-    final height = MediaQuery.of(context).size.height;
+    final textDirection = ref.watch(textDirectionProvider);
 
     return SafeArea(
       child: Scaffold(
@@ -155,6 +156,10 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                         builder: (context, ref, child) {
                           final replyState = ref.watch(replyStateProvider);
                           return TextField(
+                            textDirection: textDirection,
+                            onChanged: (text) {
+                              updateTextDirection(ref, text);
+                            },
                             controller: _commentController,
                             style: GoogleFonts.poppins(color: commentTextColor, fontSize: 15),
                             decoration: InputDecoration(
@@ -200,7 +205,8 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                           );
                           await sendNotification(
                             type: 'comment',
-                            content: 'commented on your post: "$content"',
+                            title: "commented on your post",
+                            content: content,
                             target_user_id: widget.posterId,
                             source_id: widget.postId,
                             sender_user_id: userId,
@@ -208,7 +214,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
 
                           _commentController.clear();
                           ref.read(replyStateProvider.notifier).cancelReply();
-                          ref.read(postCommentCountProvider(widget.postId).notifier).increment();
+                          //ref.read(postCommentCountProvider(widget.postId).notifier).increment();
                         } catch (e) {
                           Popup.showPopUp(text: "Error adding comment", context: context);
                         } finally {
@@ -631,7 +637,7 @@ class RegularCommentCard extends ConsumerWidget {
                                   try {
                                     ref.read(loadingProvider.notifier).setLoadingToTrue();
                                     await deleteComment(commentId: commentId);
-                                    ref.read(postCommentCountProvider(postId).notifier).decrement();
+                                    //ref.read(postCommentCountProvider(postId).notifier).decrement();
                                     ref.invalidate(commentsProvider(postId));
                                   } catch (e) {
                                     print("Could not delete the comment: $e");
@@ -800,6 +806,7 @@ class ReplyCommentCard extends ConsumerWidget {
                           height: 10,
                         ),
                         RichText(
+                          textDirection: isMostlyRtl(content),
                           text: TextSpan(
                             children: content.split(' ').map((word) {
                               if (word.startsWith('@')) {
@@ -911,15 +918,15 @@ class ReplyCommentCard extends ConsumerWidget {
                             if (canDelete)
                               IconButton(
                                 onPressed: () async {
+                                  final container = ProviderScope.containerOf(context);
                                   try {
-                                    ref.read(loadingProvider.notifier).setLoadingToTrue();
+                                    container.read(loadingProvider.notifier).setLoadingToTrue();
                                     await deleteComment(commentId: commentId);
-                                    ref.read(postCommentCountProvider(postId).notifier).decrement();
-                                    // ref.invalidate(commentsProvider(postId));
+                                    container.invalidate(commentsProvider(postId));
                                   } catch (e) {
-                                    print("Could not delete the comment: $e");
+                                    print("Error deleting comment: $e");
                                   } finally {
-                                    ref.read(loadingProvider.notifier).setLoadingToFalse();
+                                    container.read(loadingProvider.notifier).setLoadingToFalse();
                                   }
                                 },
                                 icon: Icon(

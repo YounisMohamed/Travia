@@ -56,10 +56,10 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                 onPressed: pickedImage != null
                     ? () {
                         ref.read(postProvider.notifier).uploadPost(
-                              userId,
-                              _captionController.text.trim(),
-                              _locationController.text.trim(),
-                              context,
+                              userId: userId,
+                              caption: _captionController.text.trim(),
+                              location: _locationController.text.trim(),
+                              context: context,
                             );
                         _captionController.clear();
                         _locationController.clear();
@@ -86,116 +86,115 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
           physics: BouncingScrollPhysics(),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
               children: [
-                GestureDetector(
-                  onTap: isUploading
-                      ? null
-                      : () {
-                          ref.invalidate(imagePickerProvider);
-                          ref.read(imagePickerProvider.notifier).pickAndEditImage(context);
-                        },
-                  child: Container(
-                    height: 120,
-                    width: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: pickedImage != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: pickedImage.path.endsWith(".mp4") || pickedImage.path.endsWith(".mov")
-                                ? MediaPreview(
-                                    mediaUrl: pickedImage.path,
-                                    isVideo: true,
-                                  )
-                                : MediaPreview(
-                                    image: pickedImage,
-                                    isVideo: false,
-                                  ))
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add_photo_alternate_rounded,
-                                size: 48,
-                                color: Colors.grey[500],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(width: 16),
+
+                    /// 📝 Your right-hand caption/location column stays the same
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: _captionController,
+                            enabled: !isUploading,
+                            maxLines: 3,
+                            textInputAction: TextInputAction.next,
+                            style: const TextStyle(fontSize: 16),
+                            decoration: InputDecoration(
+                              hintText: "Write a caption...",
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              contentPadding: const EdgeInsets.all(16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Add Media",
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(color: theme.primaryColor, width: 2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_outlined, color: theme.primaryColor),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: _locationController,
+                                  enabled: !isUploading,
+                                  textInputAction: TextInputAction.done,
+                                  style: const TextStyle(fontSize: 16),
+                                  decoration: InputDecoration(
+                                    hintText: "Add location",
+                                    hintStyle: TextStyle(color: Colors.grey[500]),
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(color: theme.primaryColor, width: 2),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: _captionController,
-                        enabled: !isUploading,
-                        maxLines: 3,
-                        textInputAction: TextInputAction.next,
-                        style: TextStyle(fontSize: 16),
-                        decoration: InputDecoration(
-                          hintText: "Write a caption...",
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                          contentPadding: EdgeInsets.all(16),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: theme.primaryColor, width: 2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on_outlined, color: theme.primaryColor),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _locationController,
-                              enabled: !isUploading,
-                              textInputAction: TextInputAction.done,
-                              style: TextStyle(fontSize: 16),
-                              decoration: InputDecoration(
-                                hintText: "Add location",
-                                hintStyle: TextStyle(color: Colors.grey[500]),
-                                border: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.grey[300]!),
-                                ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: theme.primaryColor, width: 2),
-                                ),
-                                contentPadding: EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: 16,
+                ),
+                Stack(
+                  children: [
+                    Container(
+                      height: 360,
+                      width: 360,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: pickedImage != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: MediaPreview(
+                                mediaUrl: pickedImage.path,
+                                isVideo: pickedImage.path.endsWith(".mp4") || pickedImage.path.endsWith(".mov"),
+                              ))
+                          : Center(
+                              child: Text(
+                                "No Media",
+                                style: TextStyle(
+                                  color: Colors.grey[500],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                    ),
+
+                    /// ⬇️ Add Button Positioned Top Right
+                    Positioned(
+                      top: -8,
+                      right: -8,
+                      child: IconButton(
+                        icon: Icon(Icons.add_circle, color: theme.primaryColor, size: 32),
+                        onPressed: isUploading
+                            ? null
+                            : () {
+                                ref.invalidate(imagePickerProvider);
+                                ref.read(imagePickerProvider.notifier).pickAndEditMediaForUpload(context);
+                              },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

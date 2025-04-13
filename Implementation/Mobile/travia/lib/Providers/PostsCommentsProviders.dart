@@ -4,8 +4,26 @@ import '../Classes/Comment.dart';
 import '../Classes/Post.dart';
 import '../main.dart';
 
-final postsProvider = StreamProvider<List<Post>>((ref) {
-  return supabase.from('posts').stream(primaryKey: ['id']).order('created_at', ascending: false).map((data) => data.map((json) => Post.fromJson(json)).toList());
+final postsProvider = StreamProvider<List<Post>>((ref) async* {
+  final cached = postsBox.get('posts')?.cast<Post>();
+  if (cached != null) {
+    yield cached;
+  }
+  try {
+    final stream = supabase.from('posts').stream(primaryKey: ['id']).order('created_at', ascending: false).map((data) => data.map((json) => Post.fromJson(json)).toList());
+
+    await for (final posts in stream) {
+      await postsBox.put('posts', posts);
+      yield posts;
+    }
+  } catch (e) {
+    print('Stream error: $e');
+    if (cached != null) {
+      yield cached;
+    } else {
+      rethrow;
+    }
+  }
 });
 
 final commentsProvider = StreamProvider.family<List<Comment>, String>((ref, postId) {

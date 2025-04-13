@@ -16,10 +16,10 @@ class SavedPostsNotifier extends StateNotifier<Map<String, bool>> {
     }
 
     try {
-      final response = await supabase.from('users').select('saved_posts').eq('id', userId).single();
+      final response = await supabase.from('users').select('saved_posts').eq('id', userId).maybeSingle();
 
-      if (response['saved_posts'] != null) {
-        final List<dynamic> savedPosts = response['saved_posts'];
+      if (response?['saved_posts'] != null) {
+        final List<dynamic> savedPosts = response?['saved_posts'];
         state = {for (var postId in savedPosts) postId as String: true};
       }
     } catch (e) {

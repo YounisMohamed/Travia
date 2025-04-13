@@ -65,7 +65,7 @@ class PostDetailsPage extends ConsumerWidget {
           if (post.postId == "") {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (context.mounted) {
-                context.go("/");
+                context.go("/home");
               }
             });
             return const SizedBox.shrink();
@@ -328,8 +328,9 @@ class PostDetailsPage extends ConsumerWidget {
                                         id: commentId,
                                       );
                                       await sendNotification(
+                                          title: "commented on your post",
                                           type: 'comment',
-                                          content: 'commented on your post: "$content"',
+                                          content: content,
                                           target_user_id: post.userId,
                                           source_id: post.postId,
                                           sender_user_id: FirebaseAuth.instance.currentUser!.uid);
@@ -456,6 +457,7 @@ class PostDetailsPage extends ConsumerWidget {
       if (likerId == userId) {
         sendNotification(
           type: 'like',
+          title: "",
           content: 'liked his own post :)',
           target_user_id: userId,
           source_id: postId,
@@ -463,8 +465,9 @@ class PostDetailsPage extends ConsumerWidget {
         );
       } else {
         sendNotification(
+          title: "liked your post",
           type: 'like',
-          content: 'liked your post',
+          content: 'gave you a like',
           target_user_id: userId,
           source_id: postId,
           sender_user_id: likerId,

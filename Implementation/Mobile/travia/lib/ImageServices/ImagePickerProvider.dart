@@ -1,19 +1,21 @@
+// image_picker_notifier.dart
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/ffprobe_kit.dart';
+import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fraction/fraction.dart';
+import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:pro_image_editor/pro_image_editor.dart' as pe;
 import 'package:uuid/uuid.dart';
-import 'package:video_editor/video_editor.dart';
+import 'package:video_player/video_player.dart';
 
 import '../Classes/Media.dart';
-import '../Helpers/PopUp.dart';
 import '../MainFlow/PickerScreen.dart';
-import 'ExportVideo.dart';
 
 final imagePickerProvider = StateNotifierProvider<ImagePickerNotifier, File?>((ref) {
   return ImagePickerNotifier();
@@ -22,77 +24,315 @@ final imagePickerProvider = StateNotifierProvider<ImagePickerNotifier, File?>((r
 class ImagePickerNotifier extends StateNotifier<File?> {
   ImagePickerNotifier() : super(null);
 
-  final _cropEditorKey = GlobalKey<pe.CropRotateEditorState>();
+  final _editorService = EditorService();
 
-  Future<void> pickAndEditImage(BuildContext context) async {
-    final selectedMedia = await Navigator.push<Media?>(
+  /// Handles picking and editing media specifically for upload functionality
+  Future<void> pickAndEditMediaForUpload(BuildContext context) async {
+    final selectedMedia = await _pickMedia(context);
+    if (selectedMedia == null) return;
+
+    final file = await _getFileFromMedia(selectedMedia);
+    if (file == null) return;
+
+    if (selectedMedia.assetEntity.type == AssetType.image) {
+      final result = await _editorService.openCropperFirst(context, file);
+      if (result == null) return;
+
+      final editedImage = result['file'] as File?;
+      if (editedImage != null) {
+        state = editedImage;
+        debugPrint("New image picked and cropped: ${editedImage.path}");
+      }
+    } else if (selectedMedia.assetEntity.type == AssetType.video) {
+      final confirmedVideo = await Navigator.push<File?>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoCropPreviewPage(originalVideo: file),
+        ),
+      );
+      if (confirmedVideo != null) {
+        state = confirmedVideo;
+        debugPrint("New video picked and cropped: ${confirmedVideo.path}");
+      }
+    }
+  }
+
+  /// Handles picking and editing media specifically for chat functionality
+  Future<void> pickAndEditMediaForChat(BuildContext context) async {
+    final selectedMedia = await _pickMedia(context);
+    if (selectedMedia == null) return;
+
+    final file = await _getFileFromMedia(selectedMedia);
+    if (file == null) return;
+
+    if (selectedMedia.assetEntity.type == AssetType.image) {
+      final editedImage = await _editorService.openMainEditorForChats(context, file);
+      if (editedImage != null) {
+        state = editedImage;
+        debugPrint("New image picked ${editedImage.path}");
+      }
+    } else if (selectedMedia.assetEntity.type == AssetType.video) {
+      state = file;
+    }
+  }
+
+  /// Helper method to pick media using the PickerScreen
+  Future<Media?> _pickMedia(BuildContext context) async {
+    return await Navigator.push<Media?>(
       context,
       MaterialPageRoute(
         builder: (context) => const PickerScreen(selectedMedia: null),
       ),
     );
-    if (selectedMedia == null) return;
+  }
 
-    final file = await selectedMedia.assetEntity.file;
-    if (file == null) return;
+  Future<File?> _getFileFromMedia(Media media) async {
+    return await media.assetEntity.file;
+  }
 
-    if (selectedMedia.assetEntity.type == AssetType.image) {
-      final result = await _openCropperFirst(context, file);
-      if (result == null) return;
-      final editedImage = result['file'] as File?;
+  void clearImage() {
+    state = null;
+  }
+}
 
-      if (editedImage != null) {
-        state = editedImage;
-        print("New image picked and cropped: \${editedImage.path}");
-      }
-    } else if (selectedMedia.assetEntity.type == AssetType.video) {
-      final editedVideo = await Navigator.push<File?>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoEditor(file: file),
-        ),
-      );
+Future<File> cropToAspectRatioOrReturnOriginal(File videoFile, double targetAspectRatio) async {
+  final inputPath = videoFile.path;
+  final dir = p.dirname(inputPath);
+  final outputPath = '$dir/cropped_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
-      if (editedVideo != null) {
-        state = File(editedVideo.path);
-        print("New video picked and edited: ${editedVideo.path}");
-      }
+  // Step 1: Get video metadata
+  final probeResult = await FFprobeKit.getMediaInformation(inputPath);
+  final info = probeResult.getMediaInformation();
+  if (info == null) return videoFile;
+
+  final stream = info.getStreams().firstWhere((s) => s.getType() == 'video');
+  int? width = stream.getWidth();
+  int? height = stream.getHeight();
+  String? rotationStr = stream.getAllProperties()?['rotation']?.toString();
+
+  if (width == null || height == null) return videoFile;
+
+  // Step 2: Adjust for rotation
+  if (rotationStr == '90' || rotationStr == '270' || rotationStr == '-90') {
+    final temp = width;
+    width = height;
+    height = temp;
+  }
+
+  // Step 3: Compute crop dimensions
+  double currentRatio = width / height;
+  if ((currentRatio - targetAspectRatio).abs() < 0.01) {
+    // Close enough — no need to crop
+    return videoFile;
+  }
+
+  int cropWidth = width;
+  int cropHeight = (width / targetAspectRatio).round();
+
+  if (cropHeight > height) {
+    cropHeight = height;
+    cropWidth = (height * targetAspectRatio).round();
+  }
+
+  if (cropWidth <= 0 || cropHeight <= 0 || cropWidth > width || cropHeight > height) {
+    return videoFile; // Safety: dimensions invalid
+  }
+
+  int x = ((width - cropWidth) / 2).round();
+  int y = ((height - cropHeight) / 2).round();
+
+  final filter = 'crop=$cropWidth:$cropHeight:$x:$y';
+  final cmd = '-y -i "$inputPath" -vf "$filter" -c:v libx264 -preset ultrafast -crf 23 -c:a copy "$outputPath"';
+
+  final session = await FFmpegKit.execute(cmd);
+  final returnCode = await session.getReturnCode();
+
+  if (ReturnCode.isSuccess(returnCode)) {
+    return File(outputPath);
+  } else {
+    // Cropping failed — fallback to original
+    return videoFile;
+  }
+}
+
+class VideoCropPreviewPage extends StatefulWidget {
+  final File originalVideo;
+  final double aspectRatio;
+
+  const VideoCropPreviewPage({
+    super.key,
+    required this.originalVideo,
+    this.aspectRatio = 1,
+  });
+
+  @override
+  State<VideoCropPreviewPage> createState() => _VideoCropPreviewPageState();
+}
+
+class _VideoCropPreviewPageState extends State<VideoCropPreviewPage> {
+  late VideoPlayerController _controller;
+  bool _isLoading = true;
+  bool _isPlaying = false;
+  late File _finalVideo;
+
+  @override
+  void initState() {
+    super.initState();
+    _cropVideo().then((croppedFile) {
+      _finalVideo = croppedFile;
+      _controller = VideoPlayerController.file(_finalVideo)
+        ..initialize().then((_) {
+          setState(() => _isLoading = false);
+          _controller.setLooping(true);
+          _controller.play();
+          _isPlaying = true;
+        });
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _togglePlay() {
+    if (_controller.value.isPlaying) {
+      _controller.pause();
+      setState(() => _isPlaying = false);
+    } else {
+      _controller.play();
+      setState(() => _isPlaying = true);
     }
   }
 
-  Future<Map<String, dynamic>?> _openCropperFirst(BuildContext context, File imageFile) async {
+  Future<File> _cropVideo() async {
+    final inputPath = widget.originalVideo.path;
+    final dir = p.dirname(inputPath);
+    final outputPath = '$dir/cropped_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+    final probeResult = await FFprobeKit.getMediaInformation(inputPath);
+    final info = probeResult.getMediaInformation();
+    if (info == null) return widget.originalVideo;
+
+    final stream = info.getStreams().firstWhere((s) => s.getType() == 'video');
+    int? width = stream.getWidth();
+    int? height = stream.getHeight();
+    String? rotationStr = stream.getAllProperties()?['rotation']?.toString();
+
+    if (width == null || height == null) return widget.originalVideo;
+
+    if (rotationStr == '90' || rotationStr == '270' || rotationStr == '-90') {
+      final temp = width;
+      width = height;
+      height = temp;
+    }
+
+    double currentRatio = width / height;
+    if ((currentRatio - widget.aspectRatio).abs() < 0.01) {
+      return widget.originalVideo;
+    }
+
+    int cropWidth = width;
+    int cropHeight = (width / widget.aspectRatio).round();
+
+    if (cropHeight > height) {
+      cropHeight = height;
+      cropWidth = (height * widget.aspectRatio).round();
+    }
+
+    if (cropWidth <= 0 || cropHeight <= 0 || cropWidth > width || cropHeight > height) {
+      return widget.originalVideo;
+    }
+
+    int x = ((width - cropWidth) / 2).round();
+    int y = ((height - cropHeight) / 2).round();
+    final filter = 'crop=$cropWidth:$cropHeight:$x:$y';
+
+    final cmd = '-y -i "$inputPath" -vf "$filter" -c:v libx264 -preset ultrafast -crf 23 -c:a copy "$outputPath"';
+    final session = await FFmpegKit.execute(cmd);
+    final returnCode = await session.getReturnCode();
+
+    if (ReturnCode.isSuccess(returnCode)) {
+      return File(outputPath);
+    } else {
+      return widget.originalVideo;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Preview Cropped Video")),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _togglePlay,
+                    child: Center(
+                      child: AspectRatio(
+                        aspectRatio: _controller.value.aspectRatio,
+                        child: VideoPlayer(_controller),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.close),
+                        label: const Text("Cancel"),
+                        onPressed: () => Navigator.pop(context, null),
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.check),
+                        label: const Text("Use This Video"),
+                        onPressed: () => Navigator.pop(context, _finalVideo),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+    );
+  }
+}
+
+class EditorService {
+  final _cropEditorKey = GlobalKey<pe.CropRotateEditorState>();
+
+  /// Opens the cropper editor first, then the main editor for posts
+  Future<Map<String, dynamic>?> openCropperFirst(BuildContext context, File imageFile) async {
+    final cropResult = await _openCropEditor(context, imageFile);
+    if (cropResult == null) return null;
+
+    final transformations = cropResult['transforms'] as pe.TransformConfigs;
+    final imageInfos = cropResult['imageInfos'] as pe.ImageInfos;
+
+    return await openMainEditorForPosts(context, imageFile, transformations, imageInfos);
+  }
+
+  /// Opens the crop editor with fixed aspect ratio
+  Future<Map<String, dynamic>?> _openCropEditor(BuildContext context, File imageFile) async {
     final cropEditorConfigs = pe.ProImageEditorConfigs(
-      cropRotateEditor: const pe.CropRotateEditorConfigs(initAspectRatio: 3 / 4, canChangeAspectRatio: false),
+      cropRotateEditor: const pe.CropRotateEditorConfigs(initAspectRatio: 16 / 13, canChangeAspectRatio: false),
     );
 
-    pe.TransformConfigs? transformations;
-    pe.ImageInfos? imageInfos;
-
-    final cropResult = await Navigator.push<Map<String, dynamic>>(
+    return await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => pe.CropRotateEditor.file(
           imageFile,
           key: _cropEditorKey,
           initConfigs: pe.CropRotateEditorInitConfigs(
-            theme: ThemeData(
-              useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-              textButtonTheme: TextButtonThemeData(
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              textTheme: const TextTheme(
-                labelLarge: TextStyle(color: Colors.white),
-              ),
-            ),
+            theme: _getEditorTheme(),
             configs: cropEditorConfigs,
             enablePopWhenDone: false,
             onDone: (transforms, fitToScreenFactor, infos) {
@@ -105,16 +345,10 @@ class ImagePickerNotifier extends StateNotifier<File?> {
         ),
       ),
     );
-
-    if (cropResult == null) return null;
-
-    transformations = cropResult['transforms'] as pe.TransformConfigs;
-    imageInfos = cropResult['imageInfos'] as pe.ImageInfos;
-
-    return await _openMainEditor(context, imageFile, transformations, imageInfos);
   }
 
-  Future<Map<String, dynamic>?> _openMainEditor(
+  /// Opens the main editor with transformations from cropper (for posts)
+  Future<Map<String, dynamic>?> openMainEditorForPosts(
     BuildContext context,
     File imageFile,
     pe.TransformConfigs transformations,
@@ -133,7 +367,31 @@ class ImagePickerNotifier extends StateNotifier<File?> {
       ),
     );
 
-    final result = await Navigator.push<Uint8List>(
+    final result = await _openProImageEditor(context, imageFile, editorConfigs);
+    if (result == null) return null;
+
+    final File newFile = await _saveEditedImage(result);
+    return {
+      'file': newFile,
+      'imageInfos': imageInfos,
+    };
+  }
+
+  /// Opens the main editor for chats (without fixed transformations)
+  Future<File?> openMainEditorForChats(BuildContext context, File imageFile) async {
+    final editorConfigs = pe.ProImageEditorConfigs(
+      designMode: pe.ImageEditorDesignMode.cupertino,
+    );
+
+    final result = await _openProImageEditor(context, imageFile, editorConfigs);
+    if (result == null) return null;
+
+    return await _saveEditedImage(result);
+  }
+
+  /// Helper method to open the ProImageEditor with specific configs
+  Future<Uint8List?> _openProImageEditor(BuildContext context, File imageFile, pe.ProImageEditorConfigs editorConfigs) async {
+    return await Navigator.push<Uint8List>(
       context,
       MaterialPageRoute(
         builder: (context) => pe.ProImageEditor.file(
@@ -147,448 +405,34 @@ class ImagePickerNotifier extends StateNotifier<File?> {
         ),
       ),
     );
+  }
 
-    if (result == null) return null;
-
+  /// Saves edited image bytes to a file
+  Future<File> _saveEditedImage(Uint8List imageBytes) async {
     final String newPath = '${Directory.systemTemp.path}/edited_${const Uuid().v4()}.jpg';
     final File newFile = File(newPath);
-    await newFile.writeAsBytes(result);
-
-    return {
-      'file': newFile,
-      'imageInfos': imageInfos,
-    };
+    await newFile.writeAsBytes(imageBytes);
+    return newFile;
   }
 
-  void clearImage() {
-    state = null;
-  }
-}
-
-class VideoEditor extends ConsumerStatefulWidget {
-  const VideoEditor({super.key, required this.file});
-
-  final File file;
-
-  @override
-  ConsumerState<VideoEditor> createState() => _VideoEditorState();
-}
-
-class _VideoEditorState extends ConsumerState<VideoEditor> {
-  final _exportingProgress = ValueNotifier<double>(0.0);
-  final _isExporting = ValueNotifier<bool>(false);
-  final double height = 60;
-
-  /// On the web, when multiple VideoPlayers reuse the same VideoController,
-  /// only the last one can show the frames.
-  /// Therefore, when CropScreen is popped, the CropGridViewer should be given a
-  /// new key to refresh itself.
-  ///
-  /// https://github.com/flutter/flutter/issues/124210
-  int cropGridViewerKey = 0;
-
-  late final _controller = VideoEditorController.file(
-    widget.file,
-    minDuration: const Duration(seconds: 1),
-    maxDuration: const Duration(seconds: 60),
-  );
-
-  void _exportVideo() async {
-    _exportingProgress.value = 0;
-    _isExporting.value = true;
-
-    final config = VideoFFmpegVideoEditorConfig(
-      _controller,
-    );
-
-    await ExportService.runFFmpegCommand(
-      await config.getExecuteConfig(),
-      onProgress: (stats) {
-        _exportingProgress.value = config.getFFmpegProgress(stats.getTime() as int);
-      },
-      onError: (e, s) {
-        print("Error exporting video!");
-        print(e);
-        print(s);
-        Popup.showPopUp(text: "Error exporting: $e", context: context);
-      },
-      onCompleted: (file) {
-        _isExporting.value = false;
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          builder: (_) => VideoResultPopup(video: file),
-        );
-      },
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.initialize(aspectRatio: 3 / 4).then((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    }).catchError((error) {
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    }, test: (e) => e is VideoMinDurationError);
-  }
-
-  @override
-  void dispose() {
-    _exportingProgress.dispose();
-    _isExporting.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: _controller.initialized
-            ? SafeArea(
-                child: Stack(
-                  children: [
-                    Column(
-                      children: [
-                        _topNavBar(),
-                        Expanded(
-                          child: DefaultTabController(
-                            length: 2,
-                            child: Column(
-                              children: [
-                                Expanded(
-                                  child: TabBarView(
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    children: [
-                                      Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          CropGridViewer.preview(
-                                            key: ValueKey(cropGridViewerKey),
-                                            controller: _controller,
-                                          ),
-                                          AnimatedBuilder(
-                                            animation: _controller.video,
-                                            builder: (_, __) => AnimatedOpacity(
-                                              opacity: !_controller.isPlaying ? 1.0 : 0.0,
-                                              duration: const Duration(seconds: 1),
-                                              child: GestureDetector(
-                                                onTap: _controller.video.play,
-                                                child: Container(
-                                                  width: 40,
-                                                  height: 40,
-                                                  decoration: const BoxDecoration(
-                                                    color: Colors.white,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: const Icon(
-                                                    Icons.play_arrow,
-                                                    color: Colors.black,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  height: 200,
-                                  margin: const EdgeInsets.only(top: 10),
-                                  child: Column(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: _trimSlider(),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                ValueListenableBuilder(
-                                  valueListenable: _isExporting,
-                                  builder: (_, bool export, __) => AnimatedOpacity(
-                                    opacity: export ? 1.0 : 0.0,
-                                    duration: const Duration(seconds: 1),
-                                    child: AlertDialog(
-                                      title: ValueListenableBuilder(
-                                        valueListenable: _exportingProgress,
-                                        builder: (_, double value, __) => Text(
-                                          "Exporting video ${(value * 100).ceil()}%",
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              ],
-                            ),
-                          ),
-                        )
-                      ],
-                    )
-                  ],
-                ),
-              )
-            : const Center(child: CircularProgressIndicator()),
-      ),
-    );
-  }
-
-  Widget _topNavBar() {
-    return SafeArea(
-      child: SizedBox(
-        height: height,
-        child: Row(
-          children: [
-            Expanded(
-              child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.exit_to_app),
-                tooltip: 'Leave editor',
-                color: Colors.white,
-              ),
-            ),
-            const VerticalDivider(endIndent: 22, indent: 22),
-            Expanded(
-              child: IconButton(
-                onPressed: () => _controller.rotate90Degrees(RotateDirection.left),
-                icon: const Icon(Icons.rotate_left),
-                tooltip: 'Rotate unclockwise',
-                color: Colors.white,
-              ),
-            ),
-            Expanded(
-              child: IconButton(
-                onPressed: () => _controller.rotate90Degrees(RotateDirection.right),
-                icon: const Icon(Icons.rotate_right),
-                tooltip: 'Rotate clockwise',
-                color: Colors.white,
-              ),
-            ),
-            Expanded(
-              child: IconButton(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => CropScreen(controller: _controller),
-                    ),
-                  );
-                },
-                icon: const Icon(
-                  Icons.crop,
-                  color: Colors.white,
-                ),
-                tooltip: 'Open crop screen',
-              ),
-            ),
-            const VerticalDivider(endIndent: 22, indent: 22),
-            Expanded(
-              child: IconButton(
-                onPressed: () async {
-                  _exportVideo();
-                },
-                icon: const Icon(Icons.check),
-                tooltip: 'Export',
-                color: Colors.white,
-              ),
-            ),
-          ],
+  /// Returns the theme configuration for the editor
+  ThemeData _getEditorTheme() {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
         ),
       ),
-    );
-  }
-
-  String formatter(Duration duration) => [duration.inMinutes.remainder(60).toString().padLeft(2, '0'), duration.inSeconds.remainder(60).toString().padLeft(2, '0')].join(":");
-
-  List<Widget> _trimSlider() {
-    return [
-      AnimatedBuilder(
-        animation: Listenable.merge([
-          _controller,
-          _controller.video,
-        ]),
-        builder: (_, __) {
-          final duration = _controller.videoDuration.inSeconds;
-          final pos = _controller.trimPosition * duration;
-
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: height / 4),
-            child: Row(children: [
-              if (pos.isFinite)
-                Text(
-                  formatter(Duration(seconds: pos.toInt())),
-                  style: TextStyle(color: Colors.white),
-                ),
-              const Expanded(child: SizedBox()),
-              AnimatedOpacity(
-                opacity: _controller.isTrimming ? 1.0 : 0.0,
-                duration: const Duration(seconds: 1),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(
-                    formatter(_controller.startTrim),
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    formatter(_controller.endTrim),
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ]),
-              ),
-            ]),
-          );
-        },
-      ),
-      Container(
-        width: MediaQuery.of(context).size.width,
-        margin: EdgeInsets.symmetric(vertical: height / 4),
-        child: TrimSlider(
-          controller: _controller,
-          height: height,
-          horizontalMargin: height / 4,
-          child: TrimTimeline(
-            controller: _controller,
-            padding: const EdgeInsets.only(top: 10),
-          ),
-        ),
-      )
-    ];
-  }
-}
-
-class CropScreen extends StatelessWidget {
-  const CropScreen({super.key, required this.controller});
-
-  final VideoEditorController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 30),
-          child: Column(children: [
-            Row(children: [
-              Expanded(
-                child: IconButton(
-                  onPressed: () => controller.rotate90Degrees(RotateDirection.left),
-                  icon: const Icon(Icons.rotate_left),
-                ),
-              ),
-              Expanded(
-                child: IconButton(
-                  onPressed: () => controller.rotate90Degrees(RotateDirection.right),
-                  icon: const Icon(Icons.rotate_right),
-                ),
-              )
-            ]),
-            const SizedBox(height: 15),
-            Expanded(
-              child: CropGridViewer.edit(
-                controller: controller,
-                rotateCropArea: false,
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-              ),
-            ),
-            const SizedBox(height: 15),
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                flex: 2,
-                child: IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Center(
-                    child: Text(
-                      "cancel",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 4,
-                child: AnimatedBuilder(
-                  animation: controller,
-                  builder: (_, __) => Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            onPressed: () => controller.preferredCropAspectRatio = controller.preferredCropAspectRatio?.toFraction().inverse().toDouble(),
-                            icon: controller.preferredCropAspectRatio != null && controller.preferredCropAspectRatio! < 1
-                                ? const Icon(Icons.panorama_vertical_select_rounded)
-                                : const Icon(Icons.panorama_vertical_rounded),
-                          ),
-                          IconButton(
-                            onPressed: () => controller.preferredCropAspectRatio = controller.preferredCropAspectRatio?.toFraction().inverse().toDouble(),
-                            icon: controller.preferredCropAspectRatio != null && controller.preferredCropAspectRatio! > 1
-                                ? const Icon(Icons.panorama_horizontal_select_rounded)
-                                : const Icon(Icons.panorama_horizontal_rounded),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          _buildCropButton(context, Fraction.fromString("3/4")),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: IconButton(
-                  onPressed: () {
-                    // WAY 1: validate crop parameters set in the crop view
-                    controller.applyCacheCrop();
-                    // WAY 2: update manually with Offset values
-                    // controller.updateCrop(const Offset(0.2, 0.2), const Offset(0.8, 0.8));
-                    Navigator.pop(context);
-                  },
-                  icon: Center(
-                    child: Text(
-                      "done",
-                      style: TextStyle(
-                        color: const CropGridStyle().selectedBoundariesColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ]),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCropButton(BuildContext context, Fraction? f) {
-    if (controller.preferredCropAspectRatio != null && controller.preferredCropAspectRatio! > 1) f = f?.inverse();
-
-    return Flexible(
-      child: TextButton(
+      elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          elevation: 0,
-          backgroundColor: controller.preferredCropAspectRatio == f?.toDouble() ? Colors.grey.shade800 : null,
-          foregroundColor: controller.preferredCropAspectRatio == f?.toDouble() ? Colors.white : null,
-          textStyle: Theme.of(context).textTheme.bodySmall,
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
         ),
-        onPressed: () => controller.preferredCropAspectRatio = f?.toDouble(),
-        child: Text(f == null ? 'free' : '${f.numerator}:${f.denominator}'),
+      ),
+      textTheme: const TextTheme(
+        labelLarge: TextStyle(color: Colors.white),
       ),
     );
   }

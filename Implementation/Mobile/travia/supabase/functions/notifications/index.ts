@@ -1,54 +1,58 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { JWT } from 'npm:google-auth-library@9'
 
-// Setup type definitions for built-in Supabase Runtime APIs
-
-import {createClient} from 'npm:@supabase/supabase-js@2'
-import {JWT} from 'npm:google-auth-library@9'
 interface Notification {
-id: string; // Primary key (UUID as text)
-  target_user_id: string | null; // Target user ID (can be null)
-  sender_user_id: string | null; // Sender user ID (can be null)
-  source_id: string | null; // Source ID (can be null)
-  type: string; // Type of the notification
-  content: string; // Content of the notification
-  created_at: string | null; // Timestamp of creation (ISO string format)
-  is_read: boolean; // Whether the notification is read or not
-  sender_photo: string | null; // Sender's photo URL (can be null)
-  user_username: string | null; // Username of the user (can be null)
+id: string;
+target_user_id: string | null;
+sender_user_id: string | null;
+source_id: string | null;
+type: string;
+content: string;
+created_at: string | null;
+is_read: boolean;
+sender_photo: string | null;
+user_username: string | null;
+title: string | null;
 }
 
 interface WebhookPayload {
-  type: "INSERT"
-  table: string
-  record: Notification
-  schema: "public"
-  old_record: null | Notification
+type: "INSERT";
+table: string;
+record: Notification;
+schema: "public";
+old_record: null | Notification;
 }
 
 const supabase = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
+Deno.env.get("SUPABASE_URL") ?? "",
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-)
-
+);
 
 Deno.serve(async (req) => {
   try {
     const payload: WebhookPayload = await req.json();
+    const { target_user_id, source_id, type, content , title, sender_photo} = payload.record;
 
-    // Fetch all FCM tokens for the target user
-    const { data } = await supabase
+    if (!target_user_id) {
+      return new Response(JSON.stringify({ error: "No target user ID found" }), { status: 400 });
+    }
+
+    // Fetch FCM tokens for the target user
+    const { data: userData } = await supabase
       .from("users")
       .select("fcm_token")
-      .eq("id", payload.record.target_user_id)
+      .eq("id", target_user_id)
       .single();
 
-    if (!data || !data.fcm_token || data.fcm_token.length === 0) {
+    if (!userData || !userData.fcm_token || userData.fcm_token.length === 0) {
       return new Response(JSON.stringify({ error: "No FCM tokens found" }), { status: 400 });
     }
 
-    const fcmTokens = data.fcm_token as string[];
+    const fcmTokens = userData.fcm_token as string[];
+
+    const defaultPhoto = "https://picsum.photos/200"; // TODO: should be set to app logo later
+
+    
 
     // Import Firebase service account credentials
     const { default: serviceAccount } = await import("../service-account.json", {
@@ -73,8 +77,13 @@ Deno.serve(async (req) => {
           message: {
             token: token,
             notification: {
-              title: payload.record.type,
-              body: payload.record.content,
+              title: title,
+              body: content,
+              image: sender_photo === null ? defaultPhoto : sender_photo,
+            },
+            data: {
+              type: type,
+              source_id: source_id,
             },
           },
         }),
@@ -100,17 +109,6 @@ Deno.serve(async (req) => {
   }
 });
 
-/* To invoke locally:
-
-1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-2. Make an HTTP request:
-
-curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/notifications' \
---header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
---header 'Content-Type: application/json' \
---data '{"name":"Functions"}'
-
-*/
 
 
 const getAccessToken = ({

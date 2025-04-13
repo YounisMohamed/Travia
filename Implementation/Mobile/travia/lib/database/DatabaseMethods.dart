@@ -34,6 +34,7 @@ Future<void> insertUser({
       'relationship_status': relationshipStatus,
       'created_at': DateTime.now().toUtc().toIso8601String(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'saved_posts': <String>[],
     });
     print('User inserted successfully');
   } catch (e) {
@@ -103,6 +104,7 @@ Future<void> removeLikeNotification({
 
 Future<void> sendNotification({
   required String type,
+  required String title,
   required String content,
   required String target_user_id,
   required String source_id,
@@ -115,6 +117,7 @@ Future<void> sendNotification({
       'target_user_id': target_user_id,
       'source_id': source_id,
       'sender_user_id': sender_user_id,
+      'title': title,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     });
 
@@ -231,4 +234,8 @@ Future<void> updateMessage({required String content, required String messageId})
 Future<List<String>> fetchConversationIds(String userId) async {
   final response = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', userId);
   return (response as List).map((row) => row['conversation_id'] as String).toList();
+}
+
+Future<void> updateIsTyping({required bool isTyping, required String conversationId, required String currentUserId}) async {
+  await supabase.from('conversation_participants').update({'is_typing': isTyping}).eq('conversation_id', conversationId).eq('user_id', currentUserId);
 }

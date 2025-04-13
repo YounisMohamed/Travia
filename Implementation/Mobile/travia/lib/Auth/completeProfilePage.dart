@@ -314,7 +314,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                   );
                                   await user.updateDisplayName(_displayNameController.text);
                                   ref.read(loadingProvider.notifier).setLoadingToFalse();
-                                  context.go("/"); // Navigate to home
+                                  context.go("/home");
                                 } catch (e) {
                                   Popup.showPopUp(text: "Error while updating profile", context: context);
                                   print(e);

@@ -12,6 +12,7 @@ import 'package:travia/MainFlow/ChatPage.dart';
 import 'package:travia/Providers/ConversationNotificationsProvider.dart';
 
 import '../Helpers/HelperMethods.dart';
+import '../Providers/ChatDetailsProvider.dart';
 import '../Providers/ConversationProvider.dart';
 
 class DMsPage extends ConsumerStatefulWidget {
@@ -49,73 +50,80 @@ class _DMsPageState extends ConsumerState<DMsPage> {
         title: Text("Conversations"),
       ),
       body: detailsAsync.when(
-        loading: () => ListView.builder(
-          itemCount: 6,
-          itemBuilder: (context, index) {
-            return Skeletonizer(
-              child: DummyChatCard(),
+          loading: () => ListView.builder(
+                itemCount: 6,
+                itemBuilder: (context, index) {
+                  return Skeletonizer(
+                    child: DummyChatCard(),
+                  );
+                },
+              ),
+          error: (error, stack) {
+            log(error.toString());
+            log(stack.toString());
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/dms-page")}");
+              }
+            });
+            return Center(
+              child: Text('Failed to load conversations.'),
             );
           },
-        ),
-        error: (error, stack) {
-          log(error.toString());
-          log(stack.toString());
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/dms-page")}");
+          data: (conversationDetails) {
+            // Preload data for each conversation
+            for (final detail in conversationDetails) {
+              final conversationId = detail.conversationId;
+              // Trigger providers to start fetching in the background
+              ref.read(chatMetadataProvider(conversationId).future);
+              ref.read(messagesProvider(conversationId));
+              ref.read(conversationParticipantsProvider(conversationId));
             }
-          });
-          return Center(
-            child: Text('Failed to load conversations.'),
-          );
-        },
-        data: (conversationDetails) {
-          if (conversationDetails.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'No conversations yet',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                  SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      // TODO
-                    },
-                    child: Text('Start a conversation'),
-                  ),
-                ],
-              ),
-            );
-          }
 
-          return ListView.separated(
-            itemCount: conversationDetails.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final detail = conversationDetails[index];
-              return ConversationTile(
-                typingCount: detail.typingCount,
-                conversationId: detail.conversationId,
-                conversationType: detail.conversationType,
-                title: detail.title,
-                lastMessageContent: detail.lastMessageContent,
-                lastMessageAt: detail.lastMessageAt,
-                userUsername: detail.userUsername,
-                userPhotoUrl: detail.userPhotoUrl,
-                unreadCount: detail.unreadCount,
-                isPinned: detail.isPinned,
-                isTyping: detail.isTyping,
-                sender: detail.sender,
+            if (conversationDetails.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'No conversations yet',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                    SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        // TODO
+                      },
+                      child: Text('Start a conversation'),
+                    ),
+                  ],
+                ),
               );
-            },
-          );
-        },
-      ),
+            }
+
+            return ListView.separated(
+              itemCount: conversationDetails.length,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final detail = conversationDetails[index];
+                return ConversationTile(
+                  conversationId: detail.conversationId,
+                  conversationType: detail.conversationType,
+                  title: detail.title,
+                  lastMessageContent: detail.lastMessageContent,
+                  lastMessageContentType: detail.lastMessageContentType,
+                  lastMessageAt: detail.lastMessageAt,
+                  userUsername: detail.userUsername,
+                  userPhotoUrl: detail.userPhotoUrl,
+                  unreadCount: detail.unreadCount,
+                  isPinned: detail.isPinned,
+                  sender: detail.sender,
+                );
+              },
+            );
+          }),
     );
   }
 }
@@ -125,15 +133,14 @@ class ConversationTile extends ConsumerWidget {
   final String conversationType;
   final String? title;
   final String? lastMessageContent;
+  final String? lastMessageContentType;
   final DateTime? lastMessageAt;
   final String? userUsername;
   final String? userPhotoUrl;
   final int unreadCount;
   final String? sender;
-  final bool isTyping;
   final bool isPinned;
   final String? chatTheme;
-  final int typingCount;
 
   const ConversationTile({
     super.key,
@@ -141,45 +148,51 @@ class ConversationTile extends ConsumerWidget {
     required this.conversationType,
     this.title,
     this.lastMessageContent,
+    this.lastMessageContentType,
     this.lastMessageAt,
     this.userUsername,
     this.userPhotoUrl,
     required this.unreadCount,
     this.sender,
-    required this.isTyping,
     required this.isPinned,
-    required this.typingCount,
     this.chatTheme,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // for direct messages, show the participant username;
-    // for group conversations, show the conversation title.
     final notificationState = ref.watch(convNotificationsProvider);
     final isNotificationEnabled = notificationState[conversationId] ?? false;
+    final typingUsersAsync = ref.watch(otherTypingProvider(conversationId));
+
     bool isDirect = conversationType == 'direct';
     bool isGroup = conversationType == 'group';
 
+    String typingText = '';
+    final typingUsers = typingUsersAsync.asData?.value ?? [];
+
+    if (typingUsers.isNotEmpty) {
+      if (isDirect) {
+        typingText = "${typingUsers.first} is typing...";
+      } else {
+        typingText = typingUsers.length == 1 ? "${typingUsers.first} is typing..." : "${typingUsers.length} people are typing...";
+      }
+    }
+
     String displayTitle = isDirect ? (userUsername ?? 'Direct Message') : (title ?? 'Group Conversation');
-    String? content = "";
-    if (lastMessageContent != null) {
-      content = lastMessageContent;
+
+    // Determine the message content based on its type
+    String content = "";
+    if (lastMessageContentType == "image") {
+      content = "📷 New Image Sent";
+    } else if (lastMessageContentType == "video") {
+      content = "🎥 New Video Sent";
+    } else if (lastMessageContent != null) {
+      content = lastMessageContent!;
     } else {
       content = isDirect ? ("Start a new conversation with $displayTitle") : ("Start chatting in the group");
     }
-    String time = lastMessageAt != null ? timeAgo(lastMessageAt!) : "";
 
-    String typingText = '';
-    if (isTyping && isDirect) {
-      typingText = "$userUsername is typing...";
-    } else if (isGroup && typingCount > 0) {
-      if (typingCount == 1 && isTyping) {
-        typingText = "$userUsername is typing...";
-      } else {
-        typingText = "$typingCount people are typing...";
-      }
-    }
+    String time = lastMessageAt != null ? timeAgo(lastMessageAt!) : "";
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -205,33 +218,39 @@ class ConversationTile extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            isTyping
-                ? Text(
-                    typingText,
-                    style: TextStyle(fontSize: 13, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
-                  )
-                : RichText(
-                    text: TextSpan(
-                      style: GoogleFonts.roboto(
-                        fontSize: 13,
-                        color: Colors.black87,
-                        height: 1.4,
-                      ),
-                      children: [
-                        if (!isDirect && (sender != null))
-                          TextSpan(
-                            text: "$sender: ",
-                            style: GoogleFonts.roboto(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        TextSpan(text: content),
-                      ],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 3,
+            if (typingUsers.isNotEmpty)
+              Text(
+                typingText,
+                style: TextStyle(fontSize: 13, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+              )
+            else
+              RichText(
+                text: TextSpan(
+                  style: GoogleFonts.roboto(
+                    fontSize: 12,
+                    color: Colors.black87,
+                    height: 1.4,
                   ),
+                  children: [
+                    if (!isDirect && (sender != null))
+                      TextSpan(
+                        text: "$sender: ",
+                        style: GoogleFonts.roboto(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    TextSpan(
+                      text: content,
+                      style: TextStyle(
+                        fontWeight: lastMessageContentType != "text" ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 3,
+              ),
             if (time.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),

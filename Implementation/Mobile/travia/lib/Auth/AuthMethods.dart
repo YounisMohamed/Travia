@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:travia/Helpers/PopUp.dart';
 
 import '../Providers/LoadingProvider.dart';
+import '../Services/NotificationService.dart';
 import '../main.dart';
 
 Future<bool> checkIfProfileExists(String userId) async {
@@ -54,7 +55,7 @@ Future<void> signInWithEmailAndPassword(
 
     bool userExists = await checkIfProfileExists(user!.uid);
     if (userExists) {
-      context.go("/");
+      context.go("/home");
     } else {
       await user.updateDisplayName(null);
       context.go("/complete-profile");
@@ -183,7 +184,7 @@ Future<void> _waitForEmailVerification(User user, BuildContext context, WidgetRe
 
     if (refreshedUser != null && refreshedUser.emailVerified) {
       timer.cancel(); // Stop the periodic timer
-      context.go("/signin", extra: true);
+      context.go("/splash-screen");
     }
 
     elapsedSeconds += refreshPeriod;
@@ -224,7 +225,7 @@ Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
     bool userExists = await checkIfProfileExists(user.uid);
 
     if (userExists) {
-      context.go("/");
+      context.go("/home");
     } else {
       await user.updateDisplayName(null);
       context.go("/complete-profile");
@@ -257,6 +258,8 @@ Future<void> forgotPassword(BuildContext context, WidgetRef ref, String email) a
 Future<void> signOut(BuildContext context, WidgetRef ref) async {
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
+
+    await NotificationService.removeFcmToken();
 
     // Sign out from Firebase authentication
     await FirebaseAuth.instance.signOut();

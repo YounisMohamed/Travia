@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:travia/ImageServices/StorageMethods.dart';
 
 import '../Helpers/Popup.dart';
 import 'ImagePickerProvider.dart';
@@ -14,12 +17,12 @@ class PostUploadNotifier extends StateNotifier<bool> {
 
   PostUploadNotifier(this.ref) : super(false);
 
-  Future<void> uploadPost(
-    String userId,
-    String caption,
-    String location,
-    BuildContext context,
-  ) async {
+  Future<void> uploadPost({
+    required String userId,
+    required String caption,
+    required String location,
+    required BuildContext context,
+  }) async {
     final image = ref.read(imagePickerProvider);
     if (image == null) {
       Popup.showPopUp(text: "Please select an image!", context: context, color: Colors.red);
@@ -42,5 +45,25 @@ class PostUploadNotifier extends StateNotifier<bool> {
     }
 
     state = false; // Stop loading
+  }
+}
+
+final chatMediaUploadProvider = StateNotifierProvider<ChatMediaUploadNotifier, bool>((ref) {
+  return ChatMediaUploadNotifier(ref);
+});
+
+class ChatMediaUploadNotifier extends StateNotifier<bool> {
+  final Ref ref;
+
+  ChatMediaUploadNotifier(this.ref) : super(false);
+
+  Future<String?> uploadChatMediaToSupabase({
+    required String userId,
+    required File mediaFile,
+  }) async {
+    state = true; // loading
+    String? url = await uploadImageToSupabase(mediaFile, userId);
+    state = false; // Stop loading
+    return url;
   }
 }

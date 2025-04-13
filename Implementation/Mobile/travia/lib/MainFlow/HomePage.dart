@@ -10,7 +10,6 @@ import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/MainFlow/DMsPage.dart';
 import 'package:travia/MainFlow/UploadPost.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
-import 'package:travia/Services/NotificationService.dart';
 
 import '../Auth/AuthMethods.dart';
 import '../Helpers/Loading.dart';
@@ -21,7 +20,9 @@ import '../main.dart';
 import 'PostCard.dart';
 
 class HomePage extends ConsumerStatefulWidget {
-  const HomePage({super.key});
+  final String? type;
+  final String? source_id;
+  const HomePage({super.key, this.type, this.source_id});
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
@@ -66,8 +67,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             print('conversation_participants channel: Errors: ${payload.errors}');
             print('conversation_participants channel: Table: ${payload.table}');
             print('conversation_participants channel: toString(): ${payload.toString()}');
-
-
              */
           },
         )
@@ -155,7 +154,19 @@ class _HomePageState extends ConsumerState<HomePage> {
           )
           .subscribe();
     });
-    NotificationService.init(context);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.type != null && widget.source_id != null) {
+        print("Navigating with type: ${widget.type}, source_id: ${widget.source_id}");
+        String type = widget.type!;
+        String source_id = widget.source_id!;
+        if (type == "comment" || type == "post" || type == "like") {
+          context.push("/post/$source_id");
+        } else if (type == "message") {
+          context.push("/messages/$source_id");
+        }
+      }
+    });
   }
 
   @override
@@ -176,7 +187,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && pageController.hasClients && pageController.page?.round() != 1) {
           pageController.animateToPage(
-            1, // Target index
+            1,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
@@ -205,6 +216,7 @@ class HomeWidget extends ConsumerWidget {
     }
 
     bool isLoading = ref.watch(loadingProvider);
+    final postsAsync = ref.watch(postsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -242,61 +254,56 @@ class HomeWidget extends ConsumerWidget {
       body: Column(
         children: [
           Expanded(
-            child: Consumer(
-              builder: (context, ref, child) {
-                final postsAsync = ref.watch(postsProvider);
-                return RefreshIndicator(
-                  onRefresh: refresh,
-                  displacement: 32,
-                  color: Colors.black,
-                  backgroundColor: Colors.white,
-                  child: postsAsync.when(
-                    loading: () => Skeletonizer(
-                      enabled: true,
-                      child: ListView.builder(
-                        itemCount: 3,
-                        itemBuilder: (context, index) => DummyPostCard(),
-                      ),
-                    ),
-                    error: (error, stackTrace) {
-                      print(error);
-                      print(stackTrace);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (context.mounted) {
-                          context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
-                        }
-                      });
-                      return const Center(child: Text("An error occurred."));
-                    },
-                    data: (posts) => posts.isEmpty
-                        ? const Center(child: Text("No posts to show for now"))
-                        : ListView.builder(
-                            physics: AlwaysScrollableScrollPhysics(),
-                            itemCount: posts.length,
-                            itemBuilder: (context, index) {
-                              final post = posts[index];
-                              return GestureDetector(
-                                onTap: () {
-                                  context.push('/post/${post.postId}');
-                                },
-                                child: PostCard(
-                                  profilePicUrl: post.userPhotoUrl,
-                                  username: post.userUserName,
-                                  postImageUrl: post.mediaUrl,
-                                  commentCount: post.commentCount,
-                                  postId: post.postId,
-                                  userId: post.userId,
-                                  likeCount: post.likeCount,
-                                  postCaption: post.caption,
-                                  postLocation: post.location,
-                                  createdAt: post.createdAt,
-                                ),
-                              );
-                            },
-                          ),
+            child: RefreshIndicator(
+              onRefresh: refresh,
+              displacement: 32,
+              color: Colors.black,
+              backgroundColor: Colors.white,
+              child: postsAsync.when(
+                loading: () => Skeletonizer(
+                  enabled: true,
+                  child: ListView.builder(
+                    itemCount: 3,
+                    itemBuilder: (context, index) => DummyPostCard(),
                   ),
-                );
-              },
+                ),
+                error: (error, stackTrace) {
+                  print(error);
+                  print(stackTrace);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) {
+                      context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
+                    }
+                  });
+                  return const Center(child: Text("An error occurred."));
+                },
+                data: (posts) => posts.isEmpty
+                    ? const Center(child: Text("No posts to show for now"))
+                    : ListView.builder(
+                        physics: AlwaysScrollableScrollPhysics(),
+                        itemCount: posts.length,
+                        itemBuilder: (context, index) {
+                          final post = posts[index];
+                          return GestureDetector(
+                            onTap: () {
+                              context.push('/post/${post.postId}');
+                            },
+                            child: PostCard(
+                              profilePicUrl: post.userPhotoUrl,
+                              username: post.userUserName,
+                              postImageUrl: post.mediaUrl,
+                              commentCount: post.commentCount,
+                              postId: post.postId,
+                              userId: post.userId,
+                              likeCount: post.likeCount,
+                              postCaption: post.caption,
+                              postLocation: post.location,
+                              createdAt: post.createdAt,
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ),
           Row(

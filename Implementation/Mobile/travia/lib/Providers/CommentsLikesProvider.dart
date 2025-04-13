@@ -72,7 +72,6 @@ class CommentLikeCountNotifier extends StateNotifier<int> {
   final String commentId;
 
   CommentLikeCountNotifier({required this.commentId, required int initialLikeCount}) : super(initialLikeCount);
-
   void updateLikeCount(bool isLiked) {
     state = isLiked ? state + 1 : state - 1;
   }
