@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:travia/Helpers/Loading.dart';
+import 'package:travia/MainFlow/MediaPreview.dart';
 import 'package:uuid/uuid.dart';
 
 import '../Classes/Post.dart';
@@ -38,6 +39,7 @@ class PostDetailsPage extends ConsumerWidget {
     final userId = FirebaseAuth.instance.currentUser!.uid;
     final savedState = ref.watch(savedPostsProvider);
     final isSaved = savedState[postId] ?? false;
+    final commentsAsync = ref.watch(commentsProvider(postId));
     Future.microtask(() async {
       await addViewedPost(userId, postId);
     });
@@ -116,9 +118,19 @@ class PostDetailsPage extends ConsumerWidget {
                     // Post Image
                     AspectRatio(
                       aspectRatio: 1,
-                      child: Image.network(
-                        post.mediaUrl,
-                        fit: BoxFit.cover,
+                      child: GestureDetector(
+                        onDoubleTap: () {
+                          likePost(
+                            userId: userId,
+                            likeCount: post.likeCount,
+                            isLiked: isLiked,
+                            ref: ref,
+                          );
+                        },
+                        child: MediaPostPreview(
+                          mediaUrl: post.mediaUrl,
+                          isVideo: post.mediaUrl.endsWith('.mp4') || post.mediaUrl.endsWith('.mov'),
+                        ),
                       ),
                     ),
 
@@ -126,100 +138,67 @@ class PostDetailsPage extends ConsumerWidget {
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: screenWidth * 0.05,
-                        vertical: screenHeight * 0.01,
+                        vertical: screenHeight * 0.02,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.grey[50],
                         border: Border(
                           top: BorderSide(color: Colors.grey[200]!),
-                          bottom: BorderSide(color: Colors.grey[200]!),
                         ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildEngagementStat(
-                            icon: Icons.mode_comment_outlined,
-                            count: '${ref.watch(postCommentCountProvider(postId))}',
-                            color: Colors.blueAccent,
+                          GestureDetector(
+                            onTap: () {
+                              showMaterialModalBottomSheet(
+                                  context: context,
+                                  builder: (context) => CommentModal(
+                                        postId: postId,
+                                        posterId: post.userId,
+                                      ));
+                            },
+                            child: GestureDetector(
+                              child: _buildEngagementStat(
+                                icon: Icon(Icons.mode_comment_outlined, size: 20, color: Colors.white),
+                                count: '${ref.watch(postCommentCountProvider(postId))}',
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              likePost(
+                                userId: userId,
+                                likeCount: post.likeCount,
+                                isLiked: isLiked,
+                                ref: ref,
+                              );
+                            },
+                            child: _buildEngagementStat(
+                              icon: Icon(Icons.favorite, size: 20, color: isLiked ? Colors.red : Colors.white),
+                              count: displayNumberOfLikes.toString(),
+                              color: Colors.pinkAccent.shade200,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 10,
                           ),
                           _buildEngagementStat(
-                            icon: Icons.favorite,
-                            count: displayNumberOfLikes.toString(),
-                            color: Colors.pinkAccent,
-                          ),
-                          _buildEngagementStat(
-                            icon: Icons.remove_red_eye,
+                            icon: Icon(Icons.remove_red_eye, size: 20, color: Colors.white),
                             count: '${post.viewCount}',
                             color: Colors.green,
                           ),
+                          GestureDetector(
+                            onTap: () {
+                              ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
+                            },
+                            child: _buildEngagementStat(
+                              icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border, size: 20, color: isSaved ? Colors.black54 : Colors.white),
+                              color: Colors.deepOrangeAccent,
+                            ),
+                          ),
                         ],
-                      ),
-                    ),
-                    Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(screenWidth * 0.04),
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: screenWidth * 0.04, // horizontal spacing
-                          runSpacing: screenWidth * 0.02, // vertical spacing
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _buildActionButton(
-                                  icon: isLiked ? Icons.favorite : Icons.favorite_border, // Change icon when liked
-                                  label: isLiked ? 'Liked' : 'Like',
-                                  onTap: () {
-                                    likePost(ref, isLiked, post.likeCount, post.userId);
-                                  },
-                                  color: isLiked ? Colors.red : Colors.black, // Change color when liked
-                                ),
-                                SizedBox(width: screenWidth * 0.03),
-                                _buildActionButton(
-                                  icon: Icons.mode_comment_outlined,
-                                  label: 'Comments',
-                                  color: Colors.black,
-                                  onTap: () {
-                                    showMaterialModalBottomSheet(
-                                      context: context,
-                                      builder: (context) => CommentModal(
-                                        postId: postId,
-                                        posterId: post.userId,
-                                      ),
-                                      backgroundColor: Colors.transparent,
-                                      bounce: true,
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _buildActionButton(
-                                  icon: Icons.share_outlined,
-                                  label: 'Share',
-                                  color: Colors.black,
-                                  onTap: () {
-                                    sharePost(postId);
-                                  },
-                                ),
-                                SizedBox(width: screenWidth * 0.03),
-                                _buildActionButton(
-                                  icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
-                                  label: isSaved ? "Saved" : "Save",
-                                  color: Colors.black,
-                                  onTap: () {
-                                    ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                     // Caption and Username
@@ -272,7 +251,6 @@ class PostDetailsPage extends ConsumerWidget {
                       ),
 
                     SizedBox(height: screenHeight * 0.02),
-
                     // Comment Input
                     Container(
                       padding: EdgeInsets.all(screenWidth * 0.04),
@@ -292,6 +270,7 @@ class PostDetailsPage extends ConsumerWidget {
                           SizedBox(width: screenWidth * 0.03),
                           Expanded(
                             child: TextField(
+                              autofocus: false,
                               controller: _commentController,
                               decoration: InputDecoration(
                                 hintText: 'Add a comment...',
@@ -336,9 +315,6 @@ class PostDetailsPage extends ConsumerWidget {
                                           sender_user_id: FirebaseAuth.instance.currentUser!.uid);
 
                                       _commentController.clear();
-
-                                      // Increment the comment count
-                                      ref.read(postCommentCountProvider(post.postId).notifier).increment();
                                     } catch (e) {
                                       Popup.showPopUp(text: "Error adding comment", context: context);
                                     } finally {
@@ -349,6 +325,42 @@ class PostDetailsPage extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    // Last Two comments:
+                    SizedBox(height: screenHeight * 0.01),
+                    ref.watch(commentsProvider(post.postId)).when(
+                          data: (comments) {
+                            comments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+                            final lastComments = comments.length >= 2 ? comments.sublist(comments.length - 2) : comments;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: lastComments.map((comment) {
+                                return Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.005),
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: GoogleFonts.lexendDeca(
+                                        color: Colors.black87,
+                                        fontSize: 13,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: comment.userUsername,
+                                          style: GoogleFonts.lexendDeca(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        TextSpan(text: ' ${comment.content}'),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                          loading: () => SizedBox.shrink(),
+                          error: (err, stack) => SizedBox.shrink(),
+                        ),
                   ],
                 ),
               ),
@@ -360,9 +372,9 @@ class PostDetailsPage extends ConsumerWidget {
   }
 
   Widget _buildEngagementStat({
-    required IconData icon,
-    required String count,
-    required Color color, // New: Dynamic color per stat type
+    required Icon icon,
+    String? count,
+    required Color color,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -388,60 +400,30 @@ class PostDetailsPage extends ConsumerWidget {
                   ),
                 ],
               ),
-              child: Icon(icon, size: 20, color: Colors.white),
+              child: icon,
             ),
             const SizedBox(width: 6),
 
             // Count with a more vibrant style
-            RedHatText(
-              text: count,
-              size: 16,
-              isBold: true,
-              color: color,
-            ),
+            if (count != null)
+              RedHatText(
+                text: count,
+                size: 16,
+                isBold: true,
+                color: color,
+              ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return TextButton(
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        backgroundColor: Colors.grey[100],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 20, color: color ?? Colors.grey[700]),
-          const SizedBox(width: 4),
-          RedHatText(
-            text: label,
-            size: 14,
-            color: color ?? Colors.grey.shade700,
-            isBold: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void sharePost(String postId) {
+  void sharePost({required String postId}) {
     final postUrl = 'TODOLINK!';
     Share.share(postUrl);
   }
 
-  void likePost(WidgetRef ref, bool isLiked, int likeCount, String userId) {
+  void likePost({required WidgetRef ref, required bool isLiked, required int likeCount, required String userId}) {
     String likerId = FirebaseAuth.instance.currentUser!.uid;
 
     ref.read(likePostProvider.notifier).toggleLike(

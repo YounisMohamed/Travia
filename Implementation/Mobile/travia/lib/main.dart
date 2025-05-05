@@ -5,17 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:travia/Classes/ConversationDetail.dart';
-import 'package:travia/Classes/message_class.dart';
 
 import 'Auth/ForgotPassword.dart';
 import 'Auth/SignInPage.dart';
 import 'Auth/SignUpPage.dart';
 import 'Auth/completeProfilePage.dart';
-import 'Classes/Post.dart';
 import 'MainFlow/ChatPage.dart';
 import 'MainFlow/DMsPage.dart';
 import 'MainFlow/ErrorPage.dart';
@@ -25,16 +21,13 @@ import 'MainFlow/NotificationsPage.dart';
 import 'MainFlow/PermissionsPage.dart';
 import 'MainFlow/PostDetails.dart';
 import 'MainFlow/SplashScreen.dart';
-import 'MainFlow/UploadPost.dart';
+import 'MainFlow/UploadPostPage.dart';
 import 'RecorderService/Recorder.dart';
 import 'Services/NotificationService.dart';
 import 'firebase_options.dart';
 
 final supabase = Supabase.instance.client;
 SharedPreferences? prefs;
-late Box messagesBox;
-late Box postsBox;
-late Box conversationDetailsBox;
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -54,18 +47,18 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  prefs = await SharedPreferences.getInstance();
+
+  NotificationService.init();
+/*
   await Hive.initFlutter();
   Hive.registerAdapter(MessageClassAdapter());
   Hive.registerAdapter(PostAdapter());
   Hive.registerAdapter(ConversationDetailAdapter());
+  Hive.registerAdapter(storyitemmodelAdapter());
+  Hive.registerAdapter(storymodelAdapter());
 
-  messagesBox = await Hive.openBox<MessageClass>('messages');
-  postsBox = await Hive.openBox<List>('posts');
-  conversationDetailsBox = await Hive.openBox<List>("conversation_details");
-
-  prefs = await SharedPreferences.getInstance();
-
-  NotificationService.init();
+ */
 
   List<String>? clickAction = await _getInitialRoute();
   // 0 is the type, 1 is the source id (USED FOR NOTIFICATIONS)

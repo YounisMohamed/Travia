@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../Classes/Comment.dart';
@@ -5,24 +6,22 @@ import '../Classes/Post.dart';
 import '../main.dart';
 
 final postsProvider = StreamProvider<List<Post>>((ref) async* {
-  final cached = postsBox.get('posts')?.cast<Post>();
+  /*
+  final cached = postsBox.get('posts_${user.uid}')?.cast<Post>();
   if (cached != null) {
     yield cached;
   }
+   */
   try {
     final stream = supabase.from('posts').stream(primaryKey: ['id']).order('created_at', ascending: false).map((data) => data.map((json) => Post.fromJson(json)).toList());
 
     await for (final posts in stream) {
-      await postsBox.put('posts', posts);
+      //await postsBox.put('posts_${user.uid}', posts);
       yield posts;
     }
   } catch (e) {
     print('Stream error: $e');
-    if (cached != null) {
-      yield cached;
-    } else {
-      rethrow;
-    }
+    rethrow;
   }
 });
 

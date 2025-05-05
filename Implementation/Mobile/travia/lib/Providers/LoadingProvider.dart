@@ -17,3 +17,5 @@ class LoadingNotifier extends StateNotifier<bool> {
 final loadingProvider = StateNotifierProvider<LoadingNotifier, bool>((ref) {
   return LoadingNotifier();
 });
+
+final isCommentsLoadingProvider = StateProvider<bool>((ref) => false);

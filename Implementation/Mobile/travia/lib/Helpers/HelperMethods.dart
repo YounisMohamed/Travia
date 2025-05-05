@@ -1,4 +1,7 @@
-import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+import '../main.dart';
 
 String timeAgo(DateTime utcDateTime) {
   // Force the input to UTC (Every body's time is different so its a time mw7d)
@@ -60,4 +63,94 @@ dynamic isMostlyRtl(String text) {
   final rtlCount = rtlChars.allMatches(text).length;
   final totalCount = text.length;
   return (rtlCount / totalCount > 0.5) ? TextDirection.rtl : TextDirection.ltr;
+}
+
+Future<bool> createStory({
+  required String mediaUrl,
+  required String mediaType,
+  String? caption,
+  String? backgroundColor,
+}) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return false;
+
+  try {
+    final storyResponse = await supabase
+        .from('stories')
+        .insert({
+          'user_id': user.uid,
+        })
+        .select()
+        .single();
+
+    // Create story item
+    await supabase.from('story_items').insert({
+      'story_id': storyResponse['story_id'],
+      'media_url': mediaUrl,
+      'media_type': mediaType,
+      'caption': caption,
+      'background_color': backgroundColor,
+    });
+    return true;
+  } catch (e) {
+    print('Error creating story: $e');
+    return false;
+  }
+}
+
+// New function to only create a story and return its ID
+Future<String?> createNewStory() async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("createNewStory failed: No user logged in");
+      return null;
+    }
+
+    // Create a new story
+    final storyData = {
+      'user_id': user.uid,
+      // The trigger will populate username and user_photo_url
+    };
+
+    // Insert story into database
+    final response = await supabase.from('stories').insert(storyData).select('story_id').single();
+
+    final storyId = response['story_id'] as String;
+    print("Created new story with ID: $storyId");
+
+    return storyId;
+  } catch (e) {
+    print("Error creating story: $e");
+    return null;
+  }
+}
+
+// New function to add an item to an existing story
+Future<bool> addStoryItem({
+  required String storyId,
+  required String mediaUrl,
+  required String mediaType,
+  String? caption,
+  String? backgroundColor,
+}) async {
+  try {
+    // Create story item
+    final itemData = {
+      'story_id': storyId,
+      'media_url': mediaUrl,
+      'media_type': mediaType,
+      'caption': caption,
+      'background_color': backgroundColor,
+    };
+
+    // Insert story item
+    await supabase.from('story_items').insert(itemData);
+    print("Added story item to story $storyId: $mediaUrl ($mediaType)");
+
+    return true;
+  } catch (e) {
+    print("Error adding story item: $e");
+    return false;
+  }
 }

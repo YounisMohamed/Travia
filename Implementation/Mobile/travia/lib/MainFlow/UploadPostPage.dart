@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../Helpers/Loading.dart';
-import '../Helpers/MediaPreview.dart';
-import '../ImageServices/ImagePickerProvider.dart';
-import '../ImageServices/UploadPostProvider.dart';
+import '../Providers/ImagePickerProvider.dart';
+import '../Providers/UploadProviders.dart';
+import 'MediaPreview.dart';
 
 class UploadPostPage extends ConsumerStatefulWidget {
   const UploadPostPage({super.key});
@@ -165,8 +165,8 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                       child: pickedImage != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(16),
-                              child: MediaPreview(
-                                mediaUrl: pickedImage.path,
+                              child: MediaFilePreview(
+                                mediaFile: pickedImage,
                                 isVideo: pickedImage.path.endsWith(".mp4") || pickedImage.path.endsWith(".mov"),
                               ))
                           : Center(

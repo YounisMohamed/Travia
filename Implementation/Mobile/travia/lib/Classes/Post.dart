@@ -6,37 +6,26 @@ part 'Post.g.dart';
 class Post extends HiveObject {
   @HiveField(0)
   final DateTime createdAt;
-
   @HiveField(1)
   final String userId;
-
   @HiveField(2)
   final String mediaUrl;
-
   @HiveField(3)
   final String? caption;
-
   @HiveField(4)
   final String? location;
-
   @HiveField(5)
   final String postId;
-
   @HiveField(6)
   final String userPhotoUrl;
-
   @HiveField(7)
   final String userUserName;
-
   @HiveField(8)
   final int commentCount;
-
   @HiveField(9)
   final int likeCount;
-
   @HiveField(10)
   final int viewCount;
-
   Post({
     required this.createdAt,
     required this.userId,
@@ -50,7 +39,6 @@ class Post extends HiveObject {
     required this.postId,
     required this.viewCount,
   });
-
   factory Post.fromMap(Map<String, dynamic> map) {
     return Post(
       createdAt: DateTime.parse(map['created_at']),
@@ -66,6 +54,5 @@ class Post extends HiveObject {
       viewCount: map['views'],
     );
   }
-
   factory Post.fromJson(Map<String, dynamic> json) => Post.fromMap(json);
 }

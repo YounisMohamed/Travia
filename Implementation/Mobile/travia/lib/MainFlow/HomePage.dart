@@ -8,7 +8,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/MainFlow/DMsPage.dart';
-import 'package:travia/MainFlow/UploadPost.dart';
+import 'package:travia/MainFlow/UploadPostPage.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
 import '../Auth/AuthMethods.dart';
@@ -18,6 +18,7 @@ import '../Services/UserPresenceService.dart';
 import '../database/DatabaseMethods.dart';
 import '../main.dart';
 import 'PostCard.dart';
+import 'Story.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   final String? type;
@@ -50,6 +51,35 @@ class _HomePageState extends ConsumerState<HomePage> {
     final currentUserId = user!.uid;
 
     supabase
+        .channel('public:stories')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'stories',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: currentUserId,
+          ),
+          callback: (payload) {},
+        )
+        .subscribe();
+    supabase
+        .channel('public:story_items')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'story_items',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: currentUserId,
+          ),
+          callback: (payload) {},
+        )
+        .subscribe();
+
+    supabase
         .channel('public:conversation_participants')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -60,15 +90,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             column: 'user_id',
             value: currentUserId,
           ),
-          callback: (payload) {
-            /*
-            print('conversation_participants channel: Change received');
-            print('conversation_participants channel: Event type: ${payload.eventType}');
-            print('conversation_participants channel: Errors: ${payload.errors}');
-            print('conversation_participants channel: Table: ${payload.table}');
-            print('conversation_participants channel: toString(): ${payload.toString()}');
-             */
-          },
+          callback: (payload) {},
         )
         .subscribe();
     supabase
@@ -96,16 +118,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               //print('Change received: ${payload.toString()}');
             })
         .subscribe();
-    supabase
-        .channel('public:comments')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'comments',
-            callback: (payload) {
-              //print('Change received: ${payload.toString()}');
-            })
-        .subscribe();
+    supabase.channel('public:comments').onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'comments', callback: (payload) {}).subscribe();
 
     fetchConversationIds(user!.uid).then((conversationIds) {
       supabase
@@ -119,15 +132,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               column: 'conversation_id',
               value: conversationIds,
             ),
-            callback: (payload) {
-              /*
-              print('conversations channel: Change received');
-              print('conversations channel: Event type: ${payload.eventType}');
-              print('conversations channel: Errors: ${payload.errors}');
-              print('conversations channel: Table: ${payload.table}');
-              print('conversations channel: toString(): ${payload.toString()}');
-              */
-            },
+            callback: (payload) {},
           )
           .subscribe();
       supabase
@@ -141,16 +146,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               column: 'conversation_id',
               value: conversationIds,
             ),
-            callback: (payload) {
-              /*
-              print('messages channel: Change received');
-              print('messages channel: Event type: ${payload.eventType}');
-              print('messages channel: Errors: ${payload.errors}');
-              print('messages channel: Table: ${payload.table}');
-              print('messages channel: toString(): ${payload.toString()}');
-
-               */
-            },
+            callback: (payload) {},
           )
           .subscribe();
     });
@@ -177,6 +173,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     supabase.channel('public:conversation_participants').unsubscribe();
     supabase.channel('public:messages').unsubscribe();
     supabase.channel('public:conversations').unsubscribe();
+    supabase.channel('public:stories').unsubscribe();
+    supabase.channel('public:story_items').unsubscribe();
     super.dispose();
   }
 
@@ -253,6 +251,11 @@ class HomeWidget extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          // Add the stories bar here
+          StoryBar(),
+
+          Divider(height: 1),
+
           Expanded(
             child: RefreshIndicator(
               onRefresh: refresh,

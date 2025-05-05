@@ -12,10 +12,10 @@ import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:pro_image_editor/pro_image_editor.dart' as pe;
 import 'package:uuid/uuid.dart';
-import 'package:video_player/video_player.dart';
 
 import '../Classes/Media.dart';
 import '../MainFlow/PickerScreen.dart';
+import 'VideoCropProvider.dart';
 
 final imagePickerProvider = StateNotifierProvider<ImagePickerNotifier, File?>((ref) {
   return ImagePickerNotifier();
@@ -95,6 +95,66 @@ class ImagePickerNotifier extends StateNotifier<File?> {
   }
 }
 
+final multiMediaPickerProvider = StateNotifierProvider<MultiMediaPickerNotifier, List<File>>((ref) {
+  return MultiMediaPickerNotifier();
+});
+
+class MultiMediaPickerNotifier extends StateNotifier<List<File>> {
+  MultiMediaPickerNotifier() : super([]);
+
+  final editorService = EditorService();
+
+  /// Pick multiple media without editing
+  Future<void> pickMultipleMedia(BuildContext context) async {
+    final selectedMedias = await pickMultipleMediaHelper(context);
+    if (selectedMedias.isEmpty) return;
+
+    List<File> processedFiles = [];
+
+    for (final media in selectedMedias) {
+      final file = await getFileFromMedia(media);
+      if (file == null) continue;
+
+      if (media.assetEntity.type == AssetType.image) {
+        final editedImage = await editorService.openMainEditorForChats(context, file);
+        if (editedImage != null) {
+          processedFiles.add(editedImage);
+          debugPrint("New image picked ${editedImage.path}");
+        }
+      } else if (media.assetEntity.type == AssetType.video) {
+        processedFiles.add(file);
+      }
+    }
+
+    if (processedFiles.isNotEmpty) {
+      state = [...state, ...processedFiles];
+    }
+  }
+
+  /// Helper method to pick multiple media using the MultiPickerScreen
+  Future<List<Media>> pickMultipleMediaHelper(BuildContext context) async {
+    return await Navigator.push<List<Media>>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MultiPickerScreen(),
+          ),
+        ) ??
+        [];
+  }
+
+  Future<File?> getFileFromMedia(Media media) async {
+    return await media.assetEntity.file;
+  }
+
+  void removeFile(File file) {
+    state = state.where((f) => f.path != file.path).toList();
+  }
+
+  void clearFiles() {
+    state = [];
+  }
+}
+
 Future<File> cropToAspectRatioOrReturnOriginal(File videoFile, double targetAspectRatio) async {
   final inputPath = videoFile.path;
   final dir = p.dirname(inputPath);
@@ -155,7 +215,7 @@ Future<File> cropToAspectRatioOrReturnOriginal(File videoFile, double targetAspe
   }
 }
 
-class VideoCropPreviewPage extends StatefulWidget {
+class VideoCropPreviewPage extends ConsumerWidget {
   final File originalVideo;
   final double aspectRatio;
 
@@ -166,141 +226,10 @@ class VideoCropPreviewPage extends StatefulWidget {
   });
 
   @override
-  State<VideoCropPreviewPage> createState() => _VideoCropPreviewPageState();
-}
-
-class _VideoCropPreviewPageState extends State<VideoCropPreviewPage> {
-  late VideoPlayerController _controller;
-  bool _isLoading = true;
-  bool _isPlaying = false;
-  late File _finalVideo;
-
-  @override
-  void initState() {
-    super.initState();
-    _cropVideo().then((croppedFile) {
-      _finalVideo = croppedFile;
-      _controller = VideoPlayerController.file(_finalVideo)
-        ..initialize().then((_) {
-          setState(() => _isLoading = false);
-          _controller.setLooping(true);
-          _controller.play();
-          _isPlaying = true;
-        });
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _togglePlay() {
-    if (_controller.value.isPlaying) {
-      _controller.pause();
-      setState(() => _isPlaying = false);
-    } else {
-      _controller.play();
-      setState(() => _isPlaying = true);
-    }
-  }
-
-  Future<File> _cropVideo() async {
-    final inputPath = widget.originalVideo.path;
-    final dir = p.dirname(inputPath);
-    final outputPath = '$dir/cropped_${DateTime.now().millisecondsSinceEpoch}.mp4';
-
-    final probeResult = await FFprobeKit.getMediaInformation(inputPath);
-    final info = probeResult.getMediaInformation();
-    if (info == null) return widget.originalVideo;
-
-    final stream = info.getStreams().firstWhere((s) => s.getType() == 'video');
-    int? width = stream.getWidth();
-    int? height = stream.getHeight();
-    String? rotationStr = stream.getAllProperties()?['rotation']?.toString();
-
-    if (width == null || height == null) return widget.originalVideo;
-
-    if (rotationStr == '90' || rotationStr == '270' || rotationStr == '-90') {
-      final temp = width;
-      width = height;
-      height = temp;
-    }
-
-    double currentRatio = width / height;
-    if ((currentRatio - widget.aspectRatio).abs() < 0.01) {
-      return widget.originalVideo;
-    }
-
-    int cropWidth = width;
-    int cropHeight = (width / widget.aspectRatio).round();
-
-    if (cropHeight > height) {
-      cropHeight = height;
-      cropWidth = (height * widget.aspectRatio).round();
-    }
-
-    if (cropWidth <= 0 || cropHeight <= 0 || cropWidth > width || cropHeight > height) {
-      return widget.originalVideo;
-    }
-
-    int x = ((width - cropWidth) / 2).round();
-    int y = ((height - cropHeight) / 2).round();
-    final filter = 'crop=$cropWidth:$cropHeight:$x:$y';
-
-    final cmd = '-y -i "$inputPath" -vf "$filter" -c:v libx264 -preset ultrafast -crf 23 -c:a copy "$outputPath"';
-    final session = await FFmpegKit.execute(cmd);
-    final returnCode = await session.getReturnCode();
-
-    if (ReturnCode.isSuccess(returnCode)) {
-      return File(outputPath);
-    } else {
-      return widget.originalVideo;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Preview Cropped Video")),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _togglePlay,
-                    child: Center(
-                      child: AspectRatio(
-                        aspectRatio: _controller.value.aspectRatio,
-                        child: VideoPlayer(_controller),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.close),
-                        label: const Text("Cancel"),
-                        onPressed: () => Navigator.pop(context, null),
-                      ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.check),
-                        label: const Text("Use This Video"),
-                        onPressed: () => Navigator.pop(context, _finalVideo),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return VideoCropScreen(
+      videoFile: originalVideo,
+      aspectRatio: aspectRatio,
     );
   }
 }

@@ -1,134 +1,168 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../Classes/ConversationDetail.dart';
+import '../Classes/User.dart';
+import '../MainFlow/DMsPage.dart';
 import '../main.dart';
+
+final conversationIsLoadingProvider = StateProvider<bool>((ref) => false);
 
 final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((ref) async* {
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    print('No user logged in, returning empty stream');
-    yield [];
-    return;
-  }
-
-  final currentUserId = user.uid;
-  print('Streaming conversations for user: $currentUserId');
-
-  // Get cached data
-  final cached = conversationDetailsBox.get('conversation_details')?.cast<ConversationDetail>();
-  if (cached != null) {
-    yield cached;
-  }
 
   try {
-    final stream = supabase.from('conversations').stream(primaryKey: ['conversation_id']).order('last_message_at', ascending: false).order('created_at', ascending: false);
+    // Stream that listens for any changes in the conversations table
+    final stream = supabase.from('conversations').stream(primaryKey: ['conversation_id']).order('last_message_at', ascending: false);
 
-    await for (final conversations in stream) {
-      print('Streaming ${conversations.length} conversations...');
-      final response = await supabase.from('conversations').select('''
-            conversation_id,
-            conversation_type,
-            title,
-            created_at,
-            updated_at,
-            last_message_at,
-            last_message_id,
-            last_message_content,
-            last_message_content_type,
-            last_message_sender,
-            notifications_enabled,
-            is_pinned,
-            chat_theme,
-            conversation_participants!inner (
-              user_id,
-              last_read_at,
-              is_typing,
-              user_username
-            ),
-            messages!messages_conversation_id_fkey (
-              message_id,
-              sent_at,
-              sender_id,
-              read_by
-            )
-          ''').order('last_message_at', ascending: false).order('created_at', ascending: false);
+    await for (final _ in stream) {
+      final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': user!.uid});
 
-      final List<ConversationDetail> details = [];
+      final List<ConversationDetail> details = (response as List)
+          .map((data) => ConversationDetail(
+                conversationId: data['conversation_id'],
+                conversationType: data['conversation_type'],
+                title: data['title'],
+                createdAt: DateTime.parse(data['created_at']),
+                updatedAt: DateTime.parse(data['updated_at']),
+                lastMessageAt: data['last_message_at'] != null ? DateTime.parse(data['last_message_at']) : null,
+                lastMessageId: data['last_message_id'],
+                lastMessageContent: data['last_message_content'],
+                lastMessageContentType: data['last_message_content_type'],
+                userId: data['user_id'],
+                lastReadAt: data['last_read_at'] != null ? DateTime.parse(data['last_read_at']) : null,
+                userUsername: data['user_username'],
+                userPhotoUrl: data['user_photo_url'],
+                unreadCount: data['unread_count'] ?? 0,
+                sender: data['sender'],
+                notificationsEnabled: data['notifications_enabled'],
+                isTyping: data['is_typing'],
+                isPinned: data['is_pinned'],
+                chatTheme: data['chat_theme'],
+              ))
+          .toList();
 
-      for (final conv in response) {
-        final participants = conv['conversation_participants'] as List<dynamic>;
-        final messages = conv['messages'] as List<dynamic>? ?? [];
-
-        final participant = participants.firstWhere(
-          (p) => p['user_id'] == currentUserId,
-          orElse: () => throw Exception('Participant not found'),
-        );
-
-        String? userUsername;
-        String? userPhotoUrl;
-
-        if (conv['conversation_type'] == 'direct') {
-          final otherParticipant = participants.firstWhere(
-            (p) => p['user_id'] != currentUserId,
-            orElse: () => {},
-          );
-          userUsername = otherParticipant['user_username'] as String?;
-          if (otherParticipant['user_id'] != null) {
-            final userResponse = await supabase.from('users').select('photo_url').eq('id', otherParticipant['user_id']).single();
-            userPhotoUrl = userResponse['photo_url'] as String?;
-          }
-        } else {
-          userUsername = participant['user_username'] as String?;
-        }
-
-        final unreadCount = messages.where((m) {
-          final sentAt = DateTime.parse(m['sent_at']);
-          final lastReadAt = participant['last_read_at'] != null ? DateTime.parse(participant['last_read_at']) : DateTime(1970, 1, 1);
-          return sentAt.isAfter(lastReadAt) && m['sender_id'] != currentUserId && (m['read_by'] == null || m['read_by'][currentUserId] == null);
-        }).length;
-
-        final detail = ConversationDetail(
-          conversationId: conv['conversation_id'] as String,
-          conversationType: conv['conversation_type'] as String,
-          title: conv['title'] as String?,
-          createdAt: DateTime.parse(conv['created_at'] as String),
-          updatedAt: DateTime.parse(conv['updated_at'] as String),
-          lastMessageAt: conv['last_message_at'] != null ? DateTime.parse(conv['last_message_at']) : null,
-          lastMessageId: conv['last_message_id'] as String?,
-          lastMessageContent: conv['last_message_content_type'] == 'text'
-              ? conv['last_message_content'] as String?
-              : conv['last_message_content_type'] == 'record'
-                  ? "Record Message 🎙️"
-                  : "Media Message 📷",
-          lastMessageContentType: conv['last_message_content_type'] as String?,
-          userId: currentUserId,
-          lastReadAt: participant['last_read_at'] != null ? DateTime.parse(participant['last_read_at']) : null,
-          userUsername: userUsername,
-          userPhotoUrl: userPhotoUrl,
-          unreadCount: unreadCount,
-          sender: conv['last_message_sender'] as String?,
-          notificationsEnabled: conv['notifications_enabled'] as bool,
-          isTyping: participant['is_typing'] as bool,
-          isPinned: conv['is_pinned'] as bool,
-          chatTheme: conv['chat_theme'] as String?,
-        );
-
-        details.add(detail);
-      }
-
-      // Cache and yield the new list
-      await conversationDetailsBox.put('conversation_details', details);
       yield details;
     }
   } catch (e, stackTrace) {
     print('Error in conversation stream: $e');
-    if (cached != null) {
-      yield cached;
-    } else {
-      debugPrintStack(stackTrace: stackTrace);
-      rethrow;
+    debugPrintStack(stackTrace: stackTrace);
+    rethrow;
+  }
+});
+
+final userSearchProvider = FutureProvider.family<List<UserModel>, String>((ref, query) async {
+  if (query.isEmpty) return [];
+
+  // debounce baby
+  await Future.delayed(const Duration(milliseconds: 400));
+
+  final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+  final response = await supabase.from('users').select().ilike('username', '%$query%').neq('id', currentUserId!).limit(10);
+
+  return (response as List).map((user) => UserModel.fromMap(user)).toList();
+});
+
+final deletingConversationProvider = StateProvider<Set<String>>((ref) => {});
+
+final createConversationProvider = FutureProvider.family<String, String>((ref, otherUserId) async {
+  final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+  // Step 1: Get all conversation IDs of currentUser
+  final currentUserConversations = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', currentUserId);
+  final currentUserConversationIds = (currentUserConversations as List).map((e) => e['conversation_id'] as String).toSet();
+
+  // Step 2: Get all conversation IDs of otherUser
+  final otherUserConversations = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', otherUserId);
+  final otherUserConversationIds = (otherUserConversations as List).map((e) => e['conversation_id'] as String).toSet();
+
+  // Step 3: Find common conversation IDs
+  final commonConversationIds = currentUserConversationIds.intersection(otherUserConversationIds);
+
+  // Step 4: Check if there's any direct conversation among them
+  if (commonConversationIds.isNotEmpty) {
+    final directConversations = await supabase.from('conversations').select().eq('conversation_type', 'direct').filter('conversation_id', 'in', commonConversationIds.toList());
+
+    if ((directConversations as List).isNotEmpty) {
+      return directConversations[0]['conversation_id'];
     }
   }
+
+  // Create a new conversation
+  final conversation = await supabase
+      .from('conversations')
+      .insert({
+        'conversation_type': 'direct',
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+        'notifications_enabled': true,
+        'is_pinned': false,
+      })
+      .select()
+      .single();
+
+  final conversationId = conversation['conversation_id'];
+  final now = DateTime.now().toIso8601String();
+
+  // Add both users as participants with their usernames and photo URLs
+  await supabase.from('conversation_participants').insert([
+    {
+      'conversation_id': conversationId,
+      'user_id': currentUserId,
+      'joined_at': now,
+    },
+    {
+      'conversation_id': conversationId,
+      'user_id': otherUserId,
+      'joined_at': now,
+    }
+  ]);
+
+  return conversationId;
+});
+
+final createGroupConversationProvider = FutureProvider.family<String, GroupChatParams>((ref, params) async {
+  final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+  final now = DateTime.now().toIso8601String();
+
+  // Create a new group conversation
+  final conversation = await supabase
+      .from('conversations')
+      .insert({
+        'conversation_type': 'group',
+        'title': params.groupName,
+        'created_at': now,
+        'updated_at': now,
+        'notifications_enabled': true,
+        'is_pinned': false,
+        'admin_id': currentUserId,
+      })
+      .select()
+      .single();
+
+  final conversationId = conversation['conversation_id'];
+
+  // First add the current user as participant
+  await supabase.from('conversation_participants').insert({
+    'conversation_id': conversationId,
+    'user_id': currentUserId,
+    'joined_at': now,
+  });
+
+  // Then add all selected users as participants
+  final participantEntries = params.userIds
+      .map((userId) => {
+            'conversation_id': conversationId,
+            'user_id': userId,
+            'joined_at': now,
+          })
+      .toList();
+
+  await supabase.from('conversation_participants').insert(participantEntries);
+
+  return conversationId;
 });

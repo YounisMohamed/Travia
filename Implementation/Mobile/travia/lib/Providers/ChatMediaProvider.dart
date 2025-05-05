@@ -1,0 +1,145 @@
+import 'dart:io';
+
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
+
+class MediaState {
+  final bool isDownloaded;
+  final bool isDownloading;
+  final bool isPlaying;
+  final File? localFile;
+  final bool isVideoInitialized;
+
+  const MediaState({
+    this.isDownloaded = false,
+    this.isDownloading = false,
+    this.isPlaying = false,
+    this.localFile,
+    this.isVideoInitialized = false,
+  });
+
+  MediaState copyWith({
+    bool? isDownloaded,
+    bool? isDownloading,
+    bool? isPlaying,
+    File? localFile,
+    bool? isVideoInitialized,
+  }) {
+    return MediaState(
+      isDownloaded: isDownloaded ?? this.isDownloaded,
+      isDownloading: isDownloading ?? this.isDownloading,
+      isPlaying: isPlaying ?? this.isPlaying,
+      localFile: localFile ?? this.localFile,
+      isVideoInitialized: isVideoInitialized ?? this.isVideoInitialized,
+    );
+  }
+}
+
+// State notifier to manage media state
+class MediaStateNotifier extends StateNotifier<MediaState> {
+  final String mediaUrl;
+  final bool isVideo;
+
+  static final CacheManager _cacheManager = CacheManager(
+    Config(
+      'media_cache',
+      stalePeriod: const Duration(days: 7),
+      maxNrOfCacheObjects: 100,
+    ),
+  );
+
+  MediaStateNotifier({
+    required this.mediaUrl,
+    required this.isVideo,
+  }) : super(const MediaState()) {
+    checkIfFileExists();
+  }
+
+  Future<void> checkIfFileExists() async {
+    try {
+      final fileInfo = await _cacheManager.getFileFromCache(mediaUrl);
+      if (fileInfo != null) {
+        state = state.copyWith(
+          isDownloaded: true,
+          localFile: fileInfo.file,
+        );
+      }
+    } catch (e) {
+      print('Error checking cached file: $e');
+    }
+  }
+
+  Future<void> downloadMedia() async {
+    state = state.copyWith(isDownloading: true);
+
+    try {
+      final fileInfo = await _cacheManager.downloadFile(mediaUrl);
+      state = state.copyWith(
+        isDownloaded: true,
+        isDownloading: false,
+        localFile: fileInfo.file,
+      );
+    } catch (e) {
+      state = state.copyWith(isDownloading: false);
+      print('Error downloading media: $e');
+    }
+  }
+
+  void setVideoInitialized(bool isInitialized) {
+    state = state.copyWith(isVideoInitialized: isInitialized);
+  }
+
+  void setDownloaded() {
+    state = state.copyWith(isDownloaded: true);
+  }
+
+  void togglePlayback() {
+    state = state.copyWith(isPlaying: !state.isPlaying);
+  }
+}
+
+final mediaStateProvider = StateNotifierProvider.family<MediaStateNotifier, MediaState, String>(
+  (ref, mediaUrl) {
+    final isVideo = mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov');
+    return MediaStateNotifier(mediaUrl: mediaUrl, isVideo: isVideo);
+  },
+);
+
+final videoPlayerControllerProvider = StateNotifierProvider.family<VideoControllerNotifier, AsyncValue<VideoPlayerController>, String>((ref, url) {
+  return VideoControllerNotifier(url);
+});
+
+class VideoControllerNotifier extends StateNotifier<AsyncValue<VideoPlayerController>> {
+  final String mediaUrl;
+  late final VideoPlayerController _controller;
+
+  VideoControllerNotifier(this.mediaUrl) : super(const AsyncLoading()) {
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(mediaUrl));
+      await _controller.initialize();
+      _controller.setLooping(true);
+
+      _controller.addListener(() {
+        state = AsyncData(_controller);
+      });
+
+      state = AsyncData(_controller);
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
+
+  void play() => _controller.play();
+  void pause() => _controller.pause();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}

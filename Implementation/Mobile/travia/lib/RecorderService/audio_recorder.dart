@@ -2,30 +2,53 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
 
 import 'audio_recorder_io.dart';
 
-class Recorder extends StatefulWidget {
-  final void Function(String path) onStop;
+// State class to hold all relevant recorder state
+class RecorderState {
+  final int recordDuration;
+  final RecordState recordState;
+  final Amplitude? amplitude;
 
-  const Recorder({super.key, required this.onStop});
+  RecorderState({
+    this.recordDuration = 0,
+    this.recordState = RecordState.stop,
+    this.amplitude,
+  });
 
-  @override
-  State<Recorder> createState() => _RecorderState();
+  RecorderState copyWith({
+    int? recordDuration,
+    RecordState? recordState,
+    Amplitude? amplitude,
+  }) {
+    return RecorderState(
+      recordDuration: recordDuration ?? this.recordDuration,
+      recordState: recordState ?? this.recordState,
+      amplitude: amplitude ?? this.amplitude,
+    );
+  }
 }
 
-class _RecorderState extends State<Recorder> with AudioRecorderMixin {
-  int _recordDuration = 0;
+// Provider for the recorder
+final recorderProvider = StateNotifierProvider<RecorderNotifier, RecorderState>(
+  (ref) => RecorderNotifier(),
+);
+
+// Recorder controller that manages the state
+class RecorderNotifier extends StateNotifier<RecorderState> with AudioRecorderMixin {
+  RecorderNotifier() : super(RecorderState()) {
+    _initialize();
+  }
+
   Timer? _timer;
   late final AudioRecorder _audioRecorder;
   StreamSubscription<RecordState>? _recordSub;
-  RecordState _recordState = RecordState.stop;
   StreamSubscription<Amplitude>? _amplitudeSub;
-  Amplitude? _amplitude;
 
-  @override
-  void initState() {
+  void _initialize() {
     _audioRecorder = AudioRecorder();
 
     _recordSub = _audioRecorder.onStateChanged().listen((recordState) {
@@ -33,13 +56,11 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
     });
 
     _amplitudeSub = _audioRecorder.onAmplitudeChanged(const Duration(milliseconds: 300)).listen((amp) {
-      setState(() => _amplitude = amp);
+      state = state.copyWith(amplitude: amp);
     });
-
-    super.initState();
   }
 
-  Future<void> _start() async {
+  Future<void> start() async {
     try {
       if (await _audioRecorder.hasPermission()) {
         const encoder = AudioEncoder.aacLc;
@@ -56,11 +77,8 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
         // Record to file
         await recordFile(_audioRecorder, config);
 
-        // Record to stream
-        // await recordStream(_audioRecorder, config);
-
-        _recordDuration = 0;
-
+        // Reset duration and start timer
+        state = state.copyWith(recordDuration: 0);
         _startTimer();
       }
     } catch (e) {
@@ -70,20 +88,17 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
     }
   }
 
-  Future<void> _stop() async {
+  Future<String?> stop() async {
     final path = await _audioRecorder.stop();
-
-    if (path != null) {
-      widget.onStop(path);
-    }
+    return path;
   }
 
-  Future<void> _pause() => _audioRecorder.pause();
+  Future<void> pause() => _audioRecorder.pause();
 
-  Future<void> _resume() => _audioRecorder.resume();
+  Future<void> resume() => _audioRecorder.resume();
 
   void _updateRecordState(RecordState recordState) {
-    setState(() => _recordState = recordState);
+    state = state.copyWith(recordState: recordState);
 
     switch (recordState) {
       case RecordState.pause:
@@ -94,15 +109,13 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
         break;
       case RecordState.stop:
         _timer?.cancel();
-        _recordDuration = 0;
+        state = state.copyWith(recordDuration: 0);
         break;
     }
   }
 
   Future<bool> _isEncoderSupported(AudioEncoder encoder) async {
-    final isSupported = await _audioRecorder.isEncoderSupported(
-      encoder,
-    );
+    final isSupported = await _audioRecorder.isEncoderSupported(encoder);
 
     if (!isSupported) {
       debugPrint('${encoder.name} is not supported on this platform.');
@@ -118,31 +131,12 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
     return isSupported;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                _buildRecordStopControl(),
-                const SizedBox(width: 20),
-                _buildPauseResumeControl(),
-                const SizedBox(width: 20),
-              ],
-            ),
-            if (_amplitude != null) ...[
-              const SizedBox(height: 40),
-              Text('Current: ${_amplitude?.current ?? 0.0}'),
-              Text('Max: ${_amplitude?.max ?? 0.0}'),
-            ],
-          ],
-        ),
-      ),
-    );
+  void _startTimer() {
+    _timer?.cancel();
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+      state = state.copyWith(recordDuration: state.recordDuration + 1);
+    });
   }
 
   @override
@@ -153,18 +147,56 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
     _audioRecorder.dispose();
     super.dispose();
   }
+}
 
-  Widget _buildRecordStopControl() {
+// The ConsumerWidget implementation
+class Recorder extends ConsumerWidget {
+  final void Function(String path) onStop;
+
+  const Recorder({super.key, required this.onStop});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recorderState = ref.watch(recorderProvider);
+    final recorderNotifier = ref.read(recorderProvider.notifier);
+
+    return MaterialApp(
+      home: Scaffold(
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                _buildRecordStopControl(context, recorderState, recorderNotifier),
+                const SizedBox(width: 20),
+                _buildPauseResumeControl(context, recorderState, recorderNotifier),
+                const SizedBox(width: 20),
+                _buildTimer(recorderState),
+              ],
+            ),
+            if (recorderState.amplitude != null) ...[
+              const SizedBox(height: 40),
+              Text('Current: ${recorderState.amplitude?.current ?? 0.0}'),
+              Text('Max: ${recorderState.amplitude?.max ?? 0.0}'),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecordStopControl(BuildContext context, RecorderState state, RecorderNotifier notifier) {
     late Icon icon;
     late Color color;
 
-    if (_recordState != RecordState.stop) {
+    if (state.recordState != RecordState.stop) {
       icon = const Icon(Icons.stop, color: Colors.red, size: 30);
-      color = Colors.red.withValues(alpha: 0.1);
+      color = Colors.red.withOpacity(0.1);
     } else {
       final theme = Theme.of(context);
       icon = Icon(Icons.mic, color: theme.primaryColor, size: 30);
-      color = theme.primaryColor.withValues(alpha: 0.1);
+      color = theme.primaryColor.withOpacity(0.1);
     }
 
     return ClipOval(
@@ -172,29 +204,36 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
         color: color,
         child: InkWell(
           child: SizedBox(width: 56, height: 56, child: icon),
-          onTap: () {
-            (_recordState != RecordState.stop) ? _stop() : _start();
+          onTap: () async {
+            if (state.recordState != RecordState.stop) {
+              final path = await notifier.stop();
+              if (path != null) {
+                onStop(path);
+              }
+            } else {
+              notifier.start();
+            }
           },
         ),
       ),
     );
   }
 
-  Widget _buildPauseResumeControl() {
-    if (_recordState == RecordState.stop) {
+  Widget _buildPauseResumeControl(BuildContext context, RecorderState state, RecorderNotifier notifier) {
+    if (state.recordState == RecordState.stop) {
       return const SizedBox.shrink();
     }
 
     late Icon icon;
     late Color color;
 
-    if (_recordState == RecordState.record) {
+    if (state.recordState == RecordState.record) {
       icon = const Icon(Icons.pause, color: Colors.red, size: 30);
-      color = Colors.red.withValues(alpha: 0.1);
+      color = Colors.red.withOpacity(0.1);
     } else {
       final theme = Theme.of(context);
       icon = const Icon(Icons.play_arrow, color: Colors.red, size: 30);
-      color = theme.primaryColor.withValues(alpha: 0.1);
+      color = theme.primaryColor.withOpacity(0.1);
     }
 
     return ClipOval(
@@ -203,16 +242,16 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
         child: InkWell(
           child: SizedBox(width: 56, height: 56, child: icon),
           onTap: () {
-            (_recordState == RecordState.pause) ? _resume() : _pause();
+            (state.recordState == RecordState.pause) ? notifier.resume() : notifier.pause();
           },
         ),
       ),
     );
   }
 
-  Widget _buildTimer() {
-    final String minutes = _formatNumber(_recordDuration ~/ 60);
-    final String seconds = _formatNumber(_recordDuration % 60);
+  Widget _buildTimer(RecorderState state) {
+    final String minutes = _formatNumber(state.recordDuration ~/ 60);
+    final String seconds = _formatNumber(state.recordDuration % 60);
 
     return Text(
       '$minutes : $seconds',
@@ -227,13 +266,5 @@ class _RecorderState extends State<Recorder> with AudioRecorderMixin {
     }
 
     return numberStr;
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
-      setState(() => _recordDuration++);
-    });
   }
 }

@@ -1,57 +1,84 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart' as ap;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AudioPlayer extends StatefulWidget {
-  /// Path from where to play recorded audio
-  final String source;
+class AudioPlayerState {
+  final Duration? position;
+  final Duration? duration;
+  final ap.PlayerState playerState;
 
-  /// Callback when audio file should be removed
-  /// Setting this to null hides the delete button
-  final VoidCallback onDelete;
-
-  const AudioPlayer({
-    super.key,
-    required this.source,
-    required this.onDelete,
+  AudioPlayerState({
+    this.position,
+    this.duration,
+    this.playerState = ap.PlayerState.stopped,
   });
 
-  @override
-  AudioPlayerState createState() => AudioPlayerState();
+  AudioPlayerState copyWith({
+    Duration? position,
+    Duration? duration,
+    ap.PlayerState? playerState,
+  }) {
+    return AudioPlayerState(
+      position: position ?? this.position,
+      duration: duration ?? this.duration,
+      playerState: playerState ?? this.playerState,
+    );
+  }
 }
 
-class AudioPlayerState extends State<AudioPlayer> {
-  static const double _controlSize = 56;
-  static const double _deleteBtnSize = 24;
+// Provider for the AudioPlayerNotifier
+final audioPlayerProvider = StateNotifierProvider.family<AudioPlayerNotifier, AudioPlayerState, String>(
+  (ref, source) => AudioPlayerNotifier(source),
+);
 
-  final _audioPlayer = ap.AudioPlayer()..setReleaseMode(ap.ReleaseMode.stop);
+// Audio player controller that manages the state
+class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
+  final String source;
+  final ap.AudioPlayer _audioPlayer = ap.AudioPlayer()..setReleaseMode(ap.ReleaseMode.stop);
   late StreamSubscription<void> _playerStateChangedSubscription;
   late StreamSubscription<Duration?> _durationChangedSubscription;
   late StreamSubscription<Duration> _positionChangedSubscription;
-  Duration? _position;
-  Duration? _duration;
 
-  @override
-  void initState() {
-    _playerStateChangedSubscription = _audioPlayer.onPlayerComplete.listen((state) async {
+  AudioPlayerNotifier(this.source) : super(AudioPlayerState()) {
+    _initializePlayer();
+  }
+
+  void _initializePlayer() {
+    _playerStateChangedSubscription = _audioPlayer.onPlayerComplete.listen((_) async {
       await stop();
     });
+
     _positionChangedSubscription = _audioPlayer.onPositionChanged.listen(
-      (position) => setState(() {
-        _position = position;
-      }),
+      (position) => state = state.copyWith(position: position),
     );
+
     _durationChangedSubscription = _audioPlayer.onDurationChanged.listen(
-      (duration) => setState(() {
-        _duration = duration;
-      }),
+      (duration) => state = state.copyWith(duration: duration),
     );
 
-    _audioPlayer.setSource(_source);
+    _audioPlayer.onPlayerStateChanged.listen(
+      (playerState) => state = state.copyWith(playerState: playerState),
+    );
 
-    super.initState();
+    _audioPlayer.setSource(ap.DeviceFileSource(source));
+  }
+
+  Future<void> play() async {
+    await _audioPlayer.play(ap.DeviceFileSource(source));
+  }
+
+  Future<void> pause() async {
+    await _audioPlayer.pause();
+  }
+
+  Future<void> stop() async {
+    await _audioPlayer.stop();
+  }
+
+  Future<void> seek(Duration position) async {
+    await _audioPlayer.seek(position);
   }
 
   @override
@@ -62,9 +89,31 @@ class AudioPlayerState extends State<AudioPlayer> {
     _audioPlayer.dispose();
     super.dispose();
   }
+}
+
+// The actual widget is now a ConsumerWidget
+class AudioPlayer extends ConsumerWidget {
+  /// Path from where to play recorded audio
+  final String source;
+
+  /// Callback when audio file should be removed
+  /// Setting this to null hides the delete button
+  final VoidCallback onDelete;
+
+  static const double _controlSize = 56;
+  static const double _deleteBtnSize = 24;
+
+  const AudioPlayer({
+    super.key,
+    required this.source,
+    required this.onDelete,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audioState = ref.watch(audioPlayerProvider(source));
+    final audioNotifier = ref.read(audioPlayerProvider(source).notifier);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return Column(
@@ -74,38 +123,37 @@ class AudioPlayerState extends State<AudioPlayer> {
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                _buildControl(),
-                _buildSlider(constraints.maxWidth),
+                _buildControl(context, audioState, audioNotifier),
+                _buildSlider(context, constraints.maxWidth, audioState, audioNotifier),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Color(0xFF73748D), size: _deleteBtnSize),
-                  onPressed: () {
-                    if (_audioPlayer.state == ap.PlayerState.playing) {
-                      stop().then((value) => widget.onDelete());
-                    } else {
-                      widget.onDelete();
+                  onPressed: () async {
+                    if (audioState.playerState == ap.PlayerState.playing) {
+                      await audioNotifier.stop();
                     }
+                    onDelete();
                   },
                 ),
               ],
             ),
-            Text('${_duration ?? 0.0}'),
+            Text('${audioState.duration ?? 0.0}'),
           ],
         );
       },
     );
   }
 
-  Widget _buildControl() {
+  Widget _buildControl(BuildContext context, AudioPlayerState audioState, AudioPlayerNotifier audioNotifier) {
     Icon icon;
     Color color;
 
-    if (_audioPlayer.state == ap.PlayerState.playing) {
+    if (audioState.playerState == ap.PlayerState.playing) {
       icon = const Icon(Icons.pause, color: Colors.red, size: 30);
-      color = Colors.red.withValues(alpha: 0.1);
+      color = Colors.red.withOpacity(0.1);
     } else {
       final theme = Theme.of(context);
       icon = Icon(Icons.play_arrow, color: theme.primaryColor, size: 30);
-      color = theme.primaryColor.withValues(alpha: 0.1);
+      color = theme.primaryColor.withOpacity(0.1);
     }
 
     return ClipOval(
@@ -114,10 +162,10 @@ class AudioPlayerState extends State<AudioPlayer> {
         child: InkWell(
           child: SizedBox(width: _controlSize, height: _controlSize, child: icon),
           onTap: () {
-            if (_audioPlayer.state == ap.PlayerState.playing) {
-              pause();
+            if (audioState.playerState == ap.PlayerState.playing) {
+              audioNotifier.pause();
             } else {
-              play();
+              audioNotifier.play();
             }
           },
         ),
@@ -125,10 +173,10 @@ class AudioPlayerState extends State<AudioPlayer> {
     );
   }
 
-  Widget _buildSlider(double widgetWidth) {
+  Widget _buildSlider(BuildContext context, double widgetWidth, AudioPlayerState audioState, AudioPlayerNotifier audioNotifier) {
     bool canSetValue = false;
-    final duration = _duration;
-    final position = _position;
+    final duration = audioState.duration;
+    final position = audioState.position;
 
     if (duration != null && position != null) {
       canSetValue = position.inMilliseconds > 0;
@@ -146,25 +194,11 @@ class AudioPlayerState extends State<AudioPlayer> {
         onChanged: (v) {
           if (duration != null) {
             final position = v * duration.inMilliseconds;
-            _audioPlayer.seek(Duration(milliseconds: position.round()));
+            audioNotifier.seek(Duration(milliseconds: position.round()));
           }
         },
         value: canSetValue && duration != null && position != null ? position.inMilliseconds / duration.inMilliseconds : 0.0,
       ),
     );
   }
-
-  Future<void> play() => _audioPlayer.play(_source);
-
-  Future<void> pause() async {
-    await _audioPlayer.pause();
-    setState(() {});
-  }
-
-  Future<void> stop() async {
-    await _audioPlayer.stop();
-    setState(() {});
-  }
-
-  ap.Source get _source => kIsWeb ? ap.UrlSource(widget.source) : ap.DeviceFileSource(widget.source);
 }

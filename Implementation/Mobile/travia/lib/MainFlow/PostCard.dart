@@ -9,12 +9,12 @@ import 'package:travia/Helpers/HelperMethods.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/database/DatabaseMethods.dart';
 
-import '../Helpers/MediaPreview.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
 import '../Providers/SavedPostsProvider.dart';
 import 'CommentSheet.dart';
+import 'MediaPreview.dart';
 
 class PostCard extends StatelessWidget {
   final String profilePicUrl;
@@ -227,7 +227,7 @@ class PostCard extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      MediaPreview(
+                      MediaPostPreview(
                         mediaUrl: postImageUrl,
                         isVideo: postImageUrl.endsWith('.mp4') || postImageUrl.endsWith('.mov'),
                       ),

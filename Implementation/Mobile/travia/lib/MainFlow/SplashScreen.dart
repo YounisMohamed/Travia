@@ -12,6 +12,13 @@ import '../Providers/NotificationProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../database/DatabaseMethods.dart';
 import '../main.dart';
+/*
+late Box messagesBox;
+late Box postsBox;
+late Box conversationDetailsBox;
+late Box storiesBox;
+
+ */
 
 class SplashScreen extends ConsumerStatefulWidget {
   final String? type;
@@ -55,6 +62,14 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
     }
 
     await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
+
+    /*
+    messagesBox = await Hive.openBox<MessageClass>('messages_${user.uid}');
+    postsBox = await Hive.openBox<List>('posts_${user.uid}');
+    conversationDetailsBox = await Hive.openBox<List>("conversation_details_${user.uid}");
+    storiesBox = await Hive.openBox<story_model>("stories_box_${user.uid}");
+
+     */
 
     try {
       await Future.any([

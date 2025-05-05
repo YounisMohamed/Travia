@@ -10,12 +10,12 @@ import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/HelperMethods.dart';
 import 'package:travia/Helpers/Loading.dart';
-import 'package:travia/Helpers/PopUp.dart';
 import 'package:travia/Providers/CommentsLikesProvider.dart';
-import 'package:uuid/uuid.dart';
 
 import '../Classes/Comment.dart';
+import '../Helpers/PopUp.dart';
 import '../Providers/ChatDetailsProvider.dart';
+import '../Providers/CommentLogicProvider.dart';
 import '../Providers/LoadingProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/ReplyToCommentProvider.dart';
@@ -76,8 +76,39 @@ class _CommentModalState extends ConsumerState<CommentModal> {
   @override
   Widget build(BuildContext context) {
     final replyState = ref.watch(replyStateProvider);
-    final isLoading = ref.watch(loadingProvider);
     final textDirection = ref.watch(textDirectionProvider);
+    final isLoading = ref.watch(commentSubmitProvider).isLoading || ref.watch(deleteCommentProvider).isLoading;
+    ref.listen(commentSubmitProvider, (prev, next) {
+      if (next is AsyncLoading) {
+        ref.read(isCommentsLoadingProvider.notifier).state = true;
+      } else {
+        ref.read(isCommentsLoadingProvider.notifier).state = false;
+      }
+
+      if (next is AsyncData) {
+        _commentController.clear();
+        ref.read(replyStateProvider.notifier).cancelReply();
+      }
+
+      if (next is AsyncError) {
+        Popup.showPopUp(text: "Error adding comment", context: context);
+      }
+    });
+    ref.listen(deleteCommentProvider, (prev, next) {
+      if (next is AsyncLoading) {
+        ref.read(isCommentsLoadingProvider.notifier).state = true;
+      } else {
+        ref.read(isCommentsLoadingProvider.notifier).state = false;
+      }
+
+      if (next is AsyncData) {
+        // optionally show a snackbar/toast
+      }
+
+      if (next is AsyncError) {
+        Popup.showPopUp(text: "Error deleting comment", context: context);
+      }
+    });
 
     return SafeArea(
       child: Scaffold(
@@ -188,38 +219,15 @@ class _CommentModalState extends ConsumerState<CommentModal> {
 
                     // **Send Button**
                     GestureDetector(
-                      onTap: () async {
-                        if (_commentController.text.trim().isEmpty) return;
-                        ref.read(loadingProvider.notifier).setLoadingToTrue();
-                        String userId = FirebaseAuth.instance.currentUser!.uid;
-                        String content = _commentController.text.trim();
-
-                        try {
-                          String commentId = Uuid().v4();
-                          await sendComment(
-                            postId: widget.postId,
-                            userId: userId,
-                            content: content,
-                            id: commentId,
-                            parentCommentId: replyState?.parentCommentId,
-                          );
-                          await sendNotification(
-                            type: 'comment',
-                            title: "commented on your post",
-                            content: content,
-                            target_user_id: widget.posterId,
-                            source_id: widget.postId,
-                            sender_user_id: userId,
-                          );
-
-                          _commentController.clear();
-                          ref.read(replyStateProvider.notifier).cancelReply();
-                          //ref.read(postCommentCountProvider(widget.postId).notifier).increment();
-                        } catch (e) {
-                          Popup.showPopUp(text: "Error adding comment", context: context);
-                        } finally {
-                          ref.read(loadingProvider.notifier).setLoadingToFalse();
-                        }
+                      onTap: () {
+                        final content = _commentController.text.trim();
+                        if (content.isEmpty) return;
+                        ref.read(commentSubmitProvider.notifier).submitComment(
+                              postId: widget.postId,
+                              content: content,
+                              posterId: widget.posterId,
+                              parentCommentId: replyState?.parentCommentId,
+                            );
                       },
                       child: Icon(Icons.send, color: Colors.blueAccent, size: 22),
                     ),
@@ -346,7 +354,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
 }
 
 // Main Comment Card Widget that decides which card to render
-class CommentCard extends ConsumerWidget {
+class CommentCard extends StatelessWidget {
   final String commentId;
   final String userId;
   final String userName;
@@ -375,7 +383,7 @@ class CommentCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // Return either a regular comment card or a reply card based on isReply
     return isReply
         ? ReplyCommentCard(
@@ -405,7 +413,7 @@ class CommentCard extends ConsumerWidget {
 }
 
 // Regular Comment Card
-class RegularCommentCard extends ConsumerWidget {
+class RegularCommentCard extends StatelessWidget {
   final String commentId;
   final String userId;
   final String userName;
@@ -430,8 +438,7 @@ class RegularCommentCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isLoading = ref.watch(loadingProvider);
+  Widget build(BuildContext context) {
     return Consumer(
       builder: (context, ref, child) {
         final likeState = ref.watch(likeCommentProvider);
@@ -635,15 +642,12 @@ class RegularCommentCard extends ConsumerWidget {
                               IconButton(
                                 onPressed: () async {
                                   try {
-                                    ref.read(loadingProvider.notifier).setLoadingToTrue();
                                     await deleteComment(commentId: commentId);
                                     //ref.read(postCommentCountProvider(postId).notifier).decrement();
                                     ref.invalidate(commentsProvider(postId));
                                   } catch (e) {
                                     print("Could not delete the comment: $e");
-                                  } finally {
-                                    ref.read(loadingProvider.notifier).setLoadingToFalse();
-                                  }
+                                  } finally {}
                                 },
                                 style: IconButton.styleFrom(
                                   padding: EdgeInsets.zero,
@@ -699,7 +703,6 @@ class ReplyCommentCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isLoading = ref.watch(loadingProvider);
     return Consumer(
       builder: (context, ref, child) {
         final likeState = ref.watch(likeCommentProvider);
@@ -918,16 +921,11 @@ class ReplyCommentCard extends ConsumerWidget {
                             if (canDelete)
                               IconButton(
                                 onPressed: () async {
-                                  final container = ProviderScope.containerOf(context);
                                   try {
-                                    container.read(loadingProvider.notifier).setLoadingToTrue();
-                                    await deleteComment(commentId: commentId);
-                                    container.invalidate(commentsProvider(postId));
+                                    ref.read(deleteCommentProvider.notifier).delete(commentId, postId);
                                   } catch (e) {
-                                    print("Error deleting comment: $e");
-                                  } finally {
-                                    container.read(loadingProvider.notifier).setLoadingToFalse();
-                                  }
+                                    print("Could not delete the comment: $e");
+                                  } finally {}
                                 },
                                 icon: Icon(
                                   Icons.delete,

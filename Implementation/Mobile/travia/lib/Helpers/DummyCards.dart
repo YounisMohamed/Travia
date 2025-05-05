@@ -416,3 +416,42 @@ class ChatAppBarSkeleton extends StatelessWidget implements PreferredSizeWidget 
     );
   }
 }
+
+class DummyStory extends StatelessWidget {
+  const DummyStory();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      containersColor: Colors.white24,
+      child: SizedBox(
+        height: 90,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          itemCount: 8,
+          itemBuilder: (_, __) => Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 3),
+                  ),
+                  child: const CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Container(width: 40, height: 10, color: Colors.white24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

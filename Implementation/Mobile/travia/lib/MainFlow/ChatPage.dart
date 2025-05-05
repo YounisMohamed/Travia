@@ -15,21 +15,20 @@ import 'package:travia/Classes/ConversationParticipants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Helpers/PopUp.dart';
-import 'package:travia/ImageServices/UploadPostProvider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../Classes/ChatDetails.dart';
 import '../Classes/message_class.dart';
 import '../Helpers/Constants.dart';
 import '../Helpers/HelperMethods.dart';
-import '../Helpers/MediaPreview.dart';
-import '../ImageServices/ImagePickerProvider.dart';
-import '../ImageServices/StorageMethods.dart';
 import '../Providers/ChatDetailsProvider.dart';
+import '../Providers/ImagePickerProvider.dart';
+import '../Providers/UploadProviders.dart';
 import '../RecorderService/SimpleRecorder.dart';
 import '../Services/UserPresenceService.dart';
 import '../database/DatabaseMethods.dart';
 import '../main.dart';
+import 'MediaPreview.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
@@ -51,13 +50,6 @@ class ChatPageState extends ConsumerState<ChatPage> {
 
     Future.microtask(() {
       markMessagesAsRead(widget.conversationId);
-      ref.listen<Map<String, MessageClass>>(
-        pendingMessagesProvider,
-        (previous, next) {
-          _setupMessageListener(currentUserId, next);
-        },
-      );
-      _setupPendingMessagesCleanup(ref);
     });
   }
 
@@ -71,8 +63,44 @@ class ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to messages changes for new message detection and read status
+    ref.listen(messagesProvider(widget.conversationId), (previous, next) {
+      next.whenData((messages) {
+        final pendingMessages = ref.read(pendingMessagesProvider);
+
+        // Check for new messages (previously in _setupMessageListener)
+        if (previous?.valueOrNull?.length != messages.length) {
+          final newMessage = messages.firstWhere(
+            (m) => m.senderId != currentUserId && !pendingMessages.containsKey(m.messageId),
+            orElse: () => messages.first,
+          );
+
+          if (newMessage.senderId != currentUserId) {
+            _debounceTimer?.cancel();
+            _debounceTimer = Timer(Duration(milliseconds: 100), () {
+              markMessagesAsRead(widget.conversationId);
+            });
+          }
+        }
+
+        // Clean up pending messages (previously in _setupPendingMessagesCleanup)
+        final updatedPendingMessages = Map<String, MessageClass>.from(pendingMessages);
+
+        for (final message in messages) {
+          if (pendingMessages.containsKey(message.messageId) && pendingMessages[message.messageId]!.isConfirmed) {
+            updatedPendingMessages.remove(message.messageId);
+          }
+        }
+
+        if (updatedPendingMessages.length != pendingMessages.length) {
+          ref.read(pendingMessagesProvider.notifier).update((state) => updatedPendingMessages);
+        }
+      });
+    });
+
     final pendingMessages = ref.watch(pendingMessagesProvider);
     final chatPageAsync = ref.watch(chatPageCombinedProvider(widget.conversationId));
+
     return chatPageAsync.when(
       data: (chatData) => Scaffold(
         resizeToAvoidBottomInset: true,
@@ -111,49 +139,10 @@ class ChatPageState extends ConsumerState<ChatPage> {
     );
   }
 
-  void _setupMessageListener(String currentUserId, Map<String, MessageClass> pendingMessages) {
-    ref.listen(messagesProvider(widget.conversationId), (previous, next) {
-      next.whenData((messages) {
-        if (previous?.valueOrNull?.length != messages.length) {
-          final newMessage = messages.firstWhere(
-            (m) => m.senderId != currentUserId && !pendingMessages.containsKey(m.messageId),
-            orElse: () => messages.first,
-          );
-
-          if (newMessage.senderId != currentUserId) {
-            _debounceTimer?.cancel();
-            _debounceTimer = Timer(Duration(milliseconds: 100), () {
-              markMessagesAsRead(widget.conversationId);
-            });
-          }
-        }
-      });
-    });
-  }
-
-  void _setupPendingMessagesCleanup(WidgetRef ref) {
-    ref.listen(messagesProvider(widget.conversationId), (previous, next) {
-      next.whenData((messages) {
-        final pendingMessages = ref.read(pendingMessagesProvider);
-        final updatedPendingMessages = Map<String, MessageClass>.from(pendingMessages);
-
-        for (final message in messages) {
-          if (pendingMessages.containsKey(message.messageId) && pendingMessages[message.messageId]!.isConfirmed) {
-            updatedPendingMessages.remove(message.messageId);
-          }
-        }
-
-        if (updatedPendingMessages.length != pendingMessages.length) {
-          ref.read(pendingMessagesProvider.notifier).update((state) => updatedPendingMessages);
-        }
-      });
-    });
-  }
-
   Future<void> sendMessage({
     required content,
     required contentType,
-    required String target_user_id,
+    required List<String> target_user_ids,
   }) async {
     if (content.isEmpty) return;
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -204,17 +193,20 @@ class ChatPageState extends ConsumerState<ChatPage> {
         newState[messageId] = placeholder.copyWith(isConfirmed: true);
         return newState;
       });
-      await sendNotification(
-          type: 'message',
-          title: "sent you a message",
-          content: contentType == "text"
-              ? content
-              : contentType == 'record'
-                  ? "New Record 🎙️"
-                  : "New Media 📷",
-          target_user_id: target_user_id,
-          source_id: widget.conversationId,
-          sender_user_id: FirebaseAuth.instance.currentUser!.uid);
+      for (String target_user_id in target_user_ids) {
+        if (target_user_id == currentUserId) continue;
+        await sendNotification(
+            type: 'message',
+            title: "sent you a message",
+            content: contentType == "text"
+                ? content
+                : contentType == 'record'
+                    ? "New Record 🎙️"
+                    : "New Media 📷",
+            target_user_id: target_user_id,
+            source_id: widget.conversationId,
+            sender_user_id: FirebaseAuth.instance.currentUser!.uid);
+      }
     } catch (e) {
       print('Error sending message: $e');
       ref.read(pendingMessagesProvider.notifier).update((state) {
@@ -238,7 +230,7 @@ class ChatBodyContainer extends StatelessWidget {
   final Future<void> Function({
     required String content,
     required String contentType,
-    required String target_user_id,
+    required List<String> target_user_ids,
   }) onSendMessage;
 
   const ChatBodyContainer({
@@ -279,6 +271,7 @@ class ChatBodyContainer extends StatelessWidget {
             conversationId: conversationId,
             currentUserId: currentUserId,
             metadata: metadata,
+            participants: participants,
           ),
         ],
       ),
@@ -684,10 +677,12 @@ class EmptyConversationIndicator extends StatelessWidget {
 
 class MessageInputBar extends ConsumerWidget {
   final TextEditingController messageController;
+  final List<ConversationParticipants> participants;
+
   final Future<void> Function({
     required String content,
     required String contentType,
-    required String target_user_id,
+    required List<String> target_user_ids,
   }) onSendMessage;
   final double keyboardSize;
   final String conversationId;
@@ -700,6 +695,7 @@ class MessageInputBar extends ConsumerWidget {
     required this.conversationId,
     required this.currentUserId,
     required this.metadata,
+    required this.participants,
     this.keyboardSize = 0,
   }) : super(key: key);
   @override
@@ -742,7 +738,7 @@ class MessageInputBar extends ConsumerWidget {
         onSendMessage(
           content: messageController.text.trim(),
           contentType: "text",
-          target_user_id: metadata.receiverId ?? "",
+          target_user_ids: participants.where((p) => p.userId != currentUserId).map((p) => p.userId).toList(),
         );
         ref.read(isTypingProvider.notifier).stopTyping();
       }
@@ -765,7 +761,7 @@ class MessageInputBar extends ConsumerWidget {
                   await onSendMessage(
                     content: url,
                     contentType: "record",
-                    target_user_id: metadata.receiverId ?? "",
+                    target_user_ids: participants.where((p) => p.userId != currentUserId).map((p) => p.userId).toList(),
                   );
                 }
               })
@@ -832,7 +828,7 @@ class MessageInputBar extends ConsumerWidget {
                                     final mediaFile = ref.watch(imagePickerProvider);
                                     if (mediaFile == null) return;
 
-                                    final mediaUrl = await ref.read(chatMediaUploadProvider.notifier).uploadChatMediaToSupabase(userId: currentUserId, mediaFile: mediaFile);
+                                    final mediaUrl = await ref.read(chatMediaUploadProvider.notifier).uploadChatMedia(userId: currentUserId, mediaFile: mediaFile);
                                     if (mediaUrl == null) return;
 
                                     final isVideo = mediaFile.path.endsWith('.mp4') || mediaFile.path.endsWith('.mov');
@@ -840,7 +836,7 @@ class MessageInputBar extends ConsumerWidget {
                                       await onSendMessage(
                                         content: mediaUrl,
                                         contentType: isVideo ? 'video' : 'image',
-                                        target_user_id: metadata.receiverId ?? "",
+                                        target_user_ids: participants.where((p) => p.userId != currentUserId).map((p) => p.userId).toList(),
                                       );
                                     } catch (e) {
                                       print(e);
@@ -858,7 +854,7 @@ class MessageInputBar extends ConsumerWidget {
                                 onSendMessage(
                                   content: url,
                                   contentType: "record",
-                                  target_user_id: metadata.receiverId ?? "",
+                                  target_user_ids: participants.where((p) => p.userId != currentUserId).map((p) => p.userId).toList(),
                                 );
                               }
                             },
@@ -1060,6 +1056,30 @@ class MessageBubble extends ConsumerWidget {
     );
   }
 
+  // Common timestamp and read indicator
+  Widget _buildTimestampAndReadStatus(bool isRead) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          isPending ? "Sending..." : formatMessageTime(message.sentAt),
+          style: TextStyle(
+            color: isCurrentUser ? Colors.white.withOpacity(0.7) : Colors.grey[500],
+            fontSize: 11,
+          ),
+        ),
+        if (isCurrentUser && !isPending) ...[
+          SizedBox(width: 4),
+          Icon(
+            isRead ? Icons.done_all : Icons.done,
+            size: 14,
+            color: isRead ? Colors.greenAccent : Colors.white,
+          ),
+        ],
+      ],
+    );
+  }
+
   // Common reply widget
   Widget _buildReplyPreview() {
     if (message.replyToMessageSender == null) return SizedBox.shrink();
@@ -1093,30 +1113,6 @@ class MessageBubble extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  // Common timestamp and read indicator
-  Widget _buildTimestampAndReadStatus(bool isRead) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          isPending ? "Sending..." : formatMessageTime(message.sentAt),
-          style: TextStyle(
-            color: isCurrentUser ? Colors.white.withOpacity(0.7) : Colors.grey[500],
-            fontSize: 11,
-          ),
-        ),
-        if (isCurrentUser && !isPending) ...[
-          SizedBox(width: 4),
-          Icon(
-            isRead ? Icons.done_all : Icons.done,
-            size: 14,
-            color: isRead ? Colors.greenAccent : Colors.white,
-          ),
-        ],
-      ],
     );
   }
 
@@ -1298,16 +1294,29 @@ class MessageBubble extends ConsumerWidget {
               ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
             },
             child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.7,
-              ),
               decoration: BoxDecoration(
                 color: isSelected ? Colors.grey.withOpacity(0.5) : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: MediaPreview(
-                mediaUrl: message.content,
-                isVideo: message.content.endsWith('.mp4') || message.content.endsWith('.mov'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // Add this line
+                crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  MediaPreview(
+                    mediaUrl: message.content,
+                    isVideo: message.content.endsWith('.mp4') || message.content.endsWith('.mov'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                    child: Text(
+                      _getFormattedTime(message.sentAt),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1318,6 +1327,10 @@ class MessageBubble extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _getFormattedTime(DateTime timestamp) {
+    return '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -1604,26 +1617,6 @@ String getDateHeader(DateTime utcDateTime) {
   } else {
     return DateFormat('MMM d, yyyy').format(utcTime.toLocal()); // Full date
   }
-}
-
-void saveMessageToCache(MessageClass message) async {
-  await messagesBox.put(message.messageId, message);
-}
-
-void deleteMessageFromCache(String messageId) async {
-  await messagesBox.delete(messageId);
-}
-
-void preloadImages(List<MessageClass> messages, BuildContext context) {
-  for (final message in messages) {
-    if (message.senderProfilePic != null) {
-      precacheImage(NetworkImage(message.senderProfilePic!), context);
-    }
-  }
-}
-
-List<MessageClass> getMessagesFromCache(String conversationId) {
-  return messagesBox.values.where((msg) => msg.conversationId == conversationId).toList().cast<MessageClass>();
 }
 
 class DateHeader extends StatelessWidget {
