@@ -1,4 +1,0 @@
-so what is am thinking is that we would use content based filtering to get the best k days rows from our dataset then recommend it to the user, and as the time passes their will be some users that have been recommended the same type of categories or same rows and those we will apply content based filltering on them to recommend trips to them, 
-so we would have two things in our app :
-first if the user enterd the plan page that tells user to select his pref and according to it we select the best k days rows using content based filtering 
-second there will be a recommend trips page that according to the users that select the same trips i recommend some trips to some users with the same interest
