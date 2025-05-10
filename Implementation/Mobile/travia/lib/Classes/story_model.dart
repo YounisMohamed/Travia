@@ -5,7 +5,7 @@ class story_model {
   final String userId;
   final String username;
   final String userPhotoUrl;
-  final List<String>? seenBy;
+  final List<String> seenBy;
   final List<story_item_model>? items;
 
   story_model({
@@ -13,7 +13,7 @@ class story_model {
     required this.userId,
     required this.username,
     required this.userPhotoUrl,
-    this.seenBy,
+    required this.seenBy,
     this.items,
   });
 
@@ -23,7 +23,7 @@ class story_model {
       userId: json['user_id'],
       username: json['username'],
       userPhotoUrl: json['user_photo_url'],
-      seenBy: json['seen_by'] != null ? List<String>.from(json['seen_by']) : null,
+      seenBy: List<String>.from(json['seen_by']),
       items: json['items'] != null ? (json['items'] as List).map((item) => story_item_model.fromJson(item)).toList() : null,
     );
   }

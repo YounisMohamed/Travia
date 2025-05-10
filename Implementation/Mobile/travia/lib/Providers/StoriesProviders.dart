@@ -82,6 +82,18 @@ final storiesProvider = StreamProvider<List<story_model>>((ref) async* {
   }
 });
 
+final currentStoryItemIndexProvider = StateProvider<int>((ref) => 0);
+
+final storyPausedProvider = StateProvider.autoDispose<bool>((ref) => false);
+
+final videoLoadingProvider = StateProvider.family<bool, String>((ref, id) => true);
+
+// Provider for video error state
+final videoErrorProvider = StateProvider.family<bool, String>((ref, id) => false);
+
+// Provider for video controller
+final videoControllerProvider = StateProvider.family<VideoPlayerController?, String>((ref, id) => null);
+
 class LikeNotifierStoryItem extends StateNotifier<Map<String, bool>> {
   LikeNotifierStoryItem() : super({}) {
     _fetchLikedStoryItems();
@@ -159,15 +171,3 @@ class LikeNotifierStoryItem extends StateNotifier<Map<String, bool>> {
 final likeStoryItemProvider = StateNotifierProvider<LikeNotifierStoryItem, Map<String, bool>>((ref) {
   return LikeNotifierStoryItem();
 });
-
-final currentStoryItemIndexProvider = StateProvider<int>((ref) => 0);
-
-final storyPausedProvider = StateProvider.autoDispose<bool>((ref) => false);
-
-final videoLoadingProvider = StateProvider.family<bool, String>((ref, id) => true);
-
-// Provider for video error state
-final videoErrorProvider = StateProvider.family<bool, String>((ref, id) => false);
-
-// Provider for video controller
-final videoControllerProvider = StateProvider.family<VideoPlayerController?, String>((ref, id) => null);

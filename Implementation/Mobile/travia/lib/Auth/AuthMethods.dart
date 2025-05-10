@@ -260,22 +260,18 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
 
-    // First remove FCM token
+    // First remove FCM token (NOTIFICATIONS TOKEN)
     await NotificationService.removeFcmToken();
-
-    // Invalidate any providers that should be cleared on logout
-    ref.invalidate(postsProvider);
 
     // Sign out from Firebase authentication
     await FirebaseAuth.instance.signOut();
 
-    // Also sign out from Google if the user signed in with Google
     final GoogleSignIn googleSignIn = GoogleSignIn(clientId: "536970171951-k30lmtrdnc348rr806u0lroar3kh5clj.apps.googleusercontent.com");
     if (await googleSignIn.isSignedIn()) {
       await googleSignIn.signOut();
     }
+    ref.invalidate(postsProvider);
 
-    // Navigate first, then rebirth
     context.go("/signin");
     Phoenix.rebirth(context);
   } catch (e) {

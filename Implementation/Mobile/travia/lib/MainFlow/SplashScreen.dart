@@ -10,7 +10,7 @@ import '../Helpers/GoogleTexts.dart';
 import '../Providers/ConversationProvider.dart';
 import '../Providers/NotificationProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
-import '../database/DatabaseMethods.dart';
+import '../Providers/StoriesProviders.dart';
 import '../main.dart';
 /*
 late Box messagesBox;
@@ -63,19 +63,13 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
 
     await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
 
-    /*
-    messagesBox = await Hive.openBox<MessageClass>('messages_${user.uid}');
-    postsBox = await Hive.openBox<List>('posts_${user.uid}');
-    conversationDetailsBox = await Hive.openBox<List>("conversation_details_${user.uid}");
-    storiesBox = await Hive.openBox<story_model>("stories_box_${user.uid}");
-
-     */
-
     try {
       await Future.any([
         Future.wait([
+          _fetchUserData(user.uid),
           _fetchNotifications(),
-          fetchConversationIds(user.uid),
+          _fetchConversations(),
+          _fetchPosts(),
         ]),
         Future.delayed(Duration(seconds: 5), () => throw TimeoutException('Timeout while loading data')),
       ]);
@@ -85,7 +79,7 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (widget.type != null && widget.source_id != null) {
-          context.go("/home/${Uri.encodeComponent(widget.type!)}/${Uri.encodeComponent(widget.source_id!)}");
+          context.go("/home/${Uri.encodeComponent(widget.type!)}/${Uri.encodeComponent(widget.source_id!)}"); // Coming from a notification logic
         } else {
           context.go('/home');
         }
@@ -119,6 +113,15 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _fetchNotifications() async {
     final notificationsAsync = ref.read(notificationsProvider);
     await notificationsAsync.when(
+      loading: () => Future.value(),
+      error: (err, _) => Future.error(err),
+      data: (_) => Future.value(),
+    );
+  }
+
+  Future<void> _fetchStories() async {
+    final storiesAsync = ref.read(storiesProvider);
+    await storiesAsync.when(
       loading: () => Future.value(),
       error: (err, _) => Future.error(err),
       data: (_) => Future.value(),

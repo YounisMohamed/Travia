@@ -374,27 +374,30 @@ class MediaPostPreview extends ConsumerWidget {
             // Shimmer placeholder that fills the container
             ShimmerLoadingEffect(),
 
-            // Image with proper sizing
+            // Image with proper sizing using CachedNetworkImage
             Center(
-              child: Image.network(
-                mediaUrl,
+              child: CachedNetworkImage(
+                imageUrl: mediaUrl,
                 fit: BoxFit.cover,
                 width: double.infinity,
                 height: double.infinity,
-                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                  if (wasSynchronouslyLoaded) return child;
-                  return AnimatedOpacity(
-                    opacity: frame != null ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOut,
-                    child: child,
-                  );
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const SizedBox();
-                },
-                errorBuilder: (context, error, stackTrace) {
+                fadeInDuration: const Duration(milliseconds: 500),
+                fadeInCurve: Curves.easeOut,
+                placeholder: (context, url) => const SizedBox.shrink(),
+                imageBuilder: (context, imageProvider) => AnimatedOpacity(
+                  opacity: 1.0,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOut,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: imageProvider,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) {
                   print("ERROR: $error");
                   return Container(
                     color: colorScheme.errorContainer,
@@ -419,13 +422,12 @@ class MediaPostPreview extends ConsumerWidget {
         ),
       );
     }
-
     final videoState = ref.watch(videoPlayerControllerProvider(mediaUrl));
 
     return Container(
       height: 300,
       width: double.infinity,
-      color: colorScheme.surfaceVariant,
+      color: colorScheme.surfaceContainerHighest,
       child: videoState.when(
         data: (controller) {
           final isPlaying = controller.value.isPlaying;

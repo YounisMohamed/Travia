@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:swipe_to/swipe_to.dart';
@@ -17,6 +18,7 @@ import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Helpers/PopUp.dart';
 import 'package:uuid/uuid.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../Classes/ChatDetails.dart';
 import '../Classes/message_class.dart';
@@ -1143,13 +1145,7 @@ class MessageBubble extends ConsumerWidget {
                                     ),
                                   )
                                 : isVideo
-                                    ? Center(
-                                        child: Icon(
-                                          Icons.play_circle_fill,
-                                          size: 48,
-                                          color: Colors.white.withOpacity(0.8),
-                                        ),
-                                      )
+                                    ? VideoThumbnailWidget(videoUrl: storyMediaUrl)
                                     : Container(
                                         color: Colors.grey[300],
                                         child: Center(
@@ -1157,25 +1153,6 @@ class MessageBubble extends ConsumerWidget {
                                         ),
                                       ),
                           ),
-
-                          // Play Button for Video
-                          if (isVideo)
-                            Positioned.fill(
-                              child: GestureDetector(
-                                onTap: () {
-                                  // Open video player or full screen story view
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => MediaPreview(mediaUrl: storyMediaUrl, isVideo: true),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  color: Colors.transparent,
-                                ),
-                              ),
-                            ),
 
                           // "Replied to a story" banner
                           Positioned(
@@ -1984,4 +1961,137 @@ class ChatPageData {
     required this.messages,
     required this.participants,
   });
+}
+
+class VideoThumbnailWidget extends StatefulWidget {
+  final String videoUrl;
+
+  const VideoThumbnailWidget({Key? key, required this.videoUrl}) : super(key: key);
+
+  @override
+  State<VideoThumbnailWidget> createState() => _VideoThumbnailWidgetState();
+}
+
+class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
+  Uint8List? _thumbnailBytes;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(VideoThumbnailWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _generateThumbnail();
+    }
+  }
+
+  Future<void> _generateThumbnail() async {
+    if (widget.videoUrl.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+      return;
+    }
+
+    try {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+
+      // Check if we already have this thumbnail cached
+      final cacheKey = 'video_thumbnail_${widget.videoUrl.hashCode}';
+      final cacheDir = await getTemporaryDirectory();
+      final cacheFile = File('${cacheDir.path}/$cacheKey.jpg');
+
+      if (await cacheFile.exists()) {
+        // Use cached thumbnail
+        final bytes = await cacheFile.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _thumbnailBytes = bytes;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Generate thumbnail
+      final thumbnailPath = await VideoThumbnail.thumbnailFile(
+        video: widget.videoUrl,
+        thumbnailPath: cacheFile.path,
+        imageFormat: ImageFormat.JPEG,
+        quality: 75,
+        timeMs: 1000, // Get thumbnail from 1 second into the video
+      );
+
+      if (thumbnailPath != null) {
+        final bytes = await File(thumbnailPath).readAsBytes();
+        if (mounted) {
+          setState(() {
+            _thumbnailBytes = bytes;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _hasError = true;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error generating video thumbnail: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        color: Colors.black26,
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+          ),
+        ),
+      );
+    }
+
+    if (_hasError || _thumbnailBytes == null) {
+      return Container(
+        color: Colors.grey[800],
+        child: Center(
+          child: Icon(Icons.video_library, color: Colors.white70, size: 40),
+        ),
+      );
+    }
+
+    return Image.memory(
+      _thumbnailBytes!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          color: Colors.grey[800],
+          child: Center(
+            child: Icon(Icons.broken_image, color: Colors.white70, size: 40),
+          ),
+        );
+      },
+    );
+  }
 }

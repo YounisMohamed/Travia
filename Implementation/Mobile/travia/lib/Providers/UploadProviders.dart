@@ -83,7 +83,11 @@ class MediaUploadService {
     try {
       File fileToUpload = mediaFile;
 
-      // Compress media if enabled
+      // Determine if this is a video file
+      final extension = p.extension(mediaFile.path).toLowerCase();
+      final isVideo = ['.mp4', '.mov', '.avi', '.mkv', '.flv', '.wmv'].contains(extension);
+
+      // Compress the media if enabled
       if (compress) {
         final compressedFile = await MediaCompressor.compressMedia(mediaFile);
         if (compressedFile != null) {
@@ -96,7 +100,17 @@ class MediaUploadService {
         }
       }
 
-      final fileExt = compress ? 'jpg' : mediaFile.path.split('.').last; // Force jpg for compressed images
+      // Determine final extension to use
+      String fileExt;
+      if (isVideo) {
+        // For videos, keep the original extension (usually mp4 after compression)
+        // or extract from compressed file path if available
+        fileExt = compress && fileToUpload != mediaFile ? p.extension(fileToUpload.path).replaceFirst('.', '') : extension.replaceFirst('.', '');
+      } else {
+        // For images, compressed ones will be jpg
+        fileExt = compress ? 'jpg' : extension.replaceFirst('.', '');
+      }
+
       final fileName = '$folderPath/$userId/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
       await supabase.storage.from(bucketName).upload(
@@ -280,7 +294,7 @@ class StoryMediaUploadNotifier extends MediaUploadNotifier {
         userId: userId,
         bucketName: 'stories',
         folderPath: 'TraviaStories',
-        compress: true, // Enable compression
+        compress: true,
       );
       return url;
     } finally {

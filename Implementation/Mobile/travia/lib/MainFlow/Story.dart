@@ -18,6 +18,7 @@ import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/ConversationProvider.dart';
 import '../Providers/ImagePickerProvider.dart';
+import '../Providers/LoadingProvider.dart';
 import '../Providers/StoriesProviders.dart';
 import '../Providers/UploadProviders.dart';
 import '../database/DatabaseMethods.dart';
@@ -70,6 +71,8 @@ class StoryBar extends ConsumerWidget {
 
                     String? storyId;
 
+                    ref.read(loadingProvider.notifier).setLoadingToTrue();
+
                     // If user already has a story, use that story's ID
                     if (userStory != null) {
                       storyId = userStory.storyId;
@@ -78,6 +81,7 @@ class StoryBar extends ConsumerWidget {
                       // Otherwise, create a new story
                       storyId = await createNewStory();
                       if (storyId == null) {
+                        ref.read(loadingProvider.notifier).setLoadingToFalse();
                         print("Failed to create story");
                         Popup.showPopUp(
                           text: 'Failed to create story',
@@ -159,6 +163,7 @@ class StoryBar extends ConsumerWidget {
                       );
                     }
                     ref.invalidate(storiesProvider);
+                    ref.read(loadingProvider.notifier).setLoadingToFalse();
 
                     // Clear the files after processing
                     print("Clearing selected files after processing");
@@ -244,11 +249,13 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
   final TextEditingController messageController = TextEditingController();
 
   Timer? _resumeTimer;
+  int? _currentStoryIndex;
 
   @override
   void initState() {
     super.initState();
     messageController.addListener(_handleTextChange);
+    _findCurrentStoryIndex();
   }
 
   @override
@@ -284,6 +291,94 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
     });
   }
 
+  void _findCurrentStoryIndex() {
+    final storiesAsync = ref.read(storiesProvider);
+    if (storiesAsync is AsyncData) {
+      final stories = storiesAsync.value;
+      if (stories == null) return;
+
+      // Get the current user ID
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+      // Create a sorted list that matches the UI order (current user first, then others)
+      List<story_model> sortedStories = [];
+
+      // Add current user's story if it exists
+      if (currentUserId != null) {
+        final userStory = stories.where((s) => s.userId == currentUserId).firstOrNull;
+        if (userStory != null) {
+          sortedStories.add(userStory);
+        }
+      }
+
+      // Add all other stories
+      sortedStories.addAll(stories.where((s) => s.userId != currentUserId));
+
+      // Find the index of the current story in the sorted list
+      _currentStoryIndex = sortedStories.indexWhere((s) => s.storyId == widget.story.storyId);
+      print("Current story index: $_currentStoryIndex out of ${sortedStories.length} stories");
+    }
+  }
+
+// Navigate to the next story
+  void _goToNextStory() {
+    if (_currentStoryIndex == null) {
+      print("No current story index found");
+      Navigator.of(context).pop();
+      return;
+    }
+
+    final storiesAsync = ref.read(storiesProvider);
+    if (storiesAsync is AsyncData) {
+      final stories = storiesAsync.value;
+      if (stories == null || stories.isEmpty) {
+        print("No stories available");
+        Navigator.of(context).pop();
+        return;
+      }
+
+      // Get the current user ID
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+      // Create a sorted list that matches the UI order (current user first, then others)
+      List<story_model> sortedStories = [];
+
+      // Add current user's story if it exists
+      if (currentUserId != null) {
+        final userStory = stories.where((s) => s.userId == currentUserId).firstOrNull;
+        if (userStory != null) {
+          sortedStories.add(userStory);
+        }
+      }
+
+      // Add all other stories
+      sortedStories.addAll(stories.where((s) => s.userId != currentUserId));
+
+      print("Navigating from story ${_currentStoryIndex} out of ${sortedStories.length} total stories");
+
+      // Check if there's a next story available
+      if (_currentStoryIndex! < sortedStories.length - 1) {
+        final nextStory = sortedStories[_currentStoryIndex! + 1];
+        print("Moving to next story: ${nextStory.username}");
+
+        // Replace current story page with the next story
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => StoryViewerPage(story: nextStory),
+          ),
+        );
+      } else {
+        print("No more stories, closing viewer");
+        // No more stories, close the viewer
+        Navigator.of(context).pop();
+      }
+    } else {
+      print("Could not access stories list");
+      // If we can't access the stories list, just close the viewer
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final story = widget.story;
@@ -292,21 +387,24 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
 
     final items = sortedItems
         .map(
-          (item) {
-            if (item.mediaType == 'image' && item.mediaUrl != null) {
+          (itemMap) {
+            story_item_model item = itemMap;
+            if (item.mediaType == 'image') {
               return StoryItem.pageImage(
-                url: item.mediaUrl!,
-                controller: controller,
-                loadingWidget: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-                captionOuterPadding: const EdgeInsets.only(bottom: 50, left: 20),
-              );
+                  url: item.mediaUrl,
+                  controller: controller,
+                  loadingWidget: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  captionOuterPadding: const EdgeInsets.only(bottom: 50, left: 20),
+                  duration: Duration(seconds: 10));
             } else if (item.mediaType == 'video' && item.mediaUrl != null) {
+              // Use the fixed pageVideo function that supports looping
               return StoryItem.pageVideo(
                 item.mediaUrl!,
                 controller: controller,
                 caption: Text(item.caption ?? ''),
+                duration: Duration(seconds: 10),
               );
             }
             return null;
@@ -355,7 +453,7 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
               StoryView(
                 storyItems: items,
                 controller: controller,
-                onComplete: () => Navigator.of(context).pop(),
+                onComplete: () => _goToNextStory(), // Use our new function instead of just popping
                 onVerticalSwipeComplete: (direction) {
                   if (direction == Direction.down) {
                     Navigator.of(context).pop();
@@ -442,7 +540,7 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                                     });
 
                                     Popup.showPopUp(
-                                      text: "Story item deleted",
+                                      text: "Story item deleted, refresh to see changes",
                                       context: context,
                                       color: Colors.green,
                                     );
@@ -557,7 +655,7 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                             // Find or create a conversation via your provider
                             final conversationId = await ref.read(createConversationProvider(targetUserId).future);
 
-                            final currentItem = sortedItems[safeCurrentIndex];
+                            story_item_model currentItem = sortedItems[safeCurrentIndex];
                             final storyMediaUrl = currentItem.mediaUrl ?? '';
 
                             messageController.clear();

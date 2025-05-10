@@ -23,9 +23,6 @@ final postsProvider = StreamProvider<List<Post>>((ref) async* {
     return;
   }
 
-  // Get the current Firebase user
-  final user = authStateAsync.value!;
-
   try {
     // Create a stream that can be cancelled
     final controller = StreamController<List<Post>>();
