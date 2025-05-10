@@ -1,4 +1,0 @@
-we want to narrow our no of parameters 
-how to select features for my model
-
-1) common sense
