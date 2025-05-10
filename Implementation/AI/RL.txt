@@ -1,0 +1,4 @@
+1) Choose the best combination of days to maximize overall trip quality.
+2) in social media app
+	2.1) Personalized Content Feed 
+	2.2) Influencer Recommendation / Follower Suggestions
