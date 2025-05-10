@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart' as ap;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -47,6 +48,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
   @override
   void initState() {
     super.initState();
+    print("CONV ID: ${widget.conversationId}");
 
     Future.microtask(() {
       markMessagesAsRead(widget.conversationId);
@@ -632,7 +634,9 @@ class MessagesList extends ConsumerWidget {
                   ? messagesMap[message.replyToMessageId]?.content
                   : messagesMap[message.replyToMessageId]?.contentType == "record"
                       ? "Replying To Record"
-                      : "Replying To Media",
+                      : messagesMap[message.replyToMessageId]?.contentType == "story_reply"
+                          ? "Replying to story reply"
+                          : "Replying To Media",
               replyToMessageSender: messagesMap[message.replyToMessageId]?.senderUsername,
             ),
             isCurrentUser: isCurrentUser,
@@ -1016,67 +1020,223 @@ class MessageBubble extends ConsumerWidget {
     final isSelected = selectedMessages.contains(message);
     final hasSelection = selectedMessages.isNotEmpty;
 
+    // Check if this is a story reply message
+    final isStoryReply = message.contentType == 'story_reply';
+
+    // For story reply, parse content to separate media URL and message
+    String? storyMediaUrl;
+    String messageContent = message.content;
+
+    if (isStoryReply && !message.isDeleted) {
+      final contentParts = message.content.split(' ');
+      if (contentParts.length > 1) {
+        storyMediaUrl = contentParts[0];
+        messageContent = contentParts.sublist(1).join(' ');
+      }
+    }
+
     // Determine content type and build appropriate bubble
-    if (message.contentType == 'text' || message.isDeleted) {
+    if ((message.contentType == 'text' || message.isDeleted) && !isStoryReply) {
       return _buildSwipeWrapper(context, ref, _buildTextBubble(context, ref, isRead, isSelected, hasSelection));
     } else if (message.contentType == 'record' && !message.isDeleted) {
       return _buildSwipeWrapper(context, ref, _buildAudioBubble(context, ref, isRead, isSelected, hasSelection));
+    } else if (isStoryReply && !message.isDeleted) {
+      // Add special case for story reply
+      return _buildSwipeWrapper(context, ref, _buildStoryReplyBubble(context, ref, isRead, isSelected, hasSelection, storyMediaUrl ?? '', messageContent));
     } else {
       // Media messages
       return _buildSwipeWrapper(context, ref, _buildMediaBubble(context, ref, isSelected, hasSelection));
     }
   }
 
-  // Common swipe wrapper for all message types
-  Widget _buildSwipeWrapper(BuildContext context, WidgetRef ref, Widget child) {
-    return SwipeTo(
-      key: ValueKey(message.messageId),
-      onRightSwipe: isCurrentUser
-          ? null
-          : (details) {
-              ref.read(replyMessageProvider.notifier).state = message;
+  // Story Reply Bubble
+  Widget _buildStoryReplyBubble(BuildContext context, WidgetRef ref, bool isRead, bool isSelected, bool hasSelection, String storyMediaUrl, String messageText) {
+    final isImage = storyMediaUrl.endsWith('.jpg') || storyMediaUrl.endsWith('.jpeg') || storyMediaUrl.endsWith('.png') || storyMediaUrl.endsWith('.gif');
+    final isVideo = storyMediaUrl.endsWith('.mp4') || storyMediaUrl.endsWith('.mov') || storyMediaUrl.endsWith('.avi');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isCurrentUser) ...[
+            _buildAvatar(),
+            SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: hasSelection
+                ? () {
+                    ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
+                  }
+                : null,
+            onLongPress: () {
+              ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
             },
-      onLeftSwipe: isCurrentUser
-          ? (details) {
-              ref.read(replyMessageProvider.notifier).state = message;
-            }
-          : null,
-      animationDuration: Duration(milliseconds: 120),
-      child: child,
-    );
-  }
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
+              ),
+              padding: EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.grey.withOpacity(0.5)
+                    : isCurrentUser
+                        ? (isPending ? Color(0xFFFF8C00).withOpacity(0.7) : Color(0xFFFF8C00))
+                        : Colors.white,
+                borderRadius: BorderRadius.circular(20).copyWith(
+                  bottomLeft: isCurrentUser ? Radius.circular(20) : Radius.circular(0),
+                  bottomRight: isCurrentUser ? Radius.circular(0) : Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isCurrentUser)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2.0, left: 12.0, top: 6.0),
+                      child: Text(
+                        message.senderUsername ?? 'Unknown',
+                        style: TextStyle(
+                          color: Color(0xFFFF8C00),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
 
-  // Common avatar widget for both sender and receiver
-  Widget _buildAvatar() {
-    return CircleAvatar(
-      radius: 16,
-      backgroundImage: NetworkImage(
-        message.senderProfilePic ?? "https://ui-avatars.com/api/?name=${message.senderUsername}&rounded=true&background=random",
-      ),
-    );
-  }
+                  // Story Preview Container
+                  Container(
+                    margin: EdgeInsets.only(bottom: 6, left: 8, right: 8, top: isCurrentUser ? 6 : 0),
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        children: [
+                          // Story Media Preview
+                          Positioned.fill(
+                            child: isImage
+                                ? CachedNetworkImage(
+                                    imageUrl: storyMediaUrl,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Center(
+                                      child: CircularProgressIndicator(
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          isCurrentUser ? Colors.white70 : Color(0xFFFF8C00).withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => Container(
+                                      color: Colors.grey[300],
+                                      child: Icon(Icons.error, color: Colors.red),
+                                    ),
+                                  )
+                                : isVideo
+                                    ? Center(
+                                        child: Icon(
+                                          Icons.play_circle_fill,
+                                          size: 48,
+                                          color: Colors.white.withOpacity(0.8),
+                                        ),
+                                      )
+                                    : Container(
+                                        color: Colors.grey[300],
+                                        child: Center(
+                                          child: Icon(Icons.image_not_supported, color: Colors.grey[600]),
+                                        ),
+                                      ),
+                          ),
 
-  // Common timestamp and read indicator
-  Widget _buildTimestampAndReadStatus(bool isRead) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          isPending ? "Sending..." : formatMessageTime(message.sentAt),
-          style: TextStyle(
-            color: isCurrentUser ? Colors.white.withOpacity(0.7) : Colors.grey[500],
-            fontSize: 11,
+                          // Play Button for Video
+                          if (isVideo)
+                            Positioned.fill(
+                              child: GestureDetector(
+                                onTap: () {
+                                  // Open video player or full screen story view
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => MediaPreview(mediaUrl: storyMediaUrl, isVideo: true),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  color: Colors.transparent,
+                                ),
+                              ),
+                            ),
+
+                          // "Replied to a story" banner
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.6),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                              child: Text(
+                                'Replied to a story',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Message Text
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Text(
+                      messageText,
+                      textDirection: isMostlyRtl(messageText),
+                      style: TextStyle(
+                        color: isCurrentUser ? Colors.white : Colors.black87,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+
+                  // Timestamp and Read Status
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, right: 12, bottom: 6),
+                    child: _buildTimestampAndReadStatus(isRead),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-        if (isCurrentUser && !isPending) ...[
-          SizedBox(width: 4),
-          Icon(
-            isRead ? Icons.done_all : Icons.done,
-            size: 14,
-            color: isRead ? Colors.greenAccent : Colors.white,
-          ),
+          if (isCurrentUser) ...[
+            SizedBox(width: 8),
+            _buildAvatar(),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -1326,6 +1486,61 @@ class MessageBubble extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+
+  // rest of code
+
+  // Common swipe wrapper for all message types
+  Widget _buildSwipeWrapper(BuildContext context, WidgetRef ref, Widget child) {
+    return SwipeTo(
+      key: ValueKey(message.messageId),
+      onRightSwipe: isCurrentUser
+          ? null
+          : (details) {
+              ref.read(replyMessageProvider.notifier).state = message;
+            },
+      onLeftSwipe: isCurrentUser
+          ? (details) {
+              ref.read(replyMessageProvider.notifier).state = message;
+            }
+          : null,
+      animationDuration: Duration(milliseconds: 120),
+      child: child,
+    );
+  }
+
+  // Common avatar widget for both sender and receiver
+  Widget _buildAvatar() {
+    return CircleAvatar(
+      radius: 16,
+      backgroundImage: NetworkImage(
+        message.senderProfilePic ?? "https://ui-avatars.com/api/?name=${message.senderUsername}&rounded=true&background=random",
+      ),
+    );
+  }
+
+  // Common timestamp and read indicator
+  Widget _buildTimestampAndReadStatus(bool isRead) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          isPending ? "Sending..." : formatMessageTime(message.sentAt),
+          style: TextStyle(
+            color: isCurrentUser ? Colors.white.withOpacity(0.7) : Colors.grey[500],
+            fontSize: 11,
+          ),
+        ),
+        if (isCurrentUser && !isPending) ...[
+          SizedBox(width: 4),
+          Icon(
+            isRead ? Icons.done_all : Icons.done,
+            size: 14,
+            color: isRead ? Colors.greenAccent : Colors.white,
+          ),
+        ],
+      ],
     );
   }
 

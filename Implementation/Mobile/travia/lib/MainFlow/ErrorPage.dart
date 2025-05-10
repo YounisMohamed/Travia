@@ -11,68 +11,69 @@ class ErrorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // STUPID DUMBASS ERROR MAN
+    if (error.contains('RealtimeSubscribeException(status: RealtimeSubscribeStatus.channelError, details: null)')) {
+      Future.microtask(() => Phoenix.rebirth(context));
+      return const SizedBox.shrink();
+    }
     return Scaffold(
       backgroundColor: Colors.white, // White background for contrast
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Error Icon or Image (you can replace with your own asset)
             Icon(
               Icons.error_outline,
-              color: Colors.red, // Purple for the error icon
+              color: Colors.red,
               size: 80,
             ),
-            const SizedBox(height: 20), // Spacing
-
-            // Error Title
+            const SizedBox(height: 20),
             RedHatText(
               text: "Oops! Something Went Wrong",
-              color: Colors.red, // Purple text
+              color: Colors.red,
               isBold: true,
               size: 22,
               center: true,
             ),
-            const SizedBox(height: 10), // Spacing
+            const SizedBox(height: 10),
 
-            // Error Message
             Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
                     RedHatText(
                       text: "We're sorry, but an error occurred.\n Kindly check your",
-                      color: Colors.grey[600]!, // Slightly darker grey for readability
+                      color: Colors.grey[600]!,
                       size: 16,
                       center: true,
                       isBold: true,
                     ),
                     RedHatText(
                       text: "internet connection",
-                      color: Colors.blue[600]!, // Slightly darker grey for readability
+                      color: Colors.blue[600]!,
                       size: 16,
                       center: true,
                       isBold: true,
                     ),
                     RedHatText(
                       text: "Hey younis remember to remove this later: $error",
-                      color: Colors.grey[600]!, // Slightly darker grey for readability
+                      color: Colors.grey[600]!,
                       size: 16,
                       center: true,
                       isBold: true,
                     ),
                   ],
                 )),
-            const SizedBox(height: 30), // More spacing before button
+            const SizedBox(height: 30),
 
             // Restart Button
             ElevatedButton(
               onPressed: () {
                 Phoenix.rebirth(context);
                 context.go(path);
-              }, // Empty onPressed for now
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange, // Orange button
+                backgroundColor: Colors.orange,
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -80,7 +81,7 @@ class ErrorPage extends StatelessWidget {
               ),
               child: RedHatText(
                 text: "Try again",
-                color: Colors.white, // White text on orange button
+                color: Colors.white,
                 isBold: true,
                 size: 18,
               ),

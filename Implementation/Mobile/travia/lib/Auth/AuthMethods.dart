@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:travia/Helpers/PopUp.dart';
+import 'package:travia/Providers/PostsCommentsProviders.dart';
 
 import '../Providers/LoadingProvider.dart';
 import '../Services/NotificationService.dart';
@@ -259,7 +260,11 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
 
+    // First remove FCM token
     await NotificationService.removeFcmToken();
+
+    // Invalidate any providers that should be cleared on logout
+    ref.invalidate(postsProvider);
 
     // Sign out from Firebase authentication
     await FirebaseAuth.instance.signOut();
@@ -269,8 +274,10 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     if (await googleSignIn.isSignedIn()) {
       await googleSignIn.signOut();
     }
-    Phoenix.rebirth(context);
+
+    // Navigate first, then rebirth
     context.go("/signin");
+    Phoenix.rebirth(context);
   } catch (e) {
     Popup.showPopUp(text: "Sign-out failed", context: context);
     print(e);
@@ -278,3 +285,7 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     ref.read(loadingProvider.notifier).setLoadingToFalse();
   }
 }
+
+final firebaseAuthProvider = StreamProvider<User?>((ref) {
+  return FirebaseAuth.instance.authStateChanges();
+});

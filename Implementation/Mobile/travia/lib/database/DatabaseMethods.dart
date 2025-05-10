@@ -171,6 +171,49 @@ Future<void> deletePostFromDatabase(String postId) async {
   }
 }
 
+Future<void> deleteStoryFromDatabase(String storyId) async {
+  print("Starting post deletion for ID: $storyId");
+
+  try {
+    final story = await supabase.from('story_items').select('media_url').eq('item_id', storyId).maybeSingle();
+    print("Post data retrieved: $story");
+
+    if (story == null || story['media_url'] == null) {
+      print("No media URL found, skipping storage deletion.");
+    } else {
+      final String mediaUrl = story['media_url'];
+      print("Media URL found: $mediaUrl");
+
+      try {
+        final Uri uri = Uri.parse(mediaUrl);
+        print("Parsed URI: $uri");
+        final String filePath = uri.pathSegments.skip(5).join('/');
+        print("File path extracted: $filePath");
+
+        final result = await supabase.storage.from('stories').remove([filePath]);
+        print(result.toString());
+        print("Image deleted from storage: $filePath");
+      } catch (e) {
+        print("Error deleting image from storage: $e");
+        rethrow;
+      }
+    }
+
+    try {
+      await supabase.from('story_items').delete().match({'item_id': storyId});
+      print("Story deleted from database: $storyId");
+    } catch (e) {
+      print("Error deleting story from database: $e");
+      rethrow;
+    }
+
+    print("Finished post deletion process for ID: $storyId");
+  } catch (e) {
+    print("Error in deleteStoryFromDatabase function: $e");
+    rethrow;
+  }
+}
+
 Future<void> addViewedPost(String userId, String postId) async {
   try {
     await supabase.rpc(

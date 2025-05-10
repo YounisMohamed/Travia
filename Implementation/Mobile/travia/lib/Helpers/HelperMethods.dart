@@ -69,7 +69,6 @@ Future<bool> createStory({
   required String mediaUrl,
   required String mediaType,
   String? caption,
-  String? backgroundColor,
 }) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) return false;
@@ -89,7 +88,6 @@ Future<bool> createStory({
       'media_url': mediaUrl,
       'media_type': mediaType,
       'caption': caption,
-      'background_color': backgroundColor,
     });
     return true;
   } catch (e) {
@@ -126,13 +124,11 @@ Future<String?> createNewStory() async {
   }
 }
 
-// New function to add an item to an existing story
 Future<bool> addStoryItem({
   required String storyId,
   required String mediaUrl,
   required String mediaType,
   String? caption,
-  String? backgroundColor,
 }) async {
   try {
     // Create story item
@@ -141,7 +137,6 @@ Future<bool> addStoryItem({
       'media_url': mediaUrl,
       'media_type': mediaType,
       'caption': caption,
-      'background_color': backgroundColor,
     };
 
     // Insert story item

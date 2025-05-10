@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_dialogs/dialogs.dart';
+import 'package:material_dialogs/widgets/buttons/icon_outline_button.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 
 import '../Helpers/HelperMethods.dart';
 import '../Providers/NotificationProvider.dart';
+import '../main.dart';
 
 class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
@@ -271,6 +274,7 @@ class StandardNotificationTile extends StatelessWidget {
   IconData _getIconForType(String type) {
     switch (type.toLowerCase()) {
       case 'like':
+      case 'story_like':
         return Icons.favorite_border;
       case 'comment':
       case 'comment_reply':
@@ -319,14 +323,32 @@ class StandardNotificationTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: InkWell(
-          onTap: () {
+          onTap: () async {
             if (!isRead) {
               ref.read(notificationReadProvider.notifier).markAsRead(notificationId);
             }
+
             if (type == "comment" || type == "post" || type == "like") {
               context.push('/post/$sourceId');
             } else if (type == "message") {
-              context.push("/messages/$sourceId");
+              final response = await supabase.from('conversations').select('conversation_id').eq('conversation_id', sourceId!).maybeSingle();
+              if (response != null) {
+                context.push("/messages/$sourceId");
+              } else {
+                if (context.mounted) {
+                  Dialogs.materialDialog(msg: 'This conversation was deleted or does not exist', title: "Not Found", color: Colors.white, context: context, actions: [
+                    IconsOutlineButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      text: 'Ok',
+                      iconData: Icons.cancel_outlined,
+                      textStyle: TextStyle(color: Colors.grey),
+                      iconColor: Colors.grey,
+                    ),
+                  ]);
+                }
+              }
             }
           },
           borderRadius: BorderRadius.circular(14),

@@ -15,7 +15,6 @@ final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((re
   final user = FirebaseAuth.instance.currentUser;
 
   try {
-    // Stream that listens for any changes in the conversations table
     final stream = supabase.from('conversations').stream(primaryKey: ['conversation_id']).order('last_message_at', ascending: false);
 
     await for (final _ in stream) {

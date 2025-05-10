@@ -265,7 +265,7 @@ class PostDetailsPage extends ConsumerWidget {
                           CircleAvatar(
                             radius: screenWidth * 0.035,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: NetworkImage(FirebaseAuth.instance.currentUser?.photoURL ?? ""),
+                            backgroundImage: NetworkImage(post.userPhotoUrl),
                           ),
                           SizedBox(width: screenWidth * 0.03),
                           Expanded(

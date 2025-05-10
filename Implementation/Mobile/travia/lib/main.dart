@@ -57,7 +57,6 @@ void main() async {
   Hive.registerAdapter(ConversationDetailAdapter());
   Hive.registerAdapter(storyitemmodelAdapter());
   Hive.registerAdapter(storymodelAdapter());
-
  */
 
   List<String>? clickAction = await _getInitialRoute();

@@ -48,6 +48,36 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref.read(userPresenceServiceProvider).initialize();
     });
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.type != null && widget.source_id != null) {
+        print("Navigating with type: ${widget.type}, source_id: ${widget.source_id}");
+        String type = widget.type!;
+        String source_id = widget.source_id!;
+        if (type == "comment" || type == "post" || type == "like") {
+          context.push("/post/$source_id");
+        } else if (type == "message") {
+          context.push("/messages/$source_id");
+        }
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _setupChannels();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _setupChannels();
+    } else if (state == AppLifecycleState.paused) {
+      _disposeChannels();
+    }
+  }
+
+  void _setupChannels() {
     final currentUserId = user!.uid;
 
     supabase
@@ -150,32 +180,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           )
           .subscribe();
     });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.type != null && widget.source_id != null) {
-        print("Navigating with type: ${widget.type}, source_id: ${widget.source_id}");
-        String type = widget.type!;
-        String source_id = widget.source_id!;
-        if (type == "comment" || type == "post" || type == "like") {
-          context.push("/post/$source_id");
-        } else if (type == "message") {
-          context.push("/messages/$source_id");
-        }
-      }
-    });
   }
 
-  @override
-  void dispose() {
-    supabase.channel('public:notifications').unsubscribe();
-    supabase.channel('public:posts').unsubscribe();
-    supabase.channel('public:comments').unsubscribe();
-    supabase.channel('public:conversation_participants').unsubscribe();
-    supabase.channel('public:messages').unsubscribe();
-    supabase.channel('public:conversations').unsubscribe();
-    supabase.channel('public:stories').unsubscribe();
-    supabase.channel('public:story_items').unsubscribe();
-    super.dispose();
+  void _disposeChannels() {
+    supabase.removeAllChannels();
   }
 
   @override

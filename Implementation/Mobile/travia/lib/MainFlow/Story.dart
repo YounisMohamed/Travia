@@ -1,18 +1,27 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_dialogs/dialogs.dart';
+import 'package:material_dialogs/widgets/buttons/icon_button.dart';
+import 'package:material_dialogs/widgets/buttons/icon_outline_button.dart';
 import 'package:story_view/controller/story_controller.dart';
 import 'package:story_view/utils.dart';
 import 'package:story_view/widgets/story_view.dart';
+import 'package:travia/Classes/story_item_model.dart';
 
 import '../Classes/story_model.dart';
 import '../Helpers/DummyCards.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
+import '../Providers/ConversationProvider.dart';
 import '../Providers/ImagePickerProvider.dart';
 import '../Providers/StoriesProviders.dart';
 import '../Providers/UploadProviders.dart';
+import '../database/DatabaseMethods.dart';
+import '../main.dart';
 
 class StoryBar extends ConsumerWidget {
   const StoryBar({super.key});
@@ -218,191 +227,386 @@ class StoryBar extends ConsumerWidget {
   }
 }
 
-class StoryViewerPage extends StatefulWidget {
+class StoryViewerPage extends ConsumerStatefulWidget {
   final story_model story;
 
-  const StoryViewerPage({super.key, required this.story});
+  const StoryViewerPage({
+    Key? key,
+    required this.story,
+  }) : super(key: key);
 
   @override
-  State<StoryViewerPage> createState() => _StoryViewerPageState();
+  ConsumerState<StoryViewerPage> createState() => _StoryViewerPageState();
 }
 
-class _StoryViewerPageState extends State<StoryViewerPage> {
+class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
   final controller = StoryController();
   final TextEditingController messageController = TextEditingController();
-  bool isLiked = false;
+
+  Timer? _resumeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    messageController.addListener(_handleTextChange);
+  }
+
+  @override
+  void dispose() {
+    _resumeTimer?.cancel();
+    messageController.removeListener(_handleTextChange);
+    messageController.dispose();
+    controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTextChange() {
+    _pauseStory();
+    _resetResumeTimer();
+  }
+
+  void _pauseStory() {
+    ref.read(storyPausedProvider.notifier).state = true;
+    controller.pause();
+  }
+
+  void _resumeStory() {
+    ref.read(storyPausedProvider.notifier).state = false;
+    controller.play();
+  }
+
+  void _resetResumeTimer() {
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        _resumeStory();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final story = widget.story;
-    final items = story.items
-            ?.map(
-              (item) {
-                if (item.mediaType == 'image' && item.mediaUrl != null) {
-                  return StoryItem.pageImage(
-                    url: item.mediaUrl!,
-                    controller: controller,
-                    caption: Text("${item.caption}\n${timeAgo(item.createdAt)}" ?? ''),
-                    captionOuterPadding: EdgeInsets.only(bottom: 50, left: 20),
-                  );
-                } else if (item.mediaType == 'video' && item.mediaUrl != null) {
-                  return StoryItem.pageVideo(
-                    item.mediaUrl!,
-                    controller: controller,
-                    caption: Text("${item.caption}\n${timeAgo(item.createdAt)}" ?? ''),
-                  );
-                } else if (item.mediaType == 'text') {
-                  return StoryItem.text(
-                    title: "${item.caption}\n${timeAgo(item.createdAt)}" ?? '',
-                    backgroundColor: Colors.white,
-                  );
-                }
-                return null;
-              },
-            )
-            .whereType<StoryItem>()
-            .toList() ??
-        [];
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final sortedItems = List.from(story.items ?? [])..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-    if (items.isEmpty) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.cloud_upload_outlined, size: 64, color: Colors.white70),
-                SizedBox(height: 16),
-                Text(
-                  'Loading Story..',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+    final items = sortedItems
+        .map(
+          (item) {
+            if (item.mediaType == 'image' && item.mediaUrl != null) {
+              return StoryItem.pageImage(
+                url: item.mediaUrl!,
+                controller: controller,
+                loadingWidget: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Close off the story and it will be uploaded..',
-                  style: TextStyle(color: Colors.white54),
-                ),
-                SizedBox(height: 24),
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+                captionOuterPadding: const EdgeInsets.only(bottom: 50, left: 20),
+              );
+            } else if (item.mediaType == 'video' && item.mediaUrl != null) {
+              return StoryItem.pageVideo(
+                item.mediaUrl!,
+                controller: controller,
+                caption: Text(item.caption ?? ''),
+              );
+            }
+            return null;
+          },
+        )
+        .whereType<StoryItem>()
+        .toList();
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          StoryView(
-            storyItems: items,
-            controller: controller,
-            onComplete: () => Navigator.of(context).pop(),
-            onVerticalSwipeComplete: (direction) {
-              if (direction == Direction.down) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
+    return Consumer(
+      builder: (context, ref, _) {
+        final currentIndex = ref.watch(currentStoryItemIndexProvider);
+        final isPaused = ref.watch(storyPausedProvider);
 
-          // Top Bar
-          Positioned(
-            top: 60,
-            left: 16,
-            right: 16,
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundImage: NetworkImage(story.userPhotoUrl ?? ''),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        final safeCurrentIndex = currentIndex >= sortedItems.length ? (sortedItems.isEmpty ? 0 : sortedItems.length - 1) : currentIndex;
+
+        if (safeCurrentIndex != currentIndex && sortedItems.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(currentStoryItemIndexProvider.notifier).state = safeCurrentIndex;
+          });
+        }
+
+        if (sortedItems.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pop();
+          });
+          return const SizedBox();
+        }
+
+        story_item_model currentItem = sortedItems[safeCurrentIndex];
+        final currentItemId = currentItem.itemId;
+        final likedStories = ref.watch(likeStoryItemProvider);
+        final isLiked = likedStories[currentItemId] ?? false;
+
+        if (isPaused) {
+          controller.pause();
+        } else {
+          if (currentItem.mediaType != 'video') {
+            controller.play();
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              StoryView(
+                storyItems: items,
+                controller: controller,
+                onComplete: () => Navigator.of(context).pop(),
+                onVerticalSwipeComplete: (direction) {
+                  if (direction == Direction.down) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                onStoryShow: (storyItem, index) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    ref.read(currentStoryItemIndexProvider.notifier).state = index;
+                  });
+                },
+              ),
+// rest of code
+              // Top Bar
+              Positioned(
+                top: 60,
+                left: 16,
+                right: 16,
+                child: Row(
                   children: [
-                    Text(
-                      story.username ?? '',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundImage: NetworkImage(story.userPhotoUrl ?? ''),
                     ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          story.username ?? '',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          timeAgo(currentItem.createdAt),
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (story.userId == currentUserId)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.white),
+                        onPressed: () {
+                          controller.pause();
+                          Dialogs.materialDialog(
+                            msg: 'Are you sure? You can\'t undo this',
+                            title: "Delete",
+                            color: Colors.white,
+                            context: context,
+                            actions: [
+                              IconsOutlineButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  controller.play();
+                                },
+                                text: 'Cancel',
+                                iconData: Icons.cancel_outlined,
+                                textStyle: const TextStyle(color: Colors.grey),
+                                iconColor: Colors.grey,
+                              ),
+                              IconsButton(
+                                onPressed: () async {
+                                  try {
+                                    deleteStoryFromDatabase(currentItemId);
+
+                                    final newSortedItems = sortedItems.where((item) => item.itemId != currentItemId).toList();
+
+                                    if (newSortedItems.isEmpty) {
+                                      Navigator.of(context).pop();
+                                      Navigator.of(context).pop();
+                                      ref.invalidate(storiesProvider);
+                                      return;
+                                    }
+
+                                    int newIndex = safeCurrentIndex;
+                                    if (safeCurrentIndex >= newSortedItems.length) {
+                                      newIndex = newSortedItems.length - 1;
+                                    }
+
+                                    ref.invalidate(storiesProvider);
+
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      ref.read(currentStoryItemIndexProvider.notifier).state = newIndex;
+                                    });
+
+                                    Popup.showPopUp(
+                                      text: "Story item deleted",
+                                      context: context,
+                                      color: Colors.green,
+                                    );
+
+                                    Navigator.of(context).pop();
+
+                                    controller.pause();
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      controller.play();
+                                    });
+                                  } catch (e) {
+                                    print("Error while deleting story item: $e");
+                                    Popup.showPopUp(
+                                      text: "Error while deleting the story item",
+                                      context: context,
+                                      color: Colors.red,
+                                    );
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                                text: 'Delete',
+                                iconData: Icons.delete,
+                                color: Colors.red,
+                                textStyle: const TextStyle(color: Colors.white),
+                                iconColor: Colors.white,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                   ],
                 ),
-                const Spacer(),
-                if (story.userId == FirebaseAuth.instance.currentUser!.uid)
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.white),
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Delete Story?'),
-                          content: const Text('This will delete the entire story.'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
-                          ],
-                        ),
-                      );
-                      if (confirmed == true) {
-                        // TODO: delete story from Supabase
-                      }
-                    },
-                  ),
-              ],
-            ),
-          ),
+              ),
 
-          // Bottom Input Bar
-          Positioned(
-            bottom: 20,
-            left: 16,
-            right: 16,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: Colors.red),
-                  onPressed: () {},
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: messageController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Send a message...',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      filled: true,
-                      fillColor: Colors.white24,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
+              // Bottom Input Bar
+              Positioned(
+                bottom: 20,
+                left: 16,
+                right: 16,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        color: isLiked ? Colors.red : Colors.white,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      onPressed: () {
+                        ref.read(likeStoryItemProvider.notifier).toggleLike(
+                              storyItemId: currentItemId,
+                              likerId: currentUserId,
+                              storyOwnerId: story.userId,
+                            );
+                        if (story.userId != currentUserId) {
+                          Future.microtask(() async {
+                            try {
+                              await sendNotification(
+                                type: 'story_like',
+                                title: "liked your story ❤️",
+                                content: "",
+                                target_user_id: story.userId,
+                                source_id: currentItemId,
+                                sender_user_id: currentUserId,
+                              );
+                            } catch (e) {
+                              print("Notification error: $e");
+                            }
+                          });
+                        }
+                      },
                     ),
-                  ),
+                    Expanded(
+                      child: TextField(
+                        controller: messageController,
+                        style: const TextStyle(color: Colors.white),
+                        onTap: () {
+                          _pauseStory();
+                          _resetResumeTimer();
+                        },
+                        onChanged: (_) {
+                          _pauseStory();
+                          _resetResumeTimer();
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Send a message...',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          filled: true,
+                          fillColor: Colors.white24,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                        icon: const Icon(Icons.send, color: Colors.white),
+                        onPressed: () async {
+                          final msg = messageController.text.trim();
+                          if (msg.isEmpty) return;
+
+                          // Resume the story immediately after sending
+                          _resumeStory();
+                          _resumeTimer?.cancel();
+                          _resumeTimer = null;
+
+                          final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+                          final targetUserId = story.userId;
+
+                          try {
+                            // Find or create a conversation via your provider
+                            final conversationId = await ref.read(createConversationProvider(targetUserId).future);
+
+                            final currentItem = sortedItems[safeCurrentIndex];
+                            final storyMediaUrl = currentItem.mediaUrl ?? '';
+
+                            messageController.clear();
+
+                            await supabase
+                                .from('messages')
+                                .insert({
+                                  'conversation_id': conversationId,
+                                  'sender_id': currentUserId,
+                                  'content': "$storyMediaUrl $msg",
+                                  'content_type': 'story_reply',
+                                })
+                                .select('message_id')
+                                .single();
+
+                            // 5. Send notification
+                            if (targetUserId != currentUserId) {
+                              await sendNotification(
+                                type: 'message',
+                                title: "replied to your story",
+                                content: msg,
+                                target_user_id: targetUserId,
+                                source_id: conversationId,
+                                sender_user_id: currentUserId,
+                              );
+                            }
+
+                            // 6. Optional: Show success message
+                            Popup.showPopUp(
+                              text: "Reply sent",
+                              context: context,
+                              color: Colors.green,
+                            );
+                          } catch (e) {
+                            print("Error sending story reply: $e");
+                            Popup.showPopUp(
+                              text: "Failed to send reply",
+                              context: context,
+                              color: Colors.red,
+                            );
+                          }
+                        }),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: () {
-                    final msg = messageController.text.trim();
-                    if (msg.isNotEmpty) {
-                      // TODO: handle sending message (to story owner or backend)
-                      messageController.clear();
-                    }
-                  },
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
