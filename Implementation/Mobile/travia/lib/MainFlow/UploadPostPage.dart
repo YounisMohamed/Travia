@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../Helpers/Constants.dart';
 import '../Helpers/Loading.dart';
 import '../Providers/ImagePickerProvider.dart';
 import '../Providers/UploadProviders.dart';
@@ -17,6 +19,26 @@ class UploadPostPage extends ConsumerStatefulWidget {
 class _UploadPostPageState extends ConsumerState<UploadPostPage> {
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  String? _selectedCountry;
+
+  @override
+  void initState() {
+    _loadLastSelectedCountry();
+    super.initState();
+  }
+
+  Future<void> _loadLastSelectedCountry() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastCountry = prefs.getString('last_selected_country');
+    setState(() {
+      _selectedCountry = lastCountry ?? popularCountries.first['name'];
+    });
+  }
+
+  void _saveSelectedCountry(String country) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_selected_country', country);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +80,7 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                         ref.read(postProvider.notifier).uploadPost(
                               userId: userId,
                               caption: _captionController.text.trim(),
-                              location: _locationController.text.trim(),
+                              location: _selectedCountry ?? "Egypt",
                               context: context,
                             );
                         _captionController.clear();
@@ -84,16 +106,14 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
         onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
           physics: BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Row(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(width: 16),
-
-                    /// 📝 Your right-hand caption/location column stays the same
+                    /// Caption - Location
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,25 +142,45 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              Icon(Icons.location_on_outlined, color: theme.primaryColor),
-                              const SizedBox(width: 8),
                               Expanded(
-                                child: TextField(
-                                  controller: _locationController,
-                                  enabled: !isUploading,
-                                  textInputAction: TextInputAction.done,
-                                  style: const TextStyle(fontSize: 16),
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedCountry ?? popularCountries.first['name'],
+                                  onChanged: isUploading
+                                      ? null
+                                      : (newValue) {
+                                          if (newValue != null) {
+                                            setState(() {
+                                              _selectedCountry = newValue;
+                                            });
+                                            _saveSelectedCountry(newValue);
+                                          }
+                                        },
                                   decoration: InputDecoration(
-                                    hintText: "Add location",
-                                    hintStyle: TextStyle(color: Colors.grey[500]),
-                                    border: UnderlineInputBorder(
-                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                    labelText: "Select Location",
+                                    prefixIcon: Icon(Icons.location_on_outlined, color: theme.primaryColor),
+                                    filled: true,
+                                    fillColor: Colors.grey[100],
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
                                     ),
-                                    focusedBorder: UnderlineInputBorder(
-                                      borderSide: BorderSide(color: theme.primaryColor, width: 2),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                                   ),
+                                  items: [
+                                    if (_selectedCountry != null)
+                                      DropdownMenuItem(
+                                        value: _selectedCountry,
+                                        child: Text(
+                                          '${popularCountries.firstWhere((e) => e['name'] == _selectedCountry, orElse: () => {'name': _selectedCountry!, 'emoji': '🌍'})['emoji']} $_selectedCountry',
+                                        ),
+                                      ),
+                                    ...popularCountries
+                                        .where((country) => country['name'] != _selectedCountry)
+                                        .map((country) => DropdownMenuItem(
+                                              value: country['name'],
+                                              child: Text('${country['emoji']} ${country['name']}'),
+                                            ))
+                                        .toList(),
+                                  ],
                                 ),
                               ),
                             ],
@@ -150,54 +190,54 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                     ),
                   ],
                 ),
-                SizedBox(
-                  height: 16,
-                ),
-                Stack(
-                  children: [
-                    Container(
-                      height: 360,
-                      width: 360,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: pickedImage != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: MediaFilePreview(
-                                mediaFile: pickedImage,
-                                isVideo: pickedImage.path.endsWith(".mp4") || pickedImage.path.endsWith(".mov"),
-                              ))
-                          : Center(
-                              child: Text(
-                                "No Media",
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 14,
-                                ),
+              ),
+              SizedBox(
+                height: 16,
+              ),
+              Stack(
+                children: [
+                  Container(
+                    height: 360,
+                    width: 360,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: pickedImage != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: MediaFilePreview(
+                              mediaFile: pickedImage,
+                              isVideo: pickedImage.path.endsWith(".mp4") || pickedImage.path.endsWith(".mov"),
+                            ))
+                        : Center(
+                            child: Text(
+                              "No Media",
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 14,
                               ),
                             ),
-                    ),
+                          ),
+                  ),
 
-                    /// ⬇️ Add Button Positioned Top Right
-                    Positioned(
-                      top: -8,
-                      right: -8,
-                      child: IconButton(
-                        icon: Icon(Icons.add_circle, color: theme.primaryColor, size: 32),
-                        onPressed: isUploading
-                            ? null
-                            : () {
-                                ref.invalidate(imagePickerProvider);
-                                ref.read(imagePickerProvider.notifier).pickAndEditMediaForUpload(context);
-                              },
-                      ),
+                  /// ⬇️ Add Button Positioned Top Right
+                  Positioned(
+                    top: -8,
+                    right: -8,
+                    child: IconButton(
+                      icon: Icon(Icons.add_circle, color: theme.primaryColor, size: 32),
+                      onPressed: isUploading
+                          ? null
+                          : () {
+                              ref.invalidate(imagePickerProvider);
+                              ref.read(imagePickerProvider.notifier).pickAndEditMediaForUpload(context);
+                            },
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

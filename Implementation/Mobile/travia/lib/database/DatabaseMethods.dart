@@ -95,7 +95,7 @@ Future<void> removeLikeNotification({
       'sender_user_id': senderId,
     });
 
-    print('notification removed successfully');
+    //print('notification removed successfully');
   } catch (e) {
     print('Error removing notification: $e');
     rethrow;
@@ -121,7 +121,7 @@ Future<void> sendNotification({
       'created_at': DateTime.now().toUtc().toIso8601String(),
     });
 
-    print('Notification sent successfully');
+    //print('Notification sent successfully');
   } catch (e) {
     print('Error sending notification: $e');
     rethrow;

@@ -2,13 +2,12 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:modular_ui/modular_ui.dart';
-import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/Providers/VisiblePasswordProvider.dart';
-
+import 'package:modular_ui/modular_ui.dart';
+import '../Helpers/AppColors.dart';
 import '../Helpers/DefaultFormField.dart';
 import '../Helpers/Icons.dart';
 import 'AuthMethods.dart';

@@ -24,39 +24,6 @@ final imagePickerProvider = StateNotifierProvider<ImagePickerNotifier, File?>((r
 class ImagePickerNotifier extends StateNotifier<File?> {
   ImagePickerNotifier() : super(null);
 
-  final _editorService = EditorService();
-
-  /// Handles picking and editing media specifically for upload functionality
-  Future<void> pickAndEditMediaForUpload(BuildContext context) async {
-    final selectedMedia = await _pickMedia(context);
-    if (selectedMedia == null) return;
-
-    final file = await _getFileFromMedia(selectedMedia);
-    if (file == null) return;
-
-    if (selectedMedia.assetEntity.type == AssetType.image) {
-      final result = await _editorService.openCropperFirst(context, file);
-      if (result == null) return;
-
-      final editedImage = result['file'] as File?;
-      if (editedImage != null) {
-        state = editedImage;
-        debugPrint("New image picked and cropped: ${editedImage.path}");
-      }
-    } else if (selectedMedia.assetEntity.type == AssetType.video) {
-      final confirmedVideo = await Navigator.push<File?>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoCropPreviewPage(originalVideo: file),
-        ),
-      );
-      if (confirmedVideo != null) {
-        state = confirmedVideo;
-        debugPrint("New video picked and cropped: ${confirmedVideo.path}");
-      }
-    }
-  }
-
   /// Handles picking and editing media specifically for chat functionality
   Future<void> pickAndEditMediaForChat(BuildContext context) async {
     final selectedMedia = await _pickMedia(context);
@@ -92,6 +59,39 @@ class ImagePickerNotifier extends StateNotifier<File?> {
 
   void clearImage() {
     state = null;
+  }
+
+  final _editorService = EditorService();
+
+  /// Handles picking and editing media specifically for upload functionality
+  Future<void> pickAndEditMediaForUpload(BuildContext context) async {
+    final selectedMedia = await _pickMedia(context);
+    if (selectedMedia == null) return;
+
+    final file = await _getFileFromMedia(selectedMedia);
+    if (file == null) return;
+
+    if (selectedMedia.assetEntity.type == AssetType.image) {
+      final result = await _editorService.openCropperFirst(context, file);
+      if (result == null) return;
+
+      final editedImage = result['file'] as File?;
+      if (editedImage != null) {
+        state = editedImage;
+        debugPrint("New image picked and cropped: ${editedImage.path}");
+      }
+    } else if (selectedMedia.assetEntity.type == AssetType.video) {
+      final confirmedVideo = await Navigator.push<File?>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoCropPreviewPage(originalVideo: file),
+        ),
+      );
+      if (confirmedVideo != null) {
+        state = confirmedVideo;
+        debugPrint("New video picked and cropped: ${confirmedVideo.path}");
+      }
+    }
   }
 }
 

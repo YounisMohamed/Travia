@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-import 'Constants.dart';
+import '../Helpers/AppColors.dart';
 
 class DummyPostCard extends StatelessWidget {
   const DummyPostCard({super.key});
@@ -134,7 +134,7 @@ class DummyCommentCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: contrastCommentCardColor, // Placeholder color
+        color: contrastCommentCardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -451,6 +451,301 @@ class DummyStory extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class ProfilePageSkeleton extends StatelessWidget {
+  const ProfilePageSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 45;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Gradient background - keep as is
+          Container(
+            height: screenHeight,
+            width: screenWidth,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [kDeepBlue, kDeepPink, kDeepPinkLight],
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: Column(
+              children: [
+                // Navigation bar - keep as is
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.02),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        height: screenWidth * 0.12,
+                        width: screenWidth * 0.12,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(screenWidth * 0.06),
+                        ),
+                        child: const Icon(
+                          Icons.more_horiz,
+                          color: kDeepPink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: screenHeight * 0.02),
+
+                // Main content
+                Expanded(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Grey background content - keep as is
+                      Container(
+                        width: double.infinity,
+                        margin: EdgeInsets.only(top: screenWidth * 0.12),
+                        decoration: const BoxDecoration(
+                          color: kDeepGrey,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(40),
+                            topRight: Radius.circular(40),
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              SizedBox(height: screenWidth * 0.15),
+
+                              // Stats - placeholders
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Friends count placeholder
+                                    Column(
+                                      children: [
+                                        Container(
+                                          width: 40,
+                                          height: 24,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Container(
+                                          width: 60,
+                                          height: 16,
+                                          color: Colors.white,
+                                        ),
+                                      ],
+                                    ),
+                                    // Following count placeholder
+                                    Column(
+                                      children: [
+                                        Container(
+                                          width: 40,
+                                          height: 24,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Container(
+                                          width: 60,
+                                          height: 16,
+                                          color: Colors.white,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              SizedBox(height: screenHeight * 0.02),
+
+                              // User info - placeholders
+                              Container(
+                                width: 150,
+                                height: 24,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(height: 5),
+
+                              Container(
+                                width: 100,
+                                height: 16,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Visited countries placeholder
+                              Container(
+                                width: screenWidth * 0.6,
+                                height: 14,
+                                color: Colors.white,
+                              ),
+
+                              SizedBox(height: screenHeight * 0.02),
+
+                              // Bio placeholder
+                              Container(
+                                width: screenWidth * 0.7,
+                                height: 16,
+                                color: Colors.white,
+                              ),
+
+                              SizedBox(height: screenHeight * 0.02),
+
+                              // Age and relationship status placeholder
+                              Container(
+                                width: screenWidth * 0.4,
+                                height: 14,
+                                color: Colors.white,
+                              ),
+
+                              SizedBox(height: screenHeight * 0.02),
+
+                              // Buttons placeholders
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        height: screenHeight * 0.06,
+                                        margin: const EdgeInsets.only(right: 10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Container(
+                                        height: screenHeight * 0.06,
+                                        margin: const EdgeInsets.only(left: 10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              SizedBox(height: screenHeight * 0.02),
+
+                              // Posts section
+                              Container(
+                                width: double.infinity,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(30),
+                                    topRight: Radius.circular(30),
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Tab section
+                                    Padding(
+                                      padding: EdgeInsets.only(top: screenHeight * 0.02, bottom: screenHeight * 0.01),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          Column(
+                                            children: [
+                                              Container(
+                                                width: 40,
+                                                height: 16,
+                                                color: Colors.grey[300],
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Container(
+                                                height: 2,
+                                                width: 40,
+                                                color: kDeepPink,
+                                              ),
+                                            ],
+                                          ),
+                                          Container(
+                                            width: 40,
+                                            height: 16,
+                                            color: Colors.grey[300],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Grid items - placeholders
+                                    Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: GridView.count(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        crossAxisCount: 3,
+                                        crossAxisSpacing: 10,
+                                        mainAxisSpacing: 10,
+                                        children: List.generate(9, (index) {
+                                          return Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[300],
+                                              borderRadius: BorderRadius.circular(15),
+                                            ),
+                                          );
+                                        }),
+                                      ),
+                                    ),
+
+                                    // Extra bottom padding
+                                    SizedBox(height: bottomPadding),
+                                  ],
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Profile picture placeholder
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            height: screenWidth * 0.24,
+                            width: screenWidth * 0.24,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

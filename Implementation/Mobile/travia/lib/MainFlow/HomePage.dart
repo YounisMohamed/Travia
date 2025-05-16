@@ -1,43 +1,56 @@
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:modular_ui/modular_ui.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/DummyCards.dart';
-import 'package:travia/MainFlow/DMsPage.dart';
-import 'package:travia/MainFlow/UploadPostPage.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
-import '../Auth/AuthMethods.dart';
+import '../Classes/Post.dart';
+import '../Helpers/AppColors.dart';
+import '../Helpers/GoogleTexts.dart';
 import '../Helpers/Loading.dart';
+import '../Providers/BottomBarProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Services/UserPresenceService.dart';
 import '../database/DatabaseMethods.dart';
 import '../main.dart';
+import 'DMsPage.dart';
+import 'NotificationsPage.dart';
 import 'PostCard.dart';
+import 'ProfilePage.dart';
 import 'Story.dart';
+import 'UploadPostPage.dart';
 
-class HomePage extends ConsumerStatefulWidget {
+class MainNavigationPage extends ConsumerStatefulWidget {
   final String? type;
   final String? source_id;
-  const HomePage({super.key, this.type, this.source_id});
+  const MainNavigationPage({super.key, this.type, this.source_id});
 
   @override
-  ConsumerState<HomePage> createState() => _HomePageState();
+  ConsumerState<MainNavigationPage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<MainNavigationPage> {
   final user = FirebaseAuth.instance.currentUser;
-  PageController pageController = PageController(
-    initialPage: 1,
-  );
+  late PageController horizontalPageController;
+  late PageController mainPageController;
+
+  bool _isChangingPage = false;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize the horizontal page controller for sliding between UploadPost, Home, and DMs
+    horizontalPageController = PageController(initialPage: 1);
+
+    // Initialize the main page controller for the bottom navigation (with Home as default), Home index = 2,
+    mainPageController = PageController(initialPage: 4);
 
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -49,6 +62,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Navigate to messages through notification
       if (widget.type != null && widget.source_id != null) {
         print("Navigating with type: ${widget.type}, source_id: ${widget.source_id}");
         String type = widget.type!;
@@ -95,6 +109,15 @@ class _HomePageState extends ConsumerState<HomePage> {
         )
         .subscribe();
     supabase
+        .channel('public:users')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'users',
+          callback: (payload) {},
+        )
+        .subscribe();
+    supabase
         .channel('public:story_items')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -134,9 +157,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               column: 'target_user_id',
               value: currentUserId,
             ),
-            callback: (payload) {
-              print('Change received: ${payload.toString()}');
-            })
+            callback: (payload) {})
         .subscribe();
     supabase
         .channel('public:posts')
@@ -187,32 +208,205 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   @override
+  void dispose() {
+    horizontalPageController.dispose();
+    mainPageController.dispose();
+    super.dispose();
+  }
+
+  // Handle horizontal page changes manually
+  void _changeHorizontalPage(int index) {
+    ref.read(horizontalPageProvider.notifier).state = index;
+    if (horizontalPageController.hasClients) {
+      // For horizontal pages, always animate since they're adjacent
+      horizontalPageController.animateToPage(
+        index,
+        duration: Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _changeMainPage(int index) {
+    if (_isChangingPage) return;
+
+    _isChangingPage = true;
+
+    // First update the provider state
+    ref.read(currentIndexProvider.notifier).state = index;
+
+    // Get the current index before changing
+    final currentPage = mainPageController.page?.round() ?? 2; // Default to home index
+    final distance = (index - currentPage).abs();
+
+    // Then jump or animate the page controller based on distance
+    if (mainPageController.hasClients) {
+      if (distance > 1) {
+        // If pages are not adjacent, jump immediately for instant transition
+        mainPageController.jumpToPage(index);
+        _isChangingPage = false;
+      } else {
+        // For adjacent pages, use animation for a smooth transition
+        mainPageController
+            .animateToPage(
+          index,
+          duration: Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+        )
+            .then((_) {
+          _isChangingPage = false;
+        });
+      }
+    } else {
+      _isChangingPage = false;
+    }
+
+    // When Home is selected (index 2), ensure horizontal page is at Home (index 1)
+    if (index == 2) {
+      ref.read(horizontalPageProvider.notifier).state = 1;
+      if (horizontalPageController.hasClients) {
+        horizontalPageController.animateToPage(
+          1,
+          duration: Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(currentIndexProvider);
+
     return PopScope(
-      canPop: pageController.hasClients && (pageController.page?.round() == 1),
+      canPop: (horizontalPageController.hasClients && horizontalPageController.page?.round() == 1) &&
+          (mainPageController.hasClients && mainPageController.page?.round() == 2), // Update to check for index 2 (home)
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && pageController.hasClients && pageController.page?.round() != 1) {
-          pageController.animateToPage(
-            1,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
+        if (!didPop) {
+          // If we're not on the home page in the main navigation
+          if (mainPageController.hasClients && mainPageController.page?.round() != 2) {
+            _changeMainPage(2); // Navigate to home (index 2)
+          }
+          // If we're on home but not on the home screen in horizontal navigation
+          else if (horizontalPageController.hasClients && horizontalPageController.page?.round() != 1) {
+            _changeHorizontalPage(1);
+          }
         }
       },
-      child: PageView(
-        controller: pageController,
-        children: [
-          UploadPostPage(),
-          HomeWidget(),
-          DMsPage(),
-        ],
+      child: Scaffold(
+        body: PageView(
+          controller: mainPageController,
+          physics: NeverScrollableScrollPhysics(), // prevent swipe
+          onPageChanged: (index) {
+            if (!_isChangingPage) {
+              ref.read(currentIndexProvider.notifier).state = index;
+            }
+          },
+          children: [
+            ExplorePage(), // Index 0: Explore
+            PlanPage(), // Index 1: Plan
+            // When on Home tab, show the horizontal PageView (Index 2)
+            Scaffold(
+              body: PageView(
+                controller: horizontalPageController,
+                onPageChanged: (index) {
+                  ref.read(horizontalPageProvider.notifier).state = index;
+                },
+                children: [
+                  UploadPostPage(),
+                  HomeWidget(
+                    onCameraPressed: () => _changeHorizontalPage(0),
+                    onMessagePressed: () => _changeHorizontalPage(2),
+                  ),
+                  DMsPage(),
+                ],
+              ),
+            ),
+            NotificationsPage(), // Index 3: Notifications
+            ProfilePage(
+              profileUserId: "NeIevdY1yJX0YVrOtlzaIJbTHum2",
+            ), // Index 4: Profile
+          ],
+        ),
+        bottomNavigationBar: BottomNav(
+          currentIndex: currentIndex,
+          onTap: _changeMainPage,
+        ),
       ),
     );
   }
 }
 
+class BottomNav extends StatelessWidget {
+  final int currentIndex;
+  final Function(int) onTap;
+
+  const BottomNav({
+    required this.currentIndex,
+    required this.onTap,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        // Gradient background from black to deep pink
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.black,
+            kDeepPink,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: CurvedNavigationBar(
+        key: GlobalKey<CurvedNavigationBarState>(),
+        backgroundColor: Colors.transparent, // Transparent to show gradient
+        color: Colors.white,
+        buttonBackgroundColor: kDeepPink,
+        height: 60,
+        animationDuration: Duration(milliseconds: 300),
+        index: currentIndex,
+        onTap: onTap,
+        letIndexChange: (index) => true, // Always allow index change
+        items: [
+          _buildIcon(Icons.explore_outlined, currentIndex == 0), // Explore
+          _buildIcon(Icons.flight_takeoff, currentIndex == 1), // Plan
+          _buildIcon(Icons.home_outlined, currentIndex == 2), // Home (center)
+          _buildIcon(Icons.notifications_none, currentIndex == 3), // Notifications
+          _buildIcon(Icons.person_outline, currentIndex == 4), // Profile
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIcon(IconData icon, bool isSelected) {
+    return Icon(
+      icon,
+      size: isSelected ? 30 : 26,
+      color: isSelected ? Colors.white : Colors.black54,
+    );
+  }
+}
+
 class HomeWidget extends ConsumerWidget {
-  const HomeWidget({super.key});
+  final VoidCallback onCameraPressed;
+  final VoidCallback onMessagePressed;
+
+  const HomeWidget({
+    required this.onCameraPressed,
+    required this.onMessagePressed,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -224,117 +418,388 @@ class HomeWidget extends ConsumerWidget {
     bool isLoading = ref.watch(loadingProvider);
     final postsAsync = ref.watch(postsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        forceMaterialTransparency: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Row(
-          children: [
-            Text("Home"),
-            SizedBox(width: 10),
-            if (isLoading)
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: LoadingWidget(),
+    // Create custom swipe gesture handlers for the Home screen
+    return GestureDetector(
+      // Swipe right to go to Upload Post
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! > 0) {
+            // Swipe right
+            onCameraPressed();
+          } else if (details.primaryVelocity! < 0) {
+            // Swipe left
+            onMessagePressed();
+          }
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          forceMaterialTransparency: true,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: Row(
+            children: [
+              Image.asset(
+                "assets/TraviaLogo.png",
+                height: 90,
+                width: 90,
               ),
+              // Vertical divider line
+              Container(
+                height: 24,
+                width: 2,
+                color: Colors.grey,
+                margin: EdgeInsets.symmetric(horizontal: 8),
+              ),
+              // Animated typing text
+              TypewriterAnimatedText(
+                text: "Plan Smart. Travel Far.",
+                style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(width: 10),
+              if (isLoading)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: LoadingWidget(),
+                ),
+            ],
+          ),
+        ),
+        body: Column(
+          children: [
+            // Add the stories bar here
+            StoryBar(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: refresh,
+                displacement: 32,
+                color: Colors.black,
+                backgroundColor: Colors.white,
+                child: postsAsync.when(
+                  loading: () => Skeletonizer(
+                    enabled: true,
+                    child: _buildLoadingState(context),
+                  ),
+                  error: (error, stackTrace) {
+                    print(error);
+                    print(stackTrace);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (context.mounted) {
+                        context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
+                      }
+                    });
+                    return const Center(child: Text("An error occurred."));
+                  },
+                  data: (posts) {
+                    if (posts.isEmpty) {
+                      return const Center(child: Text("No posts to show for now"));
+                    } else {
+                      return _buildFeed(context, posts);
+                    }
+                  },
+                ),
+              ),
+            ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            child: IconButton(
-              icon: Icon(
-                Icons.notifications_none,
-                color: Colors.black,
-                size: 28,
-              ),
-              onPressed: () {
-                context.push("/notifications");
-              },
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Add the stories bar here
-          StoryBar(),
-
-          Divider(height: 1),
-
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: refresh,
-              displacement: 32,
-              color: Colors.black,
-              backgroundColor: Colors.white,
-              child: postsAsync.when(
-                loading: () => Skeletonizer(
-                  enabled: true,
-                  child: ListView.builder(
-                    itemCount: 3,
-                    itemBuilder: (context, index) => DummyPostCard(),
-                  ),
-                ),
-                error: (error, stackTrace) {
-                  print(error);
-                  print(stackTrace);
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (context.mounted) {
-                      context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
-                    }
-                  });
-                  return const Center(child: Text("An error occurred."));
-                },
-                data: (posts) => posts.isEmpty
-                    ? const Center(child: Text("No posts to show for now"))
-                    : ListView.builder(
-                        physics: AlwaysScrollableScrollPhysics(),
-                        itemCount: posts.length,
-                        itemBuilder: (context, index) {
-                          final post = posts[index];
-                          return GestureDetector(
-                            onTap: () {
-                              context.push('/post/${post.postId}');
-                            },
-                            child: PostCard(
-                              profilePicUrl: post.userPhotoUrl,
-                              username: post.userUserName,
-                              postImageUrl: post.mediaUrl,
-                              commentCount: post.commentCount,
-                              postId: post.postId,
-                              userId: post.userId,
-                              likeCount: post.likeCount,
-                              postCaption: post.caption,
-                              postLocation: post.location,
-                              createdAt: post.createdAt,
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              MUIGradientButton(
-                text: "Sign out",
-                onPressed: () async {
-                  await signOut(context, ref);
-                },
-                bgGradient: LinearGradient(colors: [Colors.black, Colors.black]),
-              ),
-              SizedBox(
-                width: 15,
-              ),
-            ],
-          )
-        ],
       ),
     );
   }
+
+  Widget _buildFeed(BuildContext context, List<Post> posts) {
+    // Function to group posts by location efficiently
+    Map<String, List<Post>> groupPostsByLocation(List<Post> allPosts) {
+      final result = <String, List<Post>>{};
+      final cityPostCounts = <String, int>{};
+      final List<Post> postsWithNoLocation = [];
+
+      // First pass: count posts per city and collect posts with no location
+      for (final post in allPosts) {
+        if (post.location!.isNotEmpty) {
+          final city = post.location!.split(',').first.trim();
+          cityPostCounts[city] = (cityPostCounts[city] ?? 0) + 1;
+        } else {
+          postsWithNoLocation.add(post);
+        }
+      }
+
+      // Find top cities by post count (limit to 5)
+      final cityEntries = List.from(cityPostCounts.entries);
+      cityEntries.sort((a, b) => b.value.compareTo(a.value));
+      final topCities = cityEntries.take(5).map((e) => e.key).toSet();
+
+      // Second pass: group posts by top cities only
+      for (final post in allPosts) {
+        if (post.location.isNotEmpty) {
+          final city = post.location.split(',').first.trim();
+
+          if (topCities.contains(city)) {
+            if (!result.containsKey(city)) {
+              result[city] = [];
+            }
+            result[city]!.add(post);
+          }
+        }
+      }
+
+      // Add the "Others" category if there are posts with no location
+      if (postsWithNoLocation.isNotEmpty) {
+        result["Others"] = postsWithNoLocation;
+      }
+
+      return result;
+    }
+
+    // Group posts by location
+    final postsByLocation = groupPostsByLocation(posts);
+
+    // Create a list to hold all sections (for better organization)
+    final List<Widget> sections = [];
+
+    // First section - Recommended For You
+    sections.add(_buildPostSection(context: context, title: "Recommended For You", posts: posts));
+    sections.add(SizedBox(height: 20));
+
+    // Add location-based sections
+    for (final entry in postsByLocation.entries) {
+      // Skip "Others" section for now - we'll add it at the end
+      if (entry.key == "Others") continue;
+
+      sections.add(_buildPostSection(
+        context: context,
+        title: "Explore ${entry.key}",
+        posts: entry.value,
+      ));
+      sections.add(SizedBox(height: 20));
+    }
+
+    // Add "Others" section at the end (if it exists)
+    if (postsByLocation.containsKey("Others")) {
+      sections.add(_buildPostSection(
+        context: context,
+        title: "Others",
+        posts: postsByLocation["Others"]!,
+      ));
+      sections.add(SizedBox(height: 20));
+    }
+
+    // Add planning card at the very end
+    sections.add(_buildPlanningCard(context));
+    sections.add(SizedBox(height: 20));
+
+    return ListView(
+      children: sections,
+    );
+  }
+
+  // Loading skeleton for horizontal layouts
+  Widget _buildLoadingState(BuildContext context) {
+    return ListView(
+      children: [
+        // Section title skeleton
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Container(
+            height: 24,
+            width: 120,
+            decoration: BoxDecoration(
+              color: Colors.grey,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+        // Horizontal list skeleton with more responsive layout
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6, // Responsive height
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: 3,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: AspectRatio(
+                aspectRatio: 0.7, // Card aspect ratio
+                child: DummyPostCard(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Build a horizontal scrolling section with title
+  Widget _buildPostSection({
+    required BuildContext context,
+    required String title,
+    required List<Post> posts,
+  }) {
+    if (posts.isEmpty) return SizedBox.shrink();
+
+    // Calculate responsive height based on screen size
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section title
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            title,
+            style: GoogleFonts.ibmPlexSans(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+
+        // Horizontal scrolling posts with responsive layout
+        SizedBox(
+          // Use a percentage of screen height for more responsive sizing
+          height: screenHeight * 0.6,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: posts.length,
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            itemBuilder: (context, index) {
+              final post = posts[index];
+
+              // Use AspectRatio for more consistent card sizing
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: AspectRatio(
+                  aspectRatio: 0.6, // Portrait card layout (width:height ratio)
+                  child: GestureDetector(
+                    onTap: () {
+                      context.push('/post/${post.postId}');
+                    },
+                    child: PostCard(
+                      profilePicUrl: post.userPhotoUrl,
+                      username: post.userUserName,
+                      postImageUrl: post.mediaUrl,
+                      commentCount: post.commentCount,
+                      likesCount: post.likesCount,
+                      postId: post.postId,
+                      userId: post.userId,
+                      postCaption: post.caption,
+                      postLocation: post.location,
+                      createdAt: post.createdAt,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Widget _buildPlanningCard(BuildContext context) {
+  return Container(
+    margin: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          kDeepPink,
+          Colors.black,
+        ],
+      ),
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.3),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title row with plane icon
+        Row(
+          children: [
+            Icon(
+              Icons.flight_takeoff,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              "Plan your next adventure",
+              style: GoogleFonts.ibmPlexSans(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Description text
+        Text(
+          "Let our AI help you create the perfect plan",
+          style: GoogleFonts.ibmPlexSans(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Start planning button
+        Center(
+          child: ElevatedButton(
+            onPressed: () {
+              // Navigate to planning page or open planning dialog
+              // You can add navigation logic here
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: kDeepPink,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 2,
+            ),
+            child: Text(
+              "Start Planning",
+              style: GoogleFonts.ibmPlexSans(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class ExplorePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Text("Explore"),
+        ),
+        body: Center(child: Text("Explore Page")),
+      );
+}
+
+class PlanPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Text("Plan Trip"),
+        ),
+        body: Center(child: Text("Plan Your Trip")),
+      );
 }

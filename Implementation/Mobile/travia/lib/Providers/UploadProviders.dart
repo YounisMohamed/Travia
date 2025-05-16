@@ -180,6 +180,7 @@ class MediaUploadService {
         'caption': caption,
         'location': location,
         'created_at': DateTime.now().toUtc().toIso8601String(),
+        'comments_count': 0,
       });
     } catch (e) {
       print("Database Error: $e");

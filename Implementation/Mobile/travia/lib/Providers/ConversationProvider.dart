@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../Classes/ConversationDetail.dart';
-import '../Classes/User.dart';
+import '../Classes/UserSupabase.dart';
 import '../MainFlow/DMsPage.dart';
 import '../main.dart';
 

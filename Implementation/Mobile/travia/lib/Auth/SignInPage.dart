@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:modular_ui/modular_ui.dart';
-import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/Helpers/Icons.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/VisiblePasswordProvider.dart';
 
+import '../Helpers/AppColors.dart';
 import '../Helpers/DefaultFormField.dart';
 import '../Helpers/GoogleSignInWidget.dart';
 import '../Providers/LoadingProvider.dart';
@@ -60,9 +60,12 @@ class _SignInPageState extends ConsumerState<SignInPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Image.asset("assets/TraviaLogo.png"),
-                SizedBox(height: height * 0.01),
-                RedHatText(
+                Image.asset(
+                  "assets/TraviaLogo.png",
+                  height: 130,
+                  width: 130,
+                ),
+                IBMPlexSansText(
                   text: "SIGN IN",
                   color: Colors.black,
                   isBold: true,
@@ -112,7 +115,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                         SizedBox(height: height * 0.009),
                         Row(
                           children: [
-                            RedHatText(
+                            IBMPlexSansText(
                               text: "Show Password",
                               color: Colors.black,
                               size: 12,
@@ -142,7 +145,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                                     );
                                   }
                                 },
-                                bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
+                                bgGradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink]),
                                 animationDuration: 5,
                               ),
                       ],

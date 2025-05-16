@@ -453,7 +453,7 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
               StoryView(
                 storyItems: items,
                 controller: controller,
-                onComplete: () => _goToNextStory(), // Use our new function instead of just popping
+                onComplete: () => _goToNextStory(),
                 onVerticalSwipeComplete: (direction) {
                   if (direction == Direction.down) {
                     Navigator.of(context).pop();
@@ -465,7 +465,6 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                   });
                 },
               ),
-// rest of code
               // Top Bar
               Positioned(
                 top: 60,
@@ -650,6 +649,15 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
 
                           final currentUserId = FirebaseAuth.instance.currentUser!.uid;
                           final targetUserId = story.userId;
+                          if (currentUserId == targetUserId) {
+                            Popup.showPopUp(
+                              text: "Cant send a message to yourself :)",
+                              context: context,
+                              color: Colors.red,
+                            );
+                            return;
+                          }
+                          messageController.clear();
 
                           try {
                             // Find or create a conversation via your provider
@@ -657,8 +665,6 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
 
                             story_item_model currentItem = sortedItems[safeCurrentIndex];
                             final storyMediaUrl = currentItem.mediaUrl ?? '';
-
-                            messageController.clear();
 
                             await supabase
                                 .from('messages')
@@ -672,16 +678,14 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                                 .single();
 
                             // 5. Send notification
-                            if (targetUserId != currentUserId) {
-                              await sendNotification(
-                                type: 'message',
-                                title: "replied to your story",
-                                content: msg,
-                                target_user_id: targetUserId,
-                                source_id: conversationId,
-                                sender_user_id: currentUserId,
-                              );
-                            }
+                            await sendNotification(
+                              type: 'message',
+                              title: "replied to your story",
+                              content: msg,
+                              target_user_id: targetUserId,
+                              source_id: conversationId,
+                              sender_user_id: currentUserId,
+                            );
 
                             // 6. Optional: Show success message
                             Popup.showPopUp(

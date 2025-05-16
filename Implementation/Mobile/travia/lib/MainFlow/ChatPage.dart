@@ -22,7 +22,9 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../Classes/ChatDetails.dart';
 import '../Classes/message_class.dart';
+import '../Helpers/AppColors.dart';
 import '../Helpers/Constants.dart';
+import '../Helpers/DeleteConfirmation.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Providers/ChatDetailsProvider.dart';
 import '../Providers/ImagePickerProvider.dart';
@@ -255,7 +257,7 @@ class ChatBodyContainer extends StatelessWidget {
     var keyBoardSize = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      decoration: backGroundColor(),
+      decoration: BoxDecoration(color: kWhite),
       child: Column(
         children: [
           Expanded(
@@ -286,11 +288,10 @@ class ChatBodyContainer extends StatelessWidget {
 class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final String conversationId;
   final ChatDetails metadata;
+  @override
   final Size preferredSize;
 
-  const ChatAppBar({Key? key, required this.conversationId, required this.metadata})
-      : preferredSize = const Size.fromHeight(kToolbarHeight),
-        super(key: key);
+  const ChatAppBar({super.key, required this.conversationId, required this.metadata}) : preferredSize = const Size.fromHeight(kToolbarHeight);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -302,7 +303,6 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
     return AppBar(
       forceMaterialTransparency: true,
-      backgroundColor: Color(0xFFFF8C00),
       elevation: 0,
       title: _buildAppBarTitle(context, metadata),
     );
@@ -367,118 +367,6 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Set<MessageClass> messagesToDelete, bool canDelete) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: Colors.white,
-        elevation: 8,
-        title: Text(
-          'Delete Messages',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              messagesToDelete.length == 1 ? "Are you sure you want to delete this message?" : 'Are you sure you want to delete all ${messagesToDelete.length} messages?',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'This action cannot be undone.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.redAccent.withOpacity(0.8),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actionsAlignment: MainAxisAlignment.start,
-        actionsPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey[700],
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: Text(
-              'CANCEL',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (canDelete)
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                ref.read(messageActionsProvider.notifier).clearSelectedMessages();
-                try {
-                  for (final message in messagesToDelete) {
-                    await removeMessage(messageId: message.messageId);
-                  }
-                } catch (e) {
-                  Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
-                }
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.redAccent, // Prominent delete color
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: Text(
-                'DELETE FOR ALL',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              ref.read(messageActionsProvider.notifier).clearSelectedMessages();
-              try {
-                final currentUserId = FirebaseAuth.instance.currentUser!.uid;
-                for (final message in messagesToDelete) {
-                  print(message.content);
-                  print(currentUserId);
-                  await removeMessageForMe(messageId: message.messageId, currentUserId: currentUserId);
-                }
-              } catch (e) {
-                Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
-              }
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.redAccent, // Prominent delete color
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: Text(
-              'DELETE FOR ME',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAppBarTitle(BuildContext context, ChatDetails metadata) {
     return Row(
       children: [
@@ -517,6 +405,57 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
         ),
       );
     }
+  }
+
+  //rest of code
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Set<MessageClass> messagesToDelete, bool canDelete) {
+    final message = messagesToDelete.length == 1
+        ? "Are you sure you want to delete this message? This action cannot be undone."
+        : "Are you sure you want to delete all ${messagesToDelete.length} messages? This action cannot be undone.";
+
+    final actions = <DialogAction>[];
+
+    // Add delete for me action
+    actions.add(DialogAction(
+      text: 'For Me',
+      icon: Icons.delete,
+      onPressed: () async {
+        ref.read(messageActionsProvider.notifier).clearSelectedMessages();
+        try {
+          final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+          for (final message in messagesToDelete) {
+            await removeMessageForMe(messageId: message.messageId, currentUserId: currentUserId);
+          }
+        } catch (e) {
+          Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
+        }
+      },
+    ));
+
+    // Add delete for all action if permitted
+    if (canDelete) {
+      actions.add(DialogAction(
+        text: 'For all',
+        icon: Icons.delete_forever,
+        onPressed: () async {
+          ref.read(messageActionsProvider.notifier).clearSelectedMessages();
+          try {
+            for (final message in messagesToDelete) {
+              await removeMessage(messageId: message.messageId);
+            }
+          } catch (e) {
+            Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
+          }
+        },
+      ));
+    }
+
+    showCustomDialogWithMultipleActions(
+      context: context,
+      title: 'Delete Messages',
+      message: message,
+      actions: actions,
+    );
   }
 }
 
@@ -664,16 +603,75 @@ class EmptyConversationIndicator extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
-          SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: kDeepPurple.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.chat_bubble_outline,
+              size: 64,
+              color: kDeepPurple.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
             'Start the conversation!',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: kDeepPurple,
+            ),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Send a message to begin chatting.',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Send a message to begin your journey together',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [kDeepPurple, kDeepPurpleLight],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: kDeepPurple.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Type your first message below',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -823,32 +821,62 @@ class MessageInputBar extends ConsumerWidget {
                               : IconButton(
                                   icon: const Icon(Icons.add, color: Color(0xFFFF8C00)),
                                   onPressed: () async {
-                                    ref.read(imagePickerProvider.notifier).clearImage();
+                                    // Clear any previously selected files from the multiple media provider
+                                    ref.read(multiMediaPickerProvider.notifier).clearFiles();
 
-                                    final pickedFile = ref.watch(imagePickerProvider);
+                                    // Open the multiple media picker
+                                    await ref.read(multiMediaPickerProvider.notifier).pickMultipleMedia(context);
 
-                                    if (pickedFile == null) {
-                                      await ref.read(imagePickerProvider.notifier).pickAndEditMediaForChat(context);
-                                    }
+                                    // Get the selected files after picker is closed
+                                    final mediaFiles = ref.read(multiMediaPickerProvider);
 
-                                    final mediaFile = ref.watch(imagePickerProvider);
-                                    if (mediaFile == null) return;
+                                    // If no files were selected, return early
+                                    if (mediaFiles.isEmpty) return;
 
-                                    final mediaUrl = await ref.read(chatMediaUploadProvider.notifier).uploadChatMedia(userId: currentUserId, mediaFile: mediaFile);
-                                    if (mediaUrl == null) return;
-
-                                    final isVideo = mediaFile.path.endsWith('.mp4') || mediaFile.path.endsWith('.mov');
-                                    try {
-                                      await onSendMessage(
-                                        content: mediaUrl,
-                                        contentType: isVideo ? 'video' : 'image',
-                                        target_user_ids: participants.where((p) => p.userId != currentUserId).map((p) => p.userId).toList(),
+                                    // Show loading indicator if multiple files selected
+                                    if (mediaFiles.length > 1) {
+                                      Popup.showPopUp(
+                                        text: "Uploading ${mediaFiles.length} files...",
+                                        context: context,
+                                        color: Colors.orangeAccent,
                                       );
-                                    } catch (e) {
-                                      print(e);
-                                      Popup.showPopUp(text: "Failed sending image", context: context, color: Colors.redAccent);
                                     }
-                                    ref.read(imagePickerProvider.notifier).clearImage();
+
+                                    // Process each selected file
+                                    for (final mediaFile in mediaFiles) {
+                                      // Upload the media file
+                                      final mediaUrl = await ref.read(chatMediaUploadProvider.notifier).uploadChatMedia(userId: currentUserId, mediaFile: mediaFile);
+
+                                      // If upload failed, continue to next file
+                                      if (mediaUrl == null) continue;
+
+                                      // Determine if it's a video
+                                      final isVideo = mediaFile.path.endsWith('.mp4') || mediaFile.path.endsWith('.mov');
+
+                                      try {
+                                        // Send the message with the uploaded media
+                                        await onSendMessage(
+                                          content: mediaUrl,
+                                          contentType: isVideo ? 'video' : 'image',
+                                          target_user_ids: participants.where((p) => p.userId != currentUserId).map((p) => p.userId).toList(),
+                                        );
+                                      } catch (e) {
+                                        print("Error sending media file: $e");
+                                        Popup.showPopUp(text: "Failed sending media", context: context, color: Colors.redAccent);
+                                      }
+                                    }
+
+                                    // Clear the files after processing
+                                    ref.read(multiMediaPickerProvider.notifier).clearFiles();
+
+                                    // Show success message if multiple files were sent
+                                    if (mediaFiles.length > 1) {
+                                      Popup.showPopUp(
+                                        text: "Sent ${mediaFiles.length} media files",
+                                        context: context,
+                                        color: Colors.greenAccent,
+                                      );
+                                    }
                                   },
                                 ),
                           SimpleRecorderButton(
@@ -1065,6 +1093,8 @@ class MessageBubble extends ConsumerWidget {
           if (!isCurrentUser) ...[
             _buildAvatar(),
             SizedBox(width: 8),
+          ] else if (!isCurrentUser) ...[
+            SizedBox(width: 40), // Space for avatar alignment
           ],
           GestureDetector(
             onTap: hasSelection
@@ -1084,7 +1114,7 @@ class MessageBubble extends ConsumerWidget {
                 color: isSelected
                     ? Colors.grey.withOpacity(0.5)
                     : isCurrentUser
-                        ? (isPending ? Color(0xFFFF8C00).withOpacity(0.7) : Color(0xFFFF8C00))
+                        ? (isPending ? kDeepPink.withOpacity(0.7) : kDeepPink)
                         : Colors.white,
                 borderRadius: BorderRadius.circular(20).copyWith(
                   bottomLeft: isCurrentUser ? Radius.circular(20) : Radius.circular(0),
@@ -1092,11 +1122,22 @@ class MessageBubble extends ConsumerWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
+                    color: (isCurrentUser ? kDeepPink : Colors.grey).withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
                   ),
                 ],
+                // Add gradient for more appealing bubbles
+                gradient: isCurrentUser
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          kDeepPink,
+                          kDeepPink.withOpacity(0.9),
+                        ],
+                      )
+                    : null,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1107,7 +1148,7 @@ class MessageBubble extends ConsumerWidget {
                       child: Text(
                         message.senderUsername ?? 'Unknown',
                         style: TextStyle(
-                          color: Color(0xFFFF8C00),
+                          color: kDeepPurple,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -1121,6 +1162,10 @@ class MessageBubble extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPurple.withOpacity(0.1),
+                        width: 1,
+                      ),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
@@ -1135,7 +1180,7 @@ class MessageBubble extends ConsumerWidget {
                                     placeholder: (context, url) => Center(
                                       child: CircularProgressIndicator(
                                         valueColor: AlwaysStoppedAnimation<Color>(
-                                          isCurrentUser ? Colors.white70 : Color(0xFFFF8C00).withOpacity(0.7),
+                                          isCurrentUser ? Colors.white70 : kDeepPurpleLight,
                                         ),
                                       ),
                                     ),
@@ -1193,7 +1238,7 @@ class MessageBubble extends ConsumerWidget {
                       messageText,
                       textDirection: isMostlyRtl(messageText),
                       style: TextStyle(
-                        color: isCurrentUser ? Colors.white : Colors.black87,
+                        color: isCurrentUser ? kWhite : Colors.black87,
                         fontSize: 15,
                       ),
                     ),
@@ -1211,13 +1256,15 @@ class MessageBubble extends ConsumerWidget {
           if (isCurrentUser) ...[
             SizedBox(width: 8),
             _buildAvatar(),
+          ] else if (isCurrentUser) ...[
+            SizedBox(width: 40), // Space for avatar alignment
           ],
         ],
       ),
     );
   }
 
-  // Common reply widget
+// Common reply widget
   Widget _buildReplyPreview() {
     if (message.replyToMessageSender == null) return SizedBox.shrink();
 
@@ -1225,8 +1272,12 @@ class MessageBubble extends ConsumerWidget {
       padding: EdgeInsets.all(8),
       margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isCurrentUser ? Colors.orange.shade400 : Colors.grey.shade300,
+        color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPurple.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPurple.withOpacity(0.2),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1236,7 +1287,7 @@ class MessageBubble extends ConsumerWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: isCurrentUser ? Colors.white.withOpacity(0.8) : Colors.black87,
+              color: isCurrentUser ? kWhite.withOpacity(0.9) : kDeepPurple,
             ),
           ),
           SizedBox(height: 4),
@@ -1244,7 +1295,7 @@ class MessageBubble extends ConsumerWidget {
             message.replyToMessageContent!.length > 50 ? '${message.replyToMessageContent!.substring(0, 50)}...' : message.replyToMessageContent!,
             style: TextStyle(
               fontSize: 13,
-              color: isCurrentUser ? Colors.white.withOpacity(0.9) : Colors.black54,
+              color: isCurrentUser ? kWhite.withOpacity(0.8) : Colors.black54,
               fontStyle: FontStyle.italic,
             ),
           ),
@@ -1266,6 +1317,8 @@ class MessageBubble extends ConsumerWidget {
           if (!isCurrentUser) ...[
             _buildAvatar(),
             SizedBox(width: 8),
+          ] else if (!isCurrentUser) ...[
+            SizedBox(width: 40),
           ],
           GestureDetector(
             onTap: hasSelection
@@ -1285,7 +1338,7 @@ class MessageBubble extends ConsumerWidget {
                 color: isSelected
                     ? Colors.grey.withOpacity(0.5)
                     : isCurrentUser
-                        ? (isPending ? Color(0xFFFF8C00).withOpacity(0.7) : Color(0xFFFF8C00))
+                        ? (isPending ? kDeepPink.withOpacity(0.7) : kDeepPink)
                         : Colors.white,
                 borderRadius: BorderRadius.circular(20).copyWith(
                   bottomLeft: isCurrentUser ? Radius.circular(20) : Radius.circular(0),
@@ -1293,11 +1346,22 @@ class MessageBubble extends ConsumerWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
+                    color: (isCurrentUser ? kDeepPink : Colors.grey).withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
                   ),
                 ],
+                // Add gradient for more appealing bubbles
+                gradient: isCurrentUser
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          kDeepPink,
+                          kDeepPink.withOpacity(0.9),
+                        ],
+                      )
+                    : null,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1308,7 +1372,7 @@ class MessageBubble extends ConsumerWidget {
                       child: Text(
                         message.senderUsername ?? 'Unknown',
                         style: TextStyle(
-                          color: Color(0xFFFF8C00),
+                          color: kDeepPurple,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -1320,7 +1384,7 @@ class MessageBubble extends ConsumerWidget {
                           content,
                           textDirection: isMostlyRtl(content),
                           style: TextStyle(
-                            color: message.isDeleted ? Colors.black54 : (isCurrentUser ? Colors.white : Colors.black87),
+                            color: message.isDeleted ? Colors.grey : (isCurrentUser ? kWhite : Colors.black87),
                             fontSize: 15,
                             fontStyle: (message.isEdited || message.isDeleted) ? FontStyle.italic : FontStyle.normal,
                           ),
@@ -1329,7 +1393,7 @@ class MessageBubble extends ConsumerWidget {
                           mediaUrl: message.content,
                           isVideo: message.content.endsWith('.mp4') || message.content.endsWith('.mov'),
                         ),
-                  SizedBox(height: 2),
+                  SizedBox(height: 4),
                   _buildTimestampAndReadStatus(isRead),
                 ],
               ),
@@ -1338,78 +1402,14 @@ class MessageBubble extends ConsumerWidget {
           if (isCurrentUser) ...[
             SizedBox(width: 8),
             _buildAvatar(),
+          ] else if (isCurrentUser) ...[
+            SizedBox(width: 40), // Space for avatar alignment
           ],
         ],
       ),
     );
   }
 
-  // Build an audio message bubble
-  Widget _buildAudioBubble(BuildContext context, WidgetRef ref, bool isRead, bool isSelected, bool hasSelection) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isCurrentUser) ...[
-            _buildAvatar(),
-            SizedBox(width: 8),
-          ],
-          GestureDetector(
-            onTap: hasSelection
-                ? () {
-                    ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
-                  }
-                : null,
-            onLongPress: () {
-              ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
-            },
-            child: Column(
-              crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                if (!isCurrentUser)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4.0, left: 8.0),
-                    child: Text(
-                      message.senderUsername ?? 'Unknown',
-                      style: TextStyle(
-                        color: Color(0xFFFF8C00),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                _buildReplyPreview(),
-                // Audio message placed outside the bubble
-                Container(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.grey.withOpacity(0.5) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: AudioMessage(audioUrl: message.content),
-                ),
-                SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8.0, right: 8.0),
-                  child: _buildTimestampAndReadStatus(isRead),
-                ),
-              ],
-            ),
-          ),
-          if (isCurrentUser) ...[
-            SizedBox(width: 8),
-            _buildAvatar(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // Build a media message bubble
   Widget _buildMediaBubble(BuildContext context, WidgetRef ref, bool isSelected, bool hasSelection) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -1466,9 +1466,6 @@ class MessageBubble extends ConsumerWidget {
     );
   }
 
-  // rest of code
-
-  // Common swipe wrapper for all message types
   Widget _buildSwipeWrapper(BuildContext context, WidgetRef ref, Widget child) {
     return SwipeTo(
       key: ValueKey(message.messageId),
@@ -1486,6 +1483,77 @@ class MessageBubble extends ConsumerWidget {
       child: child,
     );
   }
+
+  // Build an audio message bubble
+  Widget _buildAudioBubble(BuildContext context, WidgetRef ref, bool isRead, bool isSelected, bool hasSelection) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isCurrentUser) ...[
+            _buildAvatar(),
+            SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: hasSelection
+                ? () {
+                    ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
+                  }
+                : null,
+            onLongPress: () {
+              ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
+            },
+            child: Column(
+              crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                if (!isCurrentUser)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0, left: 8.0),
+                    child: Text(
+                      message.senderUsername ?? 'Unknown',
+                      style: TextStyle(
+                        color: kDeepPurpleLight,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                _buildReplyPreview(),
+                // Audio message placed outside the bubble
+                Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.grey.withOpacity(0.5) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: AudioMessage(audioUrl: message.content),
+                ),
+                SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0, right: 8.0),
+                  child: _buildTimestampAndReadStatus(isRead),
+                ),
+              ],
+            ),
+          ),
+          if (isCurrentUser) ...[
+            SizedBox(width: 8),
+            _buildAvatar(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Build a media message bubble
+
+  // rest of code
+
+  // Common swipe wrapper for all message types
 
   // Common avatar widget for both sender and receiver
   Widget _buildAvatar() {
@@ -1688,7 +1756,7 @@ class _AudioMessageState extends ConsumerState<AudioMessage> {
         height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Theme.of(context).primaryColor,
+          color: kDeepPink,
         ),
         child: Center(
           child: isLoading
@@ -1716,16 +1784,13 @@ class _AudioMessageState extends ConsumerState<AudioMessage> {
 
     return Expanded(
       child: SliderTheme(
-        data: SliderTheme.of(context).copyWith(
-          trackHeight: 4,
-          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-          overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        ),
+        data: SliderTheme.of(context)
+            .copyWith(trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6), overlayShape: const RoundSliderOverlayShape(overlayRadius: 12), thumbColor: kDeepPink),
         child: Slider(
           min: 0,
           max: max > 0 ? max : 1,
           value: value,
-          activeColor: Theme.of(context).primaryColor,
+          activeColor: kDeepPink,
           inactiveColor: Colors.grey.shade300,
           onChanged: (newValue) {
             // Seek the audio to the new position while dragging
@@ -1827,15 +1892,26 @@ class DateHeader extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           decoration: BoxDecoration(
-            color: Colors.grey.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(16.0),
+            color: kDeepPurple.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20.0),
+            border: Border.all(
+              color: kDeepPurple.withOpacity(0.2),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: kDeepPurple.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Text(
             dateText,
             style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12.0,
+              fontSize: 13.0,
               fontWeight: FontWeight.w500,
+              color: kDeepPurple,
             ),
           ),
         ),

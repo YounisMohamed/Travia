@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:travia/Helpers/AppColors.dart';
 
 import '../Helpers/GoogleTexts.dart';
 import '../Providers/ConversationProvider.dart';
@@ -49,12 +51,26 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
 
-    // Check if profile exists first
-    final supabaseUserId = await getSupabaseUserId(user.uid);
+    String? supabaseUserId;
+
+    try {
+      supabaseUserId = await getSupabaseUserId(user.uid);
+    } catch (e) {
+      print("Network or fetch error: $e");
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.go("/error-page/${Uri.encodeComponent(e.toString())}/${Uri.encodeComponent("/")}");
+          }
+        });
+      }
+      return;
+    }
+
     if (!mounted) return;
 
     if (supabaseUserId == null) {
-      // No profile yet
+      // No profile exists
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go('/complete-profile');
       });
@@ -67,11 +83,12 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
       await Future.any([
         Future.wait([
           _fetchUserData(user.uid),
+          //_fetchStories(),
+          _fetchPosts(),
           _fetchNotifications(),
           _fetchConversations(),
-          _fetchPosts(),
         ]),
-        Future.delayed(Duration(seconds: 5), () => throw TimeoutException('Timeout while loading data')),
+        Future.delayed(Duration(seconds: 10), () => throw TimeoutException('Timeout while loading data')),
       ]);
 
       if (!mounted) return;
@@ -120,12 +137,20 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _fetchStories() async {
-    final storiesAsync = ref.read(storiesProvider);
-    await storiesAsync.when(
-      loading: () => Future.value(),
-      error: (err, _) => Future.error(err),
-      data: (_) => Future.value(),
-    );
+    try {
+      final stories = await ref.read(storiesProvider.stream).first;
+
+      if (stories.isEmpty) {
+        print('[fetchStories] No stories available yet.');
+      } else {
+        print('[fetchStories] Fetched ${stories.length} stories.');
+      }
+
+      // You can optionally precache media here if needed
+    } catch (e, stackTrace) {
+      print('[fetchStories] Error fetching stories: $e');
+      throw Exception('Failed to load stories');
+    }
   }
 
   Future<void> _fetchConversations() async {
@@ -156,16 +181,18 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
   Future<String?> getSupabaseUserId(String firebaseUserId) async {
     try {
       final response = await supabase.from('users').select('id').eq('id', firebaseUserId).maybeSingle();
-      print('User fetch result: $response');
 
       if (response != null) {
         return response['id'] as String;
       } else {
+        // Profile doesn't exist
         return null;
       }
+    } on SocketException catch (_) {
+      throw Exception('No internet connection');
     } catch (e) {
       print('Error getting Supabase user ID: $e');
-      return null;
+      throw Exception('Failed to fetch user profile');
     }
   }
 
@@ -178,9 +205,9 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.pinkAccent, // Deep purple
-              Colors.purple, // Indigo
-              Colors.orangeAccent, // Slate blue
+              kDeepPink,
+              Colors.black, // Indigo
+              kDeepPinkLight, // Slate blue
             ],
           ),
         ),

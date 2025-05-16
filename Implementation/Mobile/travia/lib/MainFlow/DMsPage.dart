@@ -6,16 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:material_dialogs/dialogs.dart';
-import 'package:material_dialogs/widgets/buttons/icon_button.dart';
-import 'package:material_dialogs/widgets/buttons/icon_outline_button.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/MainFlow/ChatPage.dart';
 import 'package:travia/Providers/ConversationNotificationsProvider.dart';
 
-import '../Classes/User.dart';
+import '../Classes/UserSupabase.dart';
+import '../Helpers/DeleteConfirmation.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/ChatDetailsProvider.dart';
@@ -226,7 +224,7 @@ class ConversationTile extends ConsumerWidget {
     String time = lastMessageAt != null ? timeAgo(lastMessageAt!) : "";
 
     return GestureDetector(
-      onLongPress: isDirect ? () => _showDeleteDialog(context, ref) : null,
+      onLongPress: isDirect ? () => _showDeleteDialog(context, ref, conversationId) : null,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         horizontalTitleGap: 12,
@@ -341,38 +339,29 @@ class ConversationTile extends ConsumerWidget {
     );
   }
 
-  void _showDeleteDialog(BuildContext context, WidgetRef ref) {
-    Dialogs.bottomMaterialDialog(msg: 'Are you sure? you can\'t undo this', title: "Delete", color: Colors.white, context: context, actions: [
-      IconsOutlineButton(
-        onPressed: () {
-          Navigator.of(context).pop();
-        },
-        text: 'Cancel',
-        iconData: Icons.cancel_outlined,
-        textStyle: TextStyle(color: Colors.grey),
-        iconColor: Colors.grey,
-      ),
-      IconsButton(
-        onPressed: () async {
-          ref.read(conversationIsLoadingProvider.notifier).state = true;
-          try {
-            await supabase.from('conversations').delete().match({'conversation_id': conversationId});
-            print('Delete conversation requested: $conversationId');
-          } catch (e) {
-            log(e.toString());
+  void _showDeleteDialog(BuildContext context, WidgetRef ref, String conversationId) {
+    showCustomDialog(
+      context: context,
+      title: "Delete",
+      message: "Are you sure? you can't undo this",
+      actionText: "Delete",
+      actionIcon: Icons.delete,
+      onActionPressed: () async {
+        ref.read(conversationIsLoadingProvider.notifier).state = true;
+        try {
+          await supabase.from('conversations').delete().match({'conversation_id': conversationId});
+          print('Delete conversation requested: $conversationId');
+        } catch (e) {
+          log(e.toString());
+          if (context.mounted) {
             Popup.showPopUp(text: "Error happened while deleting the conversation", context: context, color: Colors.red);
-          } finally {
-            ref.read(conversationIsLoadingProvider.notifier).state = false;
           }
-          Navigator.pop(context);
-        },
-        text: 'Delete',
-        iconData: Icons.delete,
-        color: Colors.red,
-        textStyle: TextStyle(color: Colors.white),
-        iconColor: Colors.white,
-      ),
-    ]);
+        } finally {
+          ref.read(conversationIsLoadingProvider.notifier).state = false;
+        }
+      },
+      actionColor: Colors.red,
+    );
   }
 }
 

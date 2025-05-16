@@ -129,9 +129,10 @@ class MyApp extends StatelessWidget {
 
     final GoRouter router = GoRouter(
         initialLocation: initialLocation,
-        //initialLocation: "/messages/dd8d9cc6-66c4-4e32-ad80-865aa7fe3113",
+        //initialLocation: "/messages/a4564cf8-afa4-4266-999a-8e4f81086bcd",
         //initialLocation: '/recorder',
         //initialLocation: '/dms-page',
+        //initialLocation: '/error-page/shit/shit',
         routes: [
           // ====================== AUTH ROUTES ======================
           GoRoute(
@@ -149,7 +150,7 @@ class MyApp extends StatelessWidget {
           // ====================== MAIN FLOW ROUTES ======================
           GoRoute(
             path: '/home',
-            builder: (context, state) => HomePage(),
+            builder: (context, state) => MainNavigationPage(),
           ),
           GoRoute(
             path: '/complete-profile',
@@ -198,7 +199,7 @@ class MyApp extends StatelessWidget {
             builder: (context, state) {
               final type = state.pathParameters['type'];
               final source_id = state.pathParameters['source_id'];
-              return HomePage(
+              return MainNavigationPage(
                 type: type,
                 source_id: source_id,
               );

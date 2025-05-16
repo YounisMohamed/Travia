@@ -8,7 +8,6 @@ import '../main.dart';
 
 final storiesProvider = StreamProvider<List<story_model>>((ref) async* {
   try {
-    // Safe UTC construction
     final now = DateTime.now();
     final utcNow = DateTime.utc(
       now.year,
@@ -28,9 +27,7 @@ final storiesProvider = StreamProvider<List<story_model>>((ref) async* {
     print('[storiesProvider] Listening to Supabase stories stream...');
 
     await for (final response in stream) {
-      print('[storiesProvider] Received ${response.length} stories from stream');
       if (response.isEmpty) {
-        print('[storiesProvider] No stories received. Skipping processing.');
         yield [];
         continue;
       }
@@ -38,12 +35,9 @@ final storiesProvider = StreamProvider<List<story_model>>((ref) async* {
       final List<story_model> stories = [];
 
       final storyIds = response.map((s) => s['story_id'] as String).toList();
-      print('[storiesProvider] Story IDs: $storyIds');
 
       // Fetch story items that are not expired
       final allItemsResponse = await supabase.from('story_items').select().inFilter('story_id', storyIds).gte('expires_at', nowIsoUtc).order('created_at');
-
-      print('[storiesProvider] Fetched ${allItemsResponse.length} valid (non-expired) story items');
 
       final Map<String, List<story_item_model>> itemsByStoryId = {};
       for (final item in allItemsResponse) {
@@ -68,15 +62,12 @@ final storiesProvider = StreamProvider<List<story_model>>((ref) async* {
           items: items,
         );
 
-        print('[storiesProvider] Built story: ${story.username} with ${items.length} items');
         stories.add(story);
       }
 
-      print('[storiesProvider] Total valid stories after item filtering: ${stories.length}');
       yield stories;
     }
   } catch (e, stackTrace) {
-    print('[storiesProvider] Error: $e');
     print(stackTrace);
     yield [];
   }

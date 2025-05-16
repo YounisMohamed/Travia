@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:go_router/go_router.dart';
+import 'package:travia/Helpers/AppColors.dart';
 
 import '../Helpers/GoogleTexts.dart';
 
@@ -12,25 +13,36 @@ class ErrorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // STUPID DUMBASS ERROR MAN
-    if (error.contains('RealtimeSubscribeException(status: RealtimeSubscribeStatus.channelError, details: null)')) {
+    if (error.contains('RealtimeSubscribeStatus.channelError') || error.contains('RealtimeSubscribeStatus.timedOut')) {
       Future.microtask(() => Phoenix.rebirth(context));
       return const SizedBox.shrink();
     }
     return Scaffold(
-      backgroundColor: Colors.white, // White background for contrast
-      body: Center(
+        body: Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            kDeepPink,
+            Colors.black, // Indigo
+            kDeepPinkLight, // Slate blue
+          ],
+        ),
+      ),
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.error_outline,
-              color: Colors.red,
+              color: Colors.white,
               size: 80,
             ),
             const SizedBox(height: 20),
             RedHatText(
               text: "Oops! Something Went Wrong",
-              color: Colors.red,
+              color: Colors.white,
               isBold: true,
               size: 22,
               center: true,
@@ -89,7 +101,7 @@ class ErrorPage extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
