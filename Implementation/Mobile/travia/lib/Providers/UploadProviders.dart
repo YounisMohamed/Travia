@@ -214,7 +214,7 @@ class PostUploadNotifier extends MediaUploadNotifier {
     required String location,
     required BuildContext context,
   }) async {
-    final image = ref.read(imagePickerProvider);
+    final image = ref.read(singleMediaPickerProvider);
     if (image == null) {
       Popup.showPopUp(text: "Please select an image!", context: context, color: Colors.red);
       return;
@@ -267,6 +267,34 @@ class ChatMediaUploadNotifier extends MediaUploadNotifier {
         bucketName: 'chatmedia',
         folderPath: 'TraviaChat',
         compress: true, // Enable compression
+      );
+      return url;
+    } finally {
+      setLoading(false);
+    }
+  }
+}
+
+final changePictureProvider = StateNotifierProvider<ChangePictureNotifier, bool>((ref) {
+  return ChangePictureNotifier(ref);
+});
+
+class ChangePictureNotifier extends MediaUploadNotifier {
+  ChangePictureNotifier(super.ref);
+
+  Future<String?> uploadChatMedia({
+    required String userId,
+    required File mediaFile,
+  }) async {
+    setLoading(true);
+
+    try {
+      final url = await MediaUploadService.uploadMedia(
+        mediaFile: mediaFile,
+        userId: userId,
+        bucketName: 'chatmedia',
+        folderPath: 'ProfilePics',
+        compress: true,
       );
       return url;
     } finally {

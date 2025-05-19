@@ -14,13 +14,6 @@ import '../Providers/NotificationProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/StoriesProviders.dart';
 import '../main.dart';
-/*
-late Box messagesBox;
-late Box postsBox;
-late Box conversationDetailsBox;
-late Box storiesBox;
-
- */
 
 class SplashScreen extends ConsumerStatefulWidget {
   final String? type;
@@ -53,8 +46,12 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
 
     String? supabaseUserId;
 
+    // top-level timeout for the entire operation
+    final timeoutDuration = Duration(seconds: 10);
+
     try {
-      supabaseUserId = await getSupabaseUserId(user.uid);
+      // Apply timeout to the Supabase user ID fetch
+      supabaseUserId = await getSupabaseUserId(user.uid).timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while retrieving user ID'));
     } catch (e) {
       print("Network or fetch error: $e");
       if (mounted) {
@@ -80,33 +77,56 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
     await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
 
     try {
-      await Future.any([
-        Future.wait([
-          _fetchUserData(user.uid),
-          //_fetchStories(),
-          _fetchPosts(),
-          _fetchNotifications(),
-          _fetchConversations(),
-        ]),
-        Future.delayed(Duration(seconds: 10), () => throw TimeoutException('Timeout while loading data')),
-      ]);
+      // Create a completer to handle completion of all tasks
+      final completer = Completer<void>();
+
+      // Start a timeout timer
+      final timer = Timer(timeoutDuration, () {
+        if (!completer.isCompleted) {
+          completer.completeError(TimeoutException('Timeout while loading app data'));
+        }
+      });
+
+      // Run all tasks with individual timeouts
+      Future.wait([
+        _fetchUserData(user.uid).timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while loading user data')),
+        _fetchPosts().timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while loading posts')),
+        _fetchNotifications().timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while loading notifications')),
+        _fetchConversations().timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while loading conversations')),
+      ]).then((value) {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      }).catchError((error) {
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
+      });
+
+      // Wait for either completion or timeout
+      await completer.future;
+
+      // Cancel the timer if it's still active
+      timer.cancel();
 
       if (!mounted) return;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (widget.type != null && widget.source_id != null) {
-          context.go("/home/${Uri.encodeComponent(widget.type!)}/${Uri.encodeComponent(widget.source_id!)}"); // Coming from a notification logic
+          context.go("/home/${Uri.encodeComponent(widget.type!)}/${Uri.encodeComponent(widget.source_id!)}");
         } else {
           context.go('/home');
         }
       });
     } catch (e) {
-      print("Error: $e");
+      print("Error during app data loading: $e");
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            context.go("/error-page/${Uri.encodeComponent(e.toString())}/${Uri.encodeComponent("/")}");
+            // Format the error message to be more user-friendly
+            final errorMsg = e is TimeoutException ? "Loading took too long. Please check your connection and try again." : e.toString();
+            context.go("/error-page/${Uri.encodeComponent(errorMsg)}/${Uri.encodeComponent("/")}");
           }
         });
       }
@@ -134,23 +154,6 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
       error: (err, _) => Future.error(err),
       data: (_) => Future.value(),
     );
-  }
-
-  Future<void> _fetchStories() async {
-    try {
-      final stories = await ref.read(storiesProvider.stream).first;
-
-      if (stories.isEmpty) {
-        print('[fetchStories] No stories available yet.');
-      } else {
-        print('[fetchStories] Fetched ${stories.length} stories.');
-      }
-
-      // You can optionally precache media here if needed
-    } catch (e, stackTrace) {
-      print('[fetchStories] Error fetching stories: $e');
-      throw Exception('Failed to load stories');
-    }
   }
 
   Future<void> _fetchConversations() async {
@@ -193,6 +196,23 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
     } catch (e) {
       print('Error getting Supabase user ID: $e');
       throw Exception('Failed to fetch user profile');
+    }
+  }
+
+  Future<void> _fetchStories() async {
+    try {
+      final stories = await ref.read(storiesProvider.stream).first;
+
+      if (stories.isEmpty) {
+        print('[fetchStories] No stories available yet.');
+      } else {
+        print('[fetchStories] Fetched ${stories.length} stories.');
+      }
+
+      // You can optionally precache media here if needed
+    } catch (e, stackTrace) {
+      print('[fetchStories] Error fetching stories: $e');
+      throw Exception('Failed to load stories');
     }
   }
 

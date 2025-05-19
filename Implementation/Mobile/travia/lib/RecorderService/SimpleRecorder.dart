@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
 
+import '../Helpers/AppColors.dart';
 import '../Providers/ChatDetailsProvider.dart';
 
 class SimpleRecorderButton extends ConsumerStatefulWidget {
@@ -46,7 +47,7 @@ class _SimpleRecorderButtonState extends ConsumerState<SimpleRecorderButton> {
     final isRecording = ref.watch(recordingStateProvider);
 
     return IconButton(
-      icon: Icon(isRecording ? Icons.stop : Icons.mic, color: Colors.red),
+      icon: Icon(isRecording ? Icons.stop : Icons.mic, color: kDeepPinkLight),
       onPressed: () {
         isRecording ? _stopRecording() : _startRecording();
       },

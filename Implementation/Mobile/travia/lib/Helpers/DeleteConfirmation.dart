@@ -152,7 +152,7 @@ class DialogAction {
     required this.text,
     required this.icon,
     required this.onPressed,
-    this.color = kDeepPurple, // Updated to use app theme color
+    this.color = kDeepPink,
   });
 }
 
@@ -181,6 +181,6 @@ Future<void> showDeleteConfirmationDialog({
     actionText: actionText,
     actionIcon: Icons.delete,
     onActionPressed: onDeletePressed,
-    actionColor: Colors.red, // Keep red for delete actions for better UX
+    actionColor: Colors.red,
   );
 }

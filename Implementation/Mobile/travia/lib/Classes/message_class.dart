@@ -1,58 +1,23 @@
 import 'package:hive/hive.dart';
 
-part 'message_class.g.dart';
 
-@HiveType(typeId: 1)
 class MessageClass {
-  @HiveField(0)
   final String messageId;
-
-  @HiveField(1)
   final String conversationId;
-
-  @HiveField(2)
   final String senderId;
-
-  @HiveField(3)
   final String content;
-
-  @HiveField(4)
   final String contentType;
-
-  @HiveField(5)
   final DateTime sentAt;
-
-  @HiveField(6)
-  final Map<String, String?>? readBy; // Hive does not support Maps directly
-
-  @HiveField(7)
+  final Map<String, String?>? readBy;
   final bool isEdited;
-
-  @HiveField(8)
   final String? replyToMessageId;
-
-  @HiveField(9)
   final String? replyToMessageSender;
-
-  @HiveField(10)
-  final Map<String, dynamic>? reactions; // Hive does not support dynamic maps
-
-  @HiveField(11)
+  final Map<String, dynamic>? reactions;
   final String? senderUsername;
-
-  @HiveField(12)
   final String? senderProfilePic;
-
-  @HiveField(13)
   final bool isConfirmed;
-
-  @HiveField(14)
   final String? replyToMessageContent;
-
-  @HiveField(15)
   final bool isDeleted;
-
-  @HiveField(16)
   final List<String> deletedForMeId;
 
   MessageClass({

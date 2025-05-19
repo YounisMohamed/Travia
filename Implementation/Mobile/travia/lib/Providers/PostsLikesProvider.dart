@@ -5,78 +5,78 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../main.dart';
 
-class LikeNotifierPost extends StateNotifier<Map<String, bool>> {
+class LikeNotifierPost extends StateNotifier<Map<String, String?>> {
   LikeNotifierPost() : super({}) {
-    print("Initializing LikeNotifierPost...");
-    _fetchLikedPosts();
+    _fetchPostReactions();
   }
 
-  Future<void> _fetchLikedPosts() async {
+  Future<void> _fetchPostReactions() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) {
-      print("User ID is null - Cannot fetch liked posts.");
-      return;
-    }
+    if (userId == null) return;
 
     try {
-      final response = await supabase.from('likes').select('post_id').eq('liker_user_id', userId).not('post_id', 'is', null);
+      final response = await supabase.from('likes').select('post_id, type').eq('liker_user_id', userId).not('post_id', 'is', null);
 
-      final Map<String, bool> likedPosts = {
-        for (var like in response)
-          if (like['post_id'] != null) like['post_id'] as String: true,
+      final Map<String, String?> reactions = {
+        for (var row in response) row['post_id'] as String: row['type'] as String?,
       };
 
-      state = likedPosts;
+      state = reactions;
     } catch (e) {
-      print("[likes] Error fetching liked posts: $e");
+      print("[likes] Error fetching reactions: $e");
     }
   }
 
-  // *Toggle Like (Optimistic Update)*
-  Future<void> toggleLike({
+  Future<void> toggleReaction({
     required String postId,
     required String likerId,
     required String posterId,
+    required String reactionType, // 'like' or 'dislike'
   }) async {
-    final isLiked = state[postId] ?? false;
+    final current = state[postId];
+
+    final isSameReaction = current == reactionType;
+    final newState = isSameReaction ? null : reactionType;
 
     try {
-      // Optimistically update state
-      state = {...state, postId: !isLiked};
+      state = {...state, postId: newState};
 
-      if (isLiked) {
+      if (isSameReaction) {
         await supabase.from('likes').delete().match({
           'liker_user_id': likerId,
           'post_id': postId,
-          'liked_user_id': posterId,
         });
       } else {
-        await supabase.from('likes').insert({
+        await supabase.from('likes').upsert({
           'liker_user_id': likerId,
           'liked_user_id': posterId,
           'post_id': postId,
-        });
+          'type': reactionType,
+        }, onConflict: 'liker_user_id, post_id');
       }
     } catch (e) {
-      // Roll back optimistic update
-      state = {...state, postId: isLiked};
+      state = {...state, postId: current}; // rollback
     }
   }
 }
 
-final likePostProvider = StateNotifierProvider<LikeNotifierPost, Map<String, bool>>((ref) {
+final likePostProvider = StateNotifierProvider<LikeNotifierPost, Map<String, String?>>((ref) {
   return LikeNotifierPost();
 });
 
-class PostLikeCountNotifier extends StateNotifier<int> {
-  final String postId;
+class PostReactionCountNotifier extends StateNotifier<Map<String, int>> {
+  PostReactionCountNotifier({required int likes, required int dislikes}) : super({'likes': likes, 'dislikes': dislikes});
 
-  PostLikeCountNotifier({required this.postId, required int initialLikeCount}) : super(initialLikeCount);
-  void updateLikeCount(bool isLiked) {
-    state = isLiked ? state + 1 : state - 1;
+  void updateReaction({required String? from, required String? to}) {
+    final copy = Map<String, int>.from(state);
+
+    if (from != null) copy[from] = (copy[from] ?? 1) - 1;
+    if (to != null) copy[to] = (copy[to] ?? 0) + 1;
+
+    state = copy;
   }
 }
 
-final postLikeCountProvider = StateNotifierProvider.family<PostLikeCountNotifier, int, ({String postId, int initialLikeCount})>(
-  (ref, params) => PostLikeCountNotifier(postId: params.postId, initialLikeCount: params.initialLikeCount),
+final postReactionCountProvider = StateNotifierProvider.family<PostReactionCountNotifier, Map<String, int>, ({String postId, int likes, int dislikes})>(
+  (ref, args) => PostReactionCountNotifier(likes: args.likes, dislikes: args.dislikes),
 );

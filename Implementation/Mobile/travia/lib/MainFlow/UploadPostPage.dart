@@ -42,7 +42,7 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pickedImage = ref.watch(imagePickerProvider);
+    final pickedImage = ref.watch(singleMediaPickerProvider);
     final isUploading = ref.watch(postProvider);
     final userId = FirebaseAuth.instance.currentUser!.uid;
     final theme = Theme.of(context);
@@ -85,7 +85,7 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                             );
                         _captionController.clear();
                         _locationController.clear();
-                        ref.read(imagePickerProvider.notifier).clearImage();
+                        ref.read(singleMediaPickerProvider.notifier).clearImage();
                       }
                     : null,
                 icon: Icon(Icons.upload_rounded, color: theme.primaryColor),
@@ -230,8 +230,8 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                       onPressed: isUploading
                           ? null
                           : () {
-                              ref.invalidate(imagePickerProvider);
-                              ref.read(imagePickerProvider.notifier).pickAndEditMediaForUpload(context);
+                              ref.invalidate(singleMediaPickerProvider);
+                              ref.read(singleMediaPickerProvider.notifier).pickAndEditMediaForUpload(context);
                             },
                     ),
                   ),

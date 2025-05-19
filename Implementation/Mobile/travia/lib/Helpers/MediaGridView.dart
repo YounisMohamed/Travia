@@ -653,3 +653,309 @@ class CameraPreviewButton extends StatelessWidget {
     );
   }
 }
+
+class PicturesOnlyGridView extends StatelessWidget {
+  final List<Media> medias;
+  final Media? selectedMedia;
+  final Function(Media) selectMedia;
+  final ScrollController scrollController;
+
+  const PicturesOnlyGridView({
+    super.key,
+    required this.medias,
+    required this.selectedMedia,
+    required this.selectMedia,
+    required this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Filter to only show images, excluding videos
+    final List<Media> imageMedias = medias.where((media) => media.assetEntity.type == AssetType.image).toList();
+
+    return GridView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.all(kGridSpacing),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: kGridSpacing,
+        mainAxisSpacing: kGridSpacing,
+      ),
+      itemCount: imageMedias.length,
+      itemBuilder: (context, index) {
+        final media = imageMedias[index];
+        final bool isSelected = selectedMedia?.assetEntity.id == media.assetEntity.id;
+
+        return GestureDetector(
+          onTap: () => selectMedia(media),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kBorderRadius),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Media thumbnail with subtle animation
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    border: isSelected ? Border.all(color: kDeepPink, width: 3) : null,
+                    borderRadius: BorderRadius.circular(kBorderRadius),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(isSelected ? kBorderRadius - 2 : kBorderRadius),
+                    child: media.widget,
+                  ),
+                ),
+
+                // Subtle gradient overlay for better visibility
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.2),
+                        ],
+                        stops: const [0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Selection overlay
+                if (isSelected)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: kDeepPink.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(kBorderRadius),
+                      ),
+                      child: Stack(
+                        children: [
+                          // Purple gradient background
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    kDeepPink.withOpacity(0.3),
+                                    kDeepPinkLight.withOpacity(0.5),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Checkmark icon
+                          Center(
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: kDeepPink,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.check,
+                                  color: kWhite,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ImagesOnlyGridView extends MediasGridView {
+  const ImagesOnlyGridView({
+    super.key,
+    required super.medias,
+    required super.selectedMedia,
+    required super.selectMedia,
+    required super.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Filter to only show images, excluding videos
+    final List<Media> imageMedias = medias.where((media) => media.assetEntity.type == AssetType.image).toList();
+
+    // Use the filtered list but call the parent class build with modified medias
+    return GridView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.all(kGridSpacing),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: kGridSpacing,
+        mainAxisSpacing: kGridSpacing,
+      ),
+      itemCount: imageMedias.length,
+      itemBuilder: (context, index) {
+        final media = imageMedias[index];
+        final bool isSelected = selectedMedia?.assetEntity.id == media.assetEntity.id;
+
+        return GestureDetector(
+          onTap: () => selectMedia(media),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kBorderRadius),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Media thumbnail with subtle animation
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    border: isSelected ? Border.all(color: kDeepPink, width: 3) : null,
+                    borderRadius: BorderRadius.circular(kBorderRadius),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(isSelected ? kBorderRadius - 2 : kBorderRadius),
+                    child: media.widget,
+                  ),
+                ),
+
+                // Subtle gradient overlay
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.2),
+                        ],
+                        stops: const [0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Selection overlay
+                if (isSelected)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: kDeepPink.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(kBorderRadius),
+                      ),
+                      child: Stack(
+                        children: [
+                          // Purple gradient background
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    kDeepPink.withOpacity(0.3),
+                                    kDeepPinkLight.withOpacity(0.5),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Checkmark icon
+                          Center(
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: kDeepPink,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.check,
+                                  color: kWhite,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class MediaSelectorWithImageFilter extends StatelessWidget {
+  final List<Media> allMedias;
+  final Media? selectedMedia;
+  final Function(Media) selectMedia;
+  final ScrollController scrollController;
+  final MediaTypeFilter filterType;
+
+  const MediaSelectorWithImageFilter({
+    super.key,
+    required this.allMedias,
+    required this.selectedMedia,
+    required this.selectMedia,
+    required this.scrollController,
+    this.filterType = MediaTypeFilter.imagesOnly,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Media> filteredMedias = _filterMedias(allMedias, filterType);
+
+    return MediasGridView(
+      medias: filteredMedias,
+      selectedMedia: selectedMedia,
+      selectMedia: selectMedia,
+      scrollController: scrollController,
+    );
+  }
+
+  List<Media> _filterMedias(List<Media> medias, MediaTypeFilter filter) {
+    switch (filter) {
+      case MediaTypeFilter.all:
+        return medias;
+      case MediaTypeFilter.imagesOnly:
+        return medias.where((media) => media.assetEntity.type == AssetType.image).toList();
+      case MediaTypeFilter.videosOnly:
+        return medias.where((media) => media.assetEntity.type == AssetType.video).toList();
+    }
+  }
+}
+
+enum MediaTypeFilter {
+  all,
+  imagesOnly,
+  videosOnly,
+}

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -8,6 +7,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -15,6 +16,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:swipe_to/swipe_to.dart';
 import 'package:travia/Classes/ConversationParticipants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
+import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Helpers/PopUp.dart';
 import 'package:uuid/uuid.dart';
@@ -27,6 +29,7 @@ import '../Helpers/Constants.dart';
 import '../Helpers/DeleteConfirmation.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Providers/ChatDetailsProvider.dart';
+import '../Providers/ChatGroupProvider.dart';
 import '../Providers/ImagePickerProvider.dart';
 import '../Providers/UploadProviders.dart';
 import '../RecorderService/SimpleRecorder.dart';
@@ -333,9 +336,7 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
           onPressed: () {
             final content = selectedMessages.map((m) => m.content).join('\n');
             Clipboard.setData(ClipboardData(text: content));
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Messages copied to clipboard')),
-            );
+            Popup.showPopUp(text: "Copied to clipboard!", context: context, color: Colors.greenAccent);
             ref.read(messageActionsProvider.notifier).clearSelectedMessages();
           },
         ),
@@ -368,28 +369,40 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   Widget _buildAppBarTitle(BuildContext context, ChatDetails metadata) {
-    return Row(
-      children: [
-        ChatAvatar(metadata: metadata),
-        SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                metadata.conversationType == 'direct' ? (metadata.receiverUsername ?? 'Direct Message') : (metadata.title ?? 'Group Conversation'),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+    return GestureDetector(
+      onTap: () async {
+        if (metadata.conversationType == 'direct') {
+          context.push("/profile/${metadata.receiverId}");
+        } else {
+          await showDialog<String>(
+            context: context,
+            builder: (context) => GroupMembersDialog(conversationId: conversationId),
+          );
+        }
+      },
+      child: Row(
+        children: [
+          ChatAvatar(metadata: metadata),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metadata.conversationType == 'direct' ? (metadata.receiverUsername ?? 'Direct Message') : (metadata.title ?? 'Group Conversation'),
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              _buildSubtitle(metadata),
-            ],
+                _buildSubtitle(metadata),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -398,8 +411,8 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
       return UserStatusIndicator(userId: metadata.receiverId!);
     } else {
       return Text(
-        '${metadata.numberOfParticipants} participants',
-        style: TextStyle(
+        '${metadata.numberOfParticipants} Members',
+        style: GoogleFonts.ibmPlexSans(
           fontSize: 12,
           color: Colors.black54,
         ),
@@ -407,7 +420,6 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
     }
   }
 
-  //rest of code
   void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Set<MessageClass> messagesToDelete, bool canDelete) {
     final message = messagesToDelete.length == 1
         ? "Are you sure you want to delete this message? This action cannot be undone."
@@ -459,6 +471,325 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
   }
 }
 
+class GroupMembersDialog extends ConsumerStatefulWidget {
+  final String conversationId;
+  const GroupMembersDialog({super.key, required this.conversationId});
+
+  @override
+  ConsumerState<GroupMembersDialog> createState() => _GroupMembersDialogState();
+}
+
+class _GroupMembersDialogState extends ConsumerState<GroupMembersDialog> {
+  final TextEditingController _titleController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchConversationDetails();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchConversationDetails() async {
+    try {
+      final response = await supabase.from('conversations').select('title, group_picture').eq('conversation_id', widget.conversationId).single();
+
+      ref.read(groupTitleProvider.notifier).state = response['title'];
+      ref.read(groupPictureProvider.notifier).state = response['group_picture'];
+      _titleController.text = response['title'] ?? '';
+    } catch (e) {
+      debugPrint('Error fetching conversation details: $e');
+    }
+  }
+
+  Future<void> _updateGroupPicture() async {
+    ref.read(imagesOnlyPickerProvider.notifier).clearImage();
+    await ref.read(imagesOnlyPickerProvider.notifier).pickAndEditMediaForUpload(context);
+
+    final mediaFile = ref.read(imagesOnlyPickerProvider);
+    if (mediaFile == null) return;
+
+    ref.read(groupLoadingProvider.notifier).state = true;
+
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+      final mediaUrl = await ref.read(changePictureProvider.notifier).uploadChatMedia(
+            userId: currentUserId,
+            mediaFile: mediaFile,
+          );
+
+      if (mediaUrl == null) {
+        Popup.showPopUp(text: "Failed To edit group picture", context: context, color: Colors.red);
+        return;
+      }
+
+      await supabase.from('conversations').update({'group_picture': mediaUrl}).eq('conversation_id', widget.conversationId);
+
+      ref.read(groupPictureProvider.notifier).state = mediaUrl;
+
+      Popup.showPopUp(text: "Group Picture Updated", context: context, color: Colors.greenAccent);
+    } catch (e) {
+      Popup.showPopUp(text: "Failed To edit group picture", context: context, color: Colors.red);
+    } finally {
+      ref.read(imagesOnlyPickerProvider.notifier).clearImage();
+      ref.read(groupLoadingProvider.notifier).state = false;
+    }
+  }
+
+  Future<void> _updateGroupTitle() async {
+    final newTitle = _titleController.text.trim();
+    final currentTitle = ref.read(groupTitleProvider);
+
+    if (newTitle.isEmpty) {
+      Popup.showPopUp(text: "Title cannot be empty", context: context, color: Colors.red);
+      return;
+    }
+
+    if (newTitle == currentTitle) {
+      return;
+    }
+
+    ref.read(groupLoadingProvider.notifier).state = true;
+
+    try {
+      await supabase.from('conversations').update({'title': newTitle}).eq('conversation_id', widget.conversationId);
+      ref.read(groupTitleProvider.notifier).state = newTitle;
+
+      Popup.showPopUp(text: "Group title updated", context: context, color: Colors.greenAccent);
+    } catch (e) {
+      Popup.showPopUp(text: "Failed to update title", context: context, color: Colors.red);
+    } finally {
+      ref.read(groupLoadingProvider.notifier).state = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildHeader(),
+            Expanded(child: _buildMembersList()),
+            _buildFooter(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final isLoading = ref.watch(groupLoadingProvider);
+    final groupPicture = ref.watch(groupPictureProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Group Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: isLoading ? null : _updateGroupPicture,
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundImage: groupPicture != null ? NetworkImage(groupPicture) : null,
+                      child: groupPicture == null ? const Icon(Icons.group, size: 40) : null,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: kDeepPink,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Theme(
+                data: Theme.of(context).copyWith(
+                  textSelectionTheme: TextSelectionThemeData(
+                    selectionHandleColor: kDeepPink,
+                    selectionColor: kDeepPinkLight,
+                  ),
+                ),
+                child: Expanded(
+                  child: TextField(
+                    cursorColor: Colors.black,
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Group Title',
+                      border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black),
+                      ),
+                      labelStyle: TextStyle(color: Colors.black),
+                      focusColor: Colors.black,
+                    ),
+                    onEditingComplete: _updateGroupTitle,
+                  ),
+                ),
+              )
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMembersList() {
+    // Watch the participants provider
+    final participantsAsync = ref.watch(participantsProvider(widget.conversationId));
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.black, kDeepPink],
+        ),
+      ),
+      child: participantsAsync.when(
+        data: (participants) {
+          if (participants.isEmpty) {
+            return const Center(child: Text('No members found.', style: TextStyle(color: Colors.white)));
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: participants.length,
+            separatorBuilder: (_, __) => Divider(height: 1, color: Colors.white.withOpacity(0.2)),
+            itemBuilder: (context, index) {
+              final user = participants[index];
+              final userId = user['user_id'];
+              final username = user['user_username'] ?? 'Unknown';
+              final photoUrl = user['user_photourl'];
+              final isOnline = user['is_online'] ?? false;
+
+              return ListTile(
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/profile/$userId');
+                },
+                leading: CircleAvatar(
+                  backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                  backgroundColor: photoUrl == null ? Colors.white24 : null,
+                  child: photoUrl == null ? const Icon(Icons.person, color: Colors.white70) : null,
+                ),
+                title: Text(username, style: TextStyle(color: Colors.white)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, size: 10, color: isOnline ? Colors.green : Colors.white70),
+                    const SizedBox(width: 4),
+                    Text(
+                      isOnline ? 'Online' : 'Offline',
+                      style: TextStyle(fontSize: 12, color: isOnline ? Colors.green : Colors.white70),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        loading: () => ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: 5, // 5 skeleton items
+          separatorBuilder: (_, __) => Divider(height: 1, color: Colors.white.withOpacity(0.2)),
+          itemBuilder: (context, index) {
+            return Skeletonizer(
+              enabled: true,
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.white24,
+                  child: Icon(Icons.person, color: Colors.white70),
+                ),
+                title: const Text(''),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.circle, size: 10, color: Colors.white70),
+                    SizedBox(width: 4),
+                    Text(
+                      'Offline',
+                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        error: (error, stackTrace) => Center(
+          child: Text('Error: $error', style: TextStyle(color: Colors.white)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    final isLoading = ref.watch(groupLoadingProvider);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, -2)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const IBMPlexSansText(text: 'Close', color: kDeepPink),
+          ),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.only(left: 16),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class ChatAvatar extends StatelessWidget {
   final ChatDetails metadata;
 
@@ -473,7 +804,7 @@ class ChatAvatar extends StatelessWidget {
         image: NetworkImage(
           metadata.conversationType == 'direct'
               ? (metadata.receiverPhotoUrl ?? "https://ui-avatars.com/api/?name=${metadata.receiverUsername ?? 'DM'}&rounded=true&background=random")
-              : "https://ui-avatars.com/api/?name=${(metadata.title ?? 'GC').substring(0, min(2, (metadata.title ?? 'GC').length))}&rounded=true&background=random",
+              : (metadata.groupChatPicture ?? "https://ui-avatars.com/api/?name=${metadata.title ?? 'GC'}&rounded=true&background=random"),
         ),
       ).image,
     );
@@ -606,13 +937,13 @@ class EmptyConversationIndicator extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: kDeepPurple.withOpacity(0.1),
+              color: kDeepPink.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.chat_bubble_outline,
               size: 64,
-              color: kDeepPurple.withOpacity(0.7),
+              color: kDeepPink.withOpacity(0.7),
             ),
           ),
           const SizedBox(height: 24),
@@ -621,7 +952,7 @@ class EmptyConversationIndicator extends StatelessWidget {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: kDeepPurple,
+              color: kDeepPink,
             ),
           ),
           const SizedBox(height: 12),
@@ -642,14 +973,14 @@ class EmptyConversationIndicator extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [kDeepPurple, kDeepPurpleLight],
+                colors: [kDeepPink, kDeepPinkLight],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: kDeepPurple.withOpacity(0.3),
+                  color: kDeepPink.withOpacity(0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -819,7 +1150,7 @@ class MessageInputBar extends ConsumerWidget {
                                   child: LoadingWidget(),
                                 )
                               : IconButton(
-                                  icon: const Icon(Icons.add, color: Color(0xFFFF8C00)),
+                                  icon: const Icon(Icons.add, color: kDeepPinkLight),
                                   onPressed: () async {
                                     // Clear any previously selected files from the multiple media provider
                                     ref.read(multiMediaPickerProvider.notifier).clearFiles();
@@ -838,7 +1169,7 @@ class MessageInputBar extends ConsumerWidget {
                                       Popup.showPopUp(
                                         text: "Uploading ${mediaFiles.length} files...",
                                         context: context,
-                                        color: Colors.orangeAccent,
+                                        color: Colors.greenAccent,
                                       );
                                     }
 
@@ -920,7 +1251,7 @@ class MessageInputBar extends ConsumerWidget {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.send, color: Color(0xFFFF8C00)),
+                            icon: const Icon(Icons.send, color: kDeepPinkLight),
                             onPressed: () => handleSendOrUpdate(),
                           ),
                         ],
@@ -1148,7 +1479,7 @@ class MessageBubble extends ConsumerWidget {
                       child: Text(
                         message.senderUsername ?? 'Unknown',
                         style: TextStyle(
-                          color: kDeepPurple,
+                          color: kDeepPink,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -1163,7 +1494,7 @@ class MessageBubble extends ConsumerWidget {
                       color: Colors.black.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPurple.withOpacity(0.1),
+                        color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPink.withOpacity(0.1),
                         width: 1,
                       ),
                     ),
@@ -1180,7 +1511,7 @@ class MessageBubble extends ConsumerWidget {
                                     placeholder: (context, url) => Center(
                                       child: CircularProgressIndicator(
                                         valueColor: AlwaysStoppedAnimation<Color>(
-                                          isCurrentUser ? Colors.white70 : kDeepPurpleLight,
+                                          isCurrentUser ? Colors.white70 : kDeepPinkLight,
                                         ),
                                       ),
                                     ),
@@ -1272,10 +1603,10 @@ class MessageBubble extends ConsumerWidget {
       padding: EdgeInsets.all(8),
       margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPurple.withOpacity(0.1),
+        color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPink.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPurple.withOpacity(0.2),
+          color: isCurrentUser ? kWhite.withOpacity(0.2) : kDeepPink.withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -1287,7 +1618,7 @@ class MessageBubble extends ConsumerWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: isCurrentUser ? kWhite.withOpacity(0.9) : kDeepPurple,
+              color: isCurrentUser ? kWhite.withOpacity(0.9) : kDeepPink,
             ),
           ),
           SizedBox(height: 4),
@@ -1372,7 +1703,7 @@ class MessageBubble extends ConsumerWidget {
                       child: Text(
                         message.senderUsername ?? 'Unknown',
                         style: TextStyle(
-                          color: kDeepPurple,
+                          color: kDeepPink,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -1514,7 +1845,7 @@ class MessageBubble extends ConsumerWidget {
                     child: Text(
                       message.senderUsername ?? 'Unknown',
                       style: TextStyle(
-                        color: kDeepPurpleLight,
+                        color: kDeepPinkLight,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -1892,15 +2223,15 @@ class DateHeader extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           decoration: BoxDecoration(
-            color: kDeepPurple.withOpacity(0.1),
+            color: kDeepPink.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20.0),
             border: Border.all(
-              color: kDeepPurple.withOpacity(0.2),
+              color: kDeepPink.withOpacity(0.2),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: kDeepPurple.withOpacity(0.05),
+                color: kDeepPink.withOpacity(0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -1911,7 +2242,7 @@ class DateHeader extends StatelessWidget {
             style: TextStyle(
               fontSize: 13.0,
               fontWeight: FontWeight.w500,
-              color: kDeepPurple,
+              color: kDeepPink,
             ),
           ),
         ),
@@ -1955,7 +2286,7 @@ class UserStatusIndicator extends ConsumerWidget {
               SizedBox(width: 4),
               Text(
                 'Online',
-                style: TextStyle(
+                style: GoogleFonts.ibmPlexSans(
                   fontSize: 12,
                   color: Colors.black.withOpacity(0.9),
                 ),
@@ -1970,7 +2301,7 @@ class UserStatusIndicator extends ConsumerWidget {
               print("LAST ACTIVE HERE: $lastActive");
               return Text(
                 lastActive != null ? 'Last seen ${timeAgo(lastActive)}' : 'Offline',
-                style: TextStyle(
+                style: GoogleFonts.ibmPlexSans(
                   fontSize: 12,
                   color: Colors.black.withOpacity(0.9),
                 ),
@@ -1978,14 +2309,14 @@ class UserStatusIndicator extends ConsumerWidget {
             },
             loading: () => Text(
               'Offline',
-              style: TextStyle(
+              style: GoogleFonts.ibmPlexSans(
                 fontSize: 12,
                 color: Colors.black.withOpacity(0.9),
               ),
             ),
             error: (_, __) => Text(
               'Offline',
-              style: TextStyle(
+              style: GoogleFonts.ibmPlexSans(
                 fontSize: 12,
                 color: Colors.black.withOpacity(0.9),
               ),
@@ -1994,15 +2325,15 @@ class UserStatusIndicator extends ConsumerWidget {
         }
       },
       loading: () => Text(
-        'Loading...',
-        style: TextStyle(
+        '...',
+        style: GoogleFonts.ibmPlexSans(
           fontSize: 12,
           color: Colors.black.withOpacity(0.9),
         ),
       ),
       error: (_, __) => Text(
         'Offline',
-        style: TextStyle(
+        style: GoogleFonts.ibmPlexSans(
           fontSize: 12,
           color: Colors.black.withOpacity(0.9),
         ),
@@ -2020,7 +2351,7 @@ Widget _buildTypingIndicator(List<String> typingUsers) {
         const SizedBox(width: 5),
         Text(
           typingUsers.length == 1 ? "${typingUsers.first} is typing..." : "Multiple people are typing...",
-          style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold),
+          style: GoogleFonts.ibmPlexSans(color: Colors.grey, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold),
         ),
       ],
     ),

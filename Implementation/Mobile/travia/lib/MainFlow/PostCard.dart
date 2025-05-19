@@ -1,8 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:share_plus/share_plus.dart';
@@ -29,6 +30,7 @@ class PostCard extends StatelessWidget {
   final String? postLocation;
   final DateTime createdAt;
   final int likesCount;
+  final int dislikesCount;
 
   const PostCard({
     super.key,
@@ -37,6 +39,7 @@ class PostCard extends StatelessWidget {
     required this.postImageUrl,
     required this.commentCount,
     required this.likesCount,
+    required this.dislikesCount,
     required this.postId,
     required this.userId,
     required this.createdAt,
@@ -49,14 +52,18 @@ class PostCard extends StatelessWidget {
     return Consumer(
       builder: (context, ref, child) {
         final likeState = ref.watch(likePostProvider);
-        final isLiked = likeState[postId] ?? false;
-        final displayNumberOfLikes = ref.watch(postLikeCountProvider((postId: postId, initialLikeCount: likesCount)));
+        final reaction = likeState[postId]; // 'like', 'dislike', or null
+        final reactionCount = ref.watch(postReactionCountProvider((
+          postId: postId,
+          likes: likesCount,
+          dislikes: dislikesCount,
+        )));
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
         final savedState = ref.watch(savedPostsProvider);
         final isSaved = savedState[postId] ?? false;
 
         return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
+          margin: const EdgeInsets.symmetric(vertical: 5),
           elevation: 4,
           shadowColor: Colors.black38,
           shape: RoundedRectangleBorder(
@@ -96,31 +103,36 @@ class PostCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: ClipOval(
-                          child: Image(
-                            image: CachedNetworkImageProvider(profilePicUrl),
-                            fit: BoxFit.cover,
-                            width: 46,
-                            height: 46,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey.shade800,
-                                child: const Icon(
-                                  Icons.person,
-                                  color: Colors.white70,
-                                  size: 28,
-                                ),
-                              );
-                            },
+                        child: GestureDetector(
+                          onTap: () {
+                            context.push("/profile/${userId}");
+                          },
+                          child: ClipOval(
+                            child: Image(
+                              image: CachedNetworkImageProvider(profilePicUrl),
+                              fit: BoxFit.cover,
+                              width: 46,
+                              height: 46,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey.shade800,
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: Colors.white70,
+                                    size: 28,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -129,13 +141,18 @@ class PostCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '@$username',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.white,
-                                letterSpacing: 0.2,
+                            GestureDetector(
+                              onTap: () {
+                                context.push("/profile/${userId}");
+                              },
+                              child: Text(
+                                '@$username',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -221,12 +238,25 @@ class PostCard extends StatelessWidget {
                 // Post Image Section
                 GestureDetector(
                   onDoubleTap: () {
-                    ref.read(likePostProvider.notifier).toggleLike(
+                    ref.read(likePostProvider.notifier).toggleReaction(
                           postId: postId,
                           likerId: currentUserId!,
                           posterId: userId,
+                          reactionType: 'like',
                         );
-                    ref.read(postLikeCountProvider((postId: postId, initialLikeCount: likesCount)).notifier).updateLikeCount(!isLiked);
+
+                    ref.read(postReactionCountProvider((postId: postId, likes: likesCount, dislikes: dislikesCount)).notifier).updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
+
+                    if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
+                      sendNotification(
+                        type: "like",
+                        title: "",
+                        content: currentUserId == userId ? "liked his own post" : "liked your post",
+                        target_user_id: userId,
+                        source_id: postId,
+                        sender_user_id: currentUserId,
+                      );
+                    }
                   },
                   child: Container(
                     height: 280,
@@ -254,29 +284,19 @@ class PostCard extends StatelessWidget {
                             child: Row(
                               children: [
                                 GestureDetector(
-                                  onTap: () {
-                                    showMaterialModalBottomSheet(
-                                        context: context,
-                                        builder: (context) => CommentModal(
-                                              postId: postId,
-                                              posterId: userId,
-                                            ));
-                                  },
-                                  child: const Icon(
-                                    Icons.chat_bubble_outline,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${ref.watch(postCommentCountProvider(postId))}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                                    onTap: () {
+                                      showMaterialModalBottomSheet(
+                                          context: context,
+                                          builder: (context) => CommentModal(
+                                                postId: postId,
+                                                posterId: userId,
+                                              ));
+                                    },
+                                    child: _buildGlassActionButton(
+                                      icon: CupertinoIcons.chat_bubble,
+                                      count: '${ref.watch(postCommentCountProvider(postId))}',
+                                      color: Colors.grey.shade700,
+                                    )),
                               ],
                             ),
                           ),
@@ -290,71 +310,69 @@ class PostCard extends StatelessWidget {
                               children: [
                                 GestureDetector(
                                   onTap: () {
-                                    ref.read(likePostProvider.notifier).toggleLike(
+                                    ref.read(likePostProvider.notifier).toggleReaction(
                                           postId: postId,
                                           likerId: currentUserId!,
                                           posterId: userId,
+                                          reactionType: 'like',
                                         );
-                                    ref.read(postLikeCountProvider((postId: postId, initialLikeCount: likesCount)).notifier).updateLikeCount(!isLiked);
+
+                                    ref
+                                        .read(postReactionCountProvider((postId: postId, likes: likesCount, dislikes: dislikesCount)).notifier)
+                                        .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
+
+                                    if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
+                                      sendNotification(
+                                        type: "like",
+                                        title: "",
+                                        content: currentUserId == userId ? "liked his own post" : "liked your post",
+                                        target_user_id: userId,
+                                        source_id: postId,
+                                        sender_user_id: currentUserId,
+                                      );
+                                    }
                                   },
-                                  child: Image.asset(
-                                    isLiked ? "assets/liked.png" : "assets/unliked.png",
-                                    width: 22,
-                                    height: 22,
-                                    color: isLiked ? Colors.red : Colors.white,
-                                  )
-                                      .animate(target: isLiked ? 1 : 0)
-                                      .shake(
-                                        hz: 8,
-                                        curve: Curves.easeOut,
-                                        duration: 600.ms,
-                                      )
-                                      .fade(
-                                        begin: 0.5,
-                                        end: 2,
-                                        duration: 700.ms,
-                                      ),
+                                  child: _buildGlassActionButton(
+                                    color: Colors.black,
+                                    icon: reaction == 'like' ? CupertinoIcons.hand_thumbsup_fill : CupertinoIcons.hand_thumbsup,
+                                    count: '${reactionCount['likes'] ?? 0}',
+                                  ),
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '$displayNumberOfLikes',
-                                  style: GoogleFonts.ibmPlexSans(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
+                                const SizedBox(width: 20),
+                                GestureDetector(
+                                  onTap: () {
+                                    ref.read(likePostProvider.notifier).toggleReaction(
+                                          postId: postId,
+                                          likerId: currentUserId!,
+                                          posterId: userId,
+                                          reactionType: 'dislike',
+                                        );
+
+                                    ref
+                                        .read(postReactionCountProvider((postId: postId, likes: likesCount, dislikes: dislikesCount)).notifier)
+                                        .updateReaction(from: reaction, to: reaction == 'dislike' ? null : 'dislike');
+
+                                    if (reaction != 'dislike' && canSendNotification(postId, 'dislike', currentUserId!)) {
+                                      sendNotification(
+                                        type: "dislike",
+                                        title: "",
+                                        content: currentUserId == userId ? "disliked his own post" : "disliked your post",
+                                        target_user_id: userId,
+                                        source_id: postId,
+                                        sender_user_id: currentUserId,
+                                      );
+                                    }
+                                  },
+                                  child: _buildGlassActionButton(
+                                    color: Colors.black,
+                                    icon: reaction == 'dislike' ? CupertinoIcons.hand_thumbsdown_fill : CupertinoIcons.hand_thumbsdown,
+                                    count: '${reactionCount['dislikes'] ?? 0}',
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      ),
-
-                      // Save button
-                      GestureDetector(
-                        onTap: () {
-                          ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          child: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
-                            color: isSaved ? Colors.amber : Colors.white,
-                            size: 24,
-                          )
-                              .animate(target: isSaved ? 1 : 0)
-                              .scale(
-                                begin: const Offset(0.8, 0.8),
-                                end: const Offset(1.2, 1.2),
-                                duration: 300.ms,
-                              )
-                              .then()
-                              .scale(
-                                begin: const Offset(1.2, 1.2),
-                                end: const Offset(1.0, 1.0),
-                                duration: 200.ms,
-                              ),
-                        ),
                       ),
                     ],
                   ),
@@ -391,44 +409,31 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  void likePost(WidgetRef ref, bool isLiked) async {
-    String likerId = FirebaseAuth.instance.currentUser!.uid;
-
-    ref.read(likePostProvider.notifier).toggleLike(
-          postId: postId,
-          likerId: likerId,
-          posterId: userId,
-        );
-
-    if (!isLiked) {
-      // Send notification when the post is liked
-      if (likerId == userId) {
-        sendNotification(
-          type: 'like',
-          title: "",
-          content: 'liked his own post :)',
-          target_user_id: userId,
-          source_id: postId,
-          sender_user_id: likerId,
-        );
-      } else {
-        sendNotification(
-          title: "liked your post",
-          type: 'like',
-          content: 'gave you a like',
-          target_user_id: userId,
-          source_id: postId,
-          sender_user_id: likerId,
-        );
-      }
-    } else {
-      print("ELSE");
-      // Remove notification when the post is unliked
-      removeLikeNotification(
-        targetUserId: userId,
-        sourceId: postId,
-        senderId: likerId,
-      );
-    }
+  Widget _buildGlassActionButton({required IconData icon, required String count, required Color color}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        color: Colors.white.withOpacity(0.1),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 19, color: color),
+          const SizedBox(width: 6),
+          Text(
+            count,
+            style: GoogleFonts.ibmPlexSans(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Colors.grey.shade800,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

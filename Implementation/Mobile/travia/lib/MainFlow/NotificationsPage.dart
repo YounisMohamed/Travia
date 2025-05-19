@@ -276,6 +276,8 @@ class StandardNotificationTile extends StatelessWidget {
       case 'like':
       case 'story_like':
         return Icons.favorite_border;
+      case 'dislike':
+        return Icons.thumb_down_alt;
       case 'comment':
       case 'comment_reply':
         return Icons.chat_bubble_outline;

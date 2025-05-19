@@ -11,6 +11,7 @@ class Conversation {
   final String? lastMessageContent;
   final String? lastMessageContentType;
   final String? lastMessageSender;
+  final String? groupPicture;
   final bool notificationsEnabled;
   final bool isTyping;
   final bool isPinned;
@@ -28,6 +29,7 @@ class Conversation {
     this.lastMessageContent,
     this.lastMessageSender,
     this.lastMessageContentType,
+    this.groupPicture,
     required this.notificationsEnabled,
     required this.isTyping,
     required this.isPinned,
@@ -38,6 +40,7 @@ class Conversation {
       conversationId: map['conversation_id'],
       conversationType: map['conversation_type'],
       isPinned: map['is_pinned'] ?? false,
+      groupPicture: map['group_picture'],
       title: map['title'] ?? "",
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),

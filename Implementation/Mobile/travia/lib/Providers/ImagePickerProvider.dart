@@ -17,12 +17,12 @@ import '../Classes/Media.dart';
 import '../MainFlow/PickerScreen.dart';
 import 'VideoCropProvider.dart';
 
-final imagePickerProvider = StateNotifierProvider<ImagePickerNotifier, File?>((ref) {
-  return ImagePickerNotifier();
+final singleMediaPickerProvider = StateNotifierProvider<SingleMediaPickerNotifier, File?>((ref) {
+  return SingleMediaPickerNotifier();
 });
 
-class ImagePickerNotifier extends StateNotifier<File?> {
-  ImagePickerNotifier() : super(null);
+class SingleMediaPickerNotifier extends StateNotifier<File?> {
+  SingleMediaPickerNotifier() : super(null);
 
   /// Handles picking and editing media specifically for chat functionality
   Future<void> pickAndEditMediaForChat(BuildContext context) async {
@@ -91,6 +91,63 @@ class ImagePickerNotifier extends StateNotifier<File?> {
         state = confirmedVideo;
         debugPrint("New video picked and cropped: ${confirmedVideo.path}");
       }
+    }
+  }
+}
+
+final imagesOnlyPickerProvider = StateNotifierProvider<ImagesOnlyPickerNotifier, File?>((ref) {
+  return ImagesOnlyPickerNotifier();
+});
+
+class ImagesOnlyPickerNotifier extends StateNotifier<File?> {
+  ImagesOnlyPickerNotifier() : super(null);
+
+  Future<void> pickAndEditMediaForChat(BuildContext context) async {
+    final selectedMedia = await _pickMedia(context);
+    if (selectedMedia == null) return;
+
+    final file = await _getFileFromMedia(selectedMedia);
+    if (file == null) return;
+    final editedImage = await _editorService.openMainEditorForChats(context, file);
+    if (editedImage != null) {
+      state = editedImage;
+      debugPrint("New image picked ${editedImage.path}");
+    }
+  }
+
+  /// Helper method to pick media using the PickerScreen
+  Future<Media?> _pickMedia(BuildContext context) async {
+    return await Navigator.push<Media?>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ImagesOnlyPickerScreen(selectedMedia: null),
+      ),
+    );
+  }
+
+  Future<File?> _getFileFromMedia(Media media) async {
+    return await media.assetEntity.file;
+  }
+
+  void clearImage() {
+    state = null;
+  }
+
+  final _editorService = EditorService();
+
+  Future<void> pickAndEditMediaForUpload(BuildContext context) async {
+    final selectedMedia = await _pickMedia(context);
+    if (selectedMedia == null) return;
+
+    final file = await _getFileFromMedia(selectedMedia);
+    if (file == null) return;
+    final result = await _editorService.openCropperFirst(context, file);
+    if (result == null) return;
+
+    final editedImage = result['file'] as File?;
+    if (editedImage != null) {
+      state = editedImage;
+      debugPrint("New image picked and cropped: ${editedImage.path}");
     }
   }
 }

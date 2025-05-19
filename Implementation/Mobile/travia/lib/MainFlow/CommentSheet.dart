@@ -229,7 +229,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                               parentCommentId: replyState?.parentCommentId,
                             );
                       },
-                      child: Icon(Icons.send, color: Colors.blueAccent, size: 22),
+                      child: Icon(Icons.send, color: kDeepPink, size: 22),
                     ),
                   ],
                 ),
@@ -476,7 +476,7 @@ class RegularCommentCard extends StatelessWidget {
                   // Profile Picture - Now directly in the row with proper alignment
                   GestureDetector(
                     onTap: () {
-                      // TODO: GO TO PROFILE PAGE
+                      context.push("/profile/${userId}");
                     },
                     child: CircleAvatar(
                       backgroundImage: NetworkImage(userPhotoUrl),
@@ -496,7 +496,7 @@ class RegularCommentCard extends StatelessWidget {
                             Expanded(
                               child: TextButton(
                                 onPressed: () {
-                                  // TODO: Go to profile page
+                                  context.push("/profile/${userId}");
                                 },
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
@@ -572,7 +572,7 @@ class RegularCommentCard extends StatelessWidget {
                                     isLiked ? "assets/liked.png" : "assets/unliked.png",
                                     width: 22,
                                     height: 22,
-                                    color: Colors.purple,
+                                    color: kDeepPink,
                                   )
                                       .animate(target: isLiked ? 1 : 0)
                                       .rotate(
@@ -630,7 +630,7 @@ class RegularCommentCard extends StatelessWidget {
                               child: Text(
                                 "Reply",
                                 style: TextStyle(
-                                  color: Colors.blue,
+                                  color: kDeepPink,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -738,7 +738,7 @@ class ReplyCommentCard extends ConsumerWidget {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      // TODO: GO TO PROFILE PAGE
+                      context.push("/profile/${userId}");
                     },
                     child: CircleAvatar(
                       backgroundImage: NetworkImage(userPhotoUrl),
@@ -756,7 +756,7 @@ class ReplyCommentCard extends ConsumerWidget {
                             Expanded(
                               child: GestureDetector(
                                 onTap: () {
-                                  // TODO GO TO PROFILE PAGE
+                                  context.push("/profile/${userId}");
                                 },
                                 child: Text(
                                   "@$userName",
@@ -792,7 +792,7 @@ class ReplyCommentCard extends ConsumerWidget {
                               ),
                               GestureDetector(
                                 onTap: () {
-                                  // TODO GO TO PROFILE PAGE
+                                  context.push("/profile/${userId}");
                                 },
                                 child: Text(
                                   "@$userNameOfParentComment",
@@ -854,7 +854,7 @@ class ReplyCommentCard extends ConsumerWidget {
                                     isLiked ? "assets/liked.png" : "assets/unliked.png",
                                     width: 20,
                                     height: 20,
-                                    color: Colors.purple,
+                                    color: kDeepPink,
                                   )
                                       .animate(target: isLiked ? 1 : 0)
                                       .rotate(
@@ -911,7 +911,7 @@ class ReplyCommentCard extends ConsumerWidget {
                               child: Text(
                                 "Reply",
                                 style: TextStyle(
-                                  color: Colors.blue,
+                                  color: kDeepPink,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),

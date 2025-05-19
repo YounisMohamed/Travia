@@ -11,6 +11,7 @@ class Post extends HiveObject {
   final String userUserName;
   final int commentCount;
   final int likesCount;
+  final int dislikesCount;
   final int viewCount;
   Post({
     required this.createdAt,
@@ -22,6 +23,7 @@ class Post extends HiveObject {
     required this.userUserName,
     required this.commentCount,
     required this.likesCount,
+    required this.dislikesCount,
     required this.postId,
     required this.viewCount,
   });
@@ -36,6 +38,7 @@ class Post extends HiveObject {
       userUserName: map['poster_username'],
       commentCount: map['comments_count'],
       likesCount: map['likes_count'],
+      dislikesCount: map['dislikes_count'],
       postId: map['id'],
       viewCount: map['views'],
     );

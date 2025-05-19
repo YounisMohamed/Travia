@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -9,26 +10,53 @@ import 'package:travia/Helpers/GoogleTexts.dart';
 
 import '../Classes/Post.dart';
 import '../Helpers/AppColors.dart';
+import '../Helpers/PopUp.dart';
 import '../Providers/ConversationProvider.dart';
+import '../Providers/ImagePickerProvider.dart';
 import '../Providers/ProfileProviders.dart';
+import '../Providers/UploadProviders.dart';
+import '../main.dart';
 
-class ProfilePage extends ConsumerWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   final String profileUserId;
-  const ProfilePage({
+  ProfilePage({
     required this.profileUserId,
     super.key,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends ConsumerState<ProfilePage> {
+  final PageController _pageController = PageController();
+  @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(() {
+      if (_pageController.page!.round() != ref.read(selectedPostTabProvider)) {
+        ref.read(selectedPostTabProvider.notifier).state = _pageController.page!.round();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final bottomPadding = MediaQuery.of(context).padding.bottom + 45;
-    final userAsync = ref.watch(userStreamProvider(profileUserId));
-    final isOwnProfile = profileUserId == currentUserId;
+    //final bottomPadding = MediaQuery.of(context).padding.bottom + 30;
+    final isOwnProfile = widget.profileUserId == currentUserId;
     final tabLabels = isOwnProfile ? ['Posts', 'Liked', 'Viewed', 'Saved'] : ['Posts', 'Liked'];
     final selectedTab = ref.watch(selectedPostTabProvider);
+    final userAsync = ref.watch(userStreamProvider(widget.profileUserId));
+    final isLoading = ref.watch(profileLoadingProvider);
 
     return userAsync.when(
         data: (user) {
@@ -150,11 +178,9 @@ class ProfilePage extends ConsumerWidget {
 
                                     SizedBox(height: screenHeight * 0.02),
 
-                                    Text(
-                                      user.bio ?? "No Bio",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                      ),
+                                    IBMPlexSansText(
+                                      text: user.bio ?? "No Bio",
+                                      size: 15,
                                     ),
 
                                     SizedBox(height: screenHeight * 0.02),
@@ -169,15 +195,15 @@ class ProfilePage extends ConsumerWidget {
                                     SizedBox(height: screenHeight * 0.02),
 
                                     // Follow - Message
-                                    if (currentUserId != profileUserId)
+                                    if (currentUserId != widget.profileUserId)
                                       Padding(
                                         padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
                                         child: Row(
                                           children: [
                                             Consumer(
                                               builder: (context, ref, _) {
-                                                final isFollowing = ref.watch(followStatusProvider(profileUserId));
-                                                final notifier = ref.read(followStatusProvider(profileUserId).notifier);
+                                                final isFollowing = ref.watch(followStatusProvider(widget.profileUserId));
+                                                final notifier = ref.read(followStatusProvider(widget.profileUserId).notifier);
 
                                                 return Expanded(
                                                   child: GestureDetector(
@@ -214,7 +240,7 @@ class ProfilePage extends ConsumerWidget {
                                             Expanded(
                                               child: GestureDetector(
                                                 onTap: () async {
-                                                  final conversationId = await ref.read(createConversationProvider(profileUserId).future);
+                                                  final conversationId = await ref.read(createConversationProvider(widget.profileUserId).future);
                                                   context.push("/messages/$conversationId");
                                                 },
                                                 child: Container(
@@ -247,7 +273,7 @@ class ProfilePage extends ConsumerWidget {
                                         ),
                                       ),
                                     // Edit Profile if you look at your own profile
-                                    if (currentUserId == profileUserId)
+                                    if (currentUserId == widget.profileUserId)
                                       Padding(
                                         padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.2),
                                         child: Row(
@@ -285,7 +311,6 @@ class ProfilePage extends ConsumerWidget {
                                     SizedBox(height: screenHeight * 0.02),
 
                                     // Posts section
-
                                     Container(
                                       width: double.infinity,
                                       decoration: const BoxDecoration(
@@ -306,7 +331,10 @@ class ProfilePage extends ConsumerWidget {
                                               children: List.generate(tabLabels.length, (index) {
                                                 final isSelected = selectedTab == index;
                                                 return GestureDetector(
-                                                  onTap: () => ref.read(selectedPostTabProvider.notifier).state = index,
+                                                  onTap: () {
+                                                    ref.read(selectedPostTabProvider.notifier).state = index;
+                                                    _pageController.jumpToPage(index);
+                                                  },
                                                   child: Column(
                                                     children: [
                                                       Text(
@@ -332,82 +360,97 @@ class ProfilePage extends ConsumerWidget {
                                             ),
                                           ),
 
-                                          // Grid items
-                                          Padding(
-                                            padding: const EdgeInsets.all(10),
-                                            child: currentPostsAsync.when(
-                                              loading: () => GridView.count(
-                                                shrinkWrap: true,
-                                                physics: const NeverScrollableScrollPhysics(),
-                                                crossAxisCount: 2,
-                                                crossAxisSpacing: 10,
-                                                mainAxisSpacing: 10,
-                                                children: List.generate(6, (index) {
-                                                  return Skeletonizer(
-                                                    containersColor: Colors.grey.shade300,
-                                                    child: Container(
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.white,
-                                                        borderRadius: BorderRadius.circular(15),
+                                          // Replace Expanded with Container that has fixed height
+                                          Container(
+                                            height: screenHeight * 0.45, // Adjust this height as needed
+                                            child: PageView.builder(
+                                              controller: _pageController,
+                                              onPageChanged: (index) {
+                                                ref.read(selectedPostTabProvider.notifier).state = index;
+                                              },
+                                              itemCount: tabLabels.length,
+                                              itemBuilder: (context, index) {
+                                                final currentPostsAsync = postLists[index];
+
+                                                return Padding(
+                                                  padding: const EdgeInsets.all(10),
+                                                  child: currentPostsAsync.when(
+                                                    loading: () => GridView.count(
+                                                      shrinkWrap: true,
+                                                      physics: const NeverScrollableScrollPhysics(),
+                                                      crossAxisCount: 2,
+                                                      crossAxisSpacing: 10,
+                                                      mainAxisSpacing: 10,
+                                                      children: List.generate(6, (index) {
+                                                        return Skeletonizer(
+                                                          containersColor: Colors.grey.shade300,
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.white,
+                                                              borderRadius: BorderRadius.circular(15),
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }),
+                                                    ),
+                                                    error: (e, _) => Center(
+                                                      child: IBMPlexSansText(
+                                                        text: "Error loading posts",
+                                                        size: 25,
                                                       ),
                                                     ),
-                                                  );
-                                                }),
-                                              ),
-                                              error: (e, _) => Center(
-                                                child: IBMPlexSansText(
-                                                  text: "Error loading posts",
-                                                  size: 25,
-                                                ),
-                                              ),
-                                              data: (currentPosts) {
-                                                if (currentPosts.isEmpty) {
-                                                  return Column(
-                                                    children: [
-                                                      const SizedBox(height: 50),
-                                                      Icon(Icons.inbox, size: 60, color: kDeepPinkLight),
-                                                      const SizedBox(height: 10),
-                                                      Text(
-                                                        'No ${tabLabels[selectedTab].toLowerCase()} posts yet.',
-                                                        style: TextStyle(
-                                                          fontSize: 16,
-                                                          color: Colors.black.withOpacity(0.7),
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  );
-                                                }
+                                                    data: (currentPosts) {
+                                                      if (currentPosts.isEmpty) {
+                                                        return Column(
+                                                          children: [
+                                                            const SizedBox(height: 50),
+                                                            Icon(Icons.inbox, size: 60, color: kDeepPinkLight),
+                                                            const SizedBox(height: 10),
+                                                            Text(
+                                                              'No ${tabLabels[index].toLowerCase()} posts yet.',
+                                                              style: TextStyle(
+                                                                fontSize: 16,
+                                                                color: Colors.black.withOpacity(0.7),
+                                                                fontWeight: FontWeight.w500,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        );
+                                                      }
 
-                                                return GridView.count(
-                                                  shrinkWrap: true,
-                                                  physics: const NeverScrollableScrollPhysics(),
-                                                  crossAxisCount: 2,
-                                                  crossAxisSpacing: 10,
-                                                  mainAxisSpacing: 10,
-                                                  children: currentPosts.map((post) {
-                                                    return GestureDetector(
-                                                      onTap: () {
-                                                        context.push("/post/${post.postId}");
-                                                      },
-                                                      child: Container(
-                                                        decoration: BoxDecoration(
-                                                          borderRadius: BorderRadius.circular(15),
-                                                          image: DecorationImage(
-                                                            image: CachedNetworkImageProvider(post.mediaUrl),
-                                                            fit: BoxFit.cover,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }).toList(),
+                                                      return GridView.count(
+                                                        shrinkWrap: true,
+                                                        physics: const NeverScrollableScrollPhysics(),
+                                                        crossAxisCount: 2,
+                                                        crossAxisSpacing: 10,
+                                                        mainAxisSpacing: 5,
+                                                        children: currentPosts.map((post) {
+                                                          return GestureDetector(
+                                                            onTap: () {
+                                                              context.push("/post/${post.postId}");
+                                                            },
+                                                            child: Container(
+                                                              decoration: BoxDecoration(
+                                                                borderRadius: BorderRadius.circular(15),
+                                                                image: DecorationImage(
+                                                                  image: CachedNetworkImageProvider(post.mediaUrl),
+                                                                  fit: BoxFit.cover,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          )
+                                                              .animate()
+                                                              .fade(duration: 500.ms, curve: Curves.easeOut)
+                                                              .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1), duration: 400.ms)
+                                                              .shimmer(duration: 1200.ms, color: Colors.white.withOpacity(0.3));
+                                                        }).toList(),
+                                                      );
+                                                    },
+                                                  ),
                                                 );
                                               },
                                             ),
                                           ),
-
-                                          // Extra bottom padding to ensure visibility above bottom nav bar
-                                          SizedBox(height: MediaQuery.of(context).padding.bottom + 90),
                                         ],
                                       ),
                                     )
@@ -417,30 +460,65 @@ class ProfilePage extends ConsumerWidget {
                             ),
 
                             // Profile picture
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: Container(
-                                  height: screenWidth * 0.24,
-                                  width: screenWidth * 0.24,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 3,
-                                    ),
-                                    image: DecorationImage(
-                                      image: NetworkImage(user.photoUrl),
-                                      fit: BoxFit.cover,
+                            if (isOwnProfile)
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: GestureDetector(
+                                    onTap: isLoading
+                                        ? null
+                                        : () {
+                                            _updateGroupPicture(currentUserId);
+                                          },
+                                    child: Stack(
+                                      alignment: Alignment.bottomRight,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 40,
+                                          backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl) : null,
+                                          child: user.photoUrl == null ? const Icon(Icons.person, size: 40) : null,
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: kDeepPink,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 2),
+                                          ),
+                                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                            SizedBox(height: bottomPadding),
+                            if (!isOwnProfile)
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: Container(
+                                    height: screenWidth * 0.24,
+                                    width: screenWidth * 0.24,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 3,
+                                      ),
+                                      image: DecorationImage(
+                                        image: NetworkImage(user.photoUrl),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            //SizedBox(height: bottomPadding),
                           ],
                         ),
                       ),
@@ -476,5 +554,39 @@ class ProfilePage extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _updateGroupPicture(String currentUserId) async {
+    ref.read(imagesOnlyPickerProvider.notifier).clearImage();
+    await ref.read(imagesOnlyPickerProvider.notifier).pickAndEditMediaForUpload(context);
+
+    final mediaFile = ref.read(imagesOnlyPickerProvider);
+    if (mediaFile == null) return;
+
+    ref.read(profileLoadingProvider.notifier).state = true;
+
+    try {
+      final mediaUrl = await ref.read(changePictureProvider.notifier).uploadChatMedia(
+            userId: currentUserId,
+            mediaFile: mediaFile,
+          );
+
+      if (mediaUrl == null) {
+        Popup.showPopUp(text: "Failed To edit picture", context: context, color: Colors.red);
+        return;
+      }
+
+      await supabase.from('users').update({'photo_url': mediaUrl}).eq('id', currentUserId);
+      FirebaseAuth.instance.currentUser!.updatePhotoURL(mediaUrl);
+
+      ref.read(profilePictureProvider.notifier).state = mediaUrl;
+
+      Popup.showPopUp(text: "Picture updated.", context: context, color: Colors.greenAccent);
+    } catch (e) {
+      Popup.showPopUp(text: "Failed To edit picture", context: context, color: Colors.red);
+    } finally {
+      ref.read(imagesOnlyPickerProvider.notifier).clearImage();
+      ref.read(profileLoadingProvider.notifier).state = false;
+    }
   }
 }

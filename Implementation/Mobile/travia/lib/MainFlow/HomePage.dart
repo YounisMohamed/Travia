@@ -20,6 +20,7 @@ import '../Services/UserPresenceService.dart';
 import '../database/DatabaseMethods.dart';
 import '../main.dart';
 import 'DMsPage.dart';
+import 'Explore.dart';
 import 'NotificationsPage.dart';
 import 'PostCard.dart';
 import 'ProfilePage.dart';
@@ -50,7 +51,7 @@ class _HomePageState extends ConsumerState<MainNavigationPage> {
     horizontalPageController = PageController(initialPage: 1);
 
     // Initialize the main page controller for the bottom navigation (with Home as default), Home index = 2,
-    mainPageController = PageController(initialPage: 4);
+    mainPageController = PageController(initialPage: 2);
 
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -324,7 +325,7 @@ class _HomePageState extends ConsumerState<MainNavigationPage> {
             ),
             NotificationsPage(), // Index 3: Notifications
             ProfilePage(
-              profileUserId: "NeIevdY1yJX0YVrOtlzaIJbTHum2",
+              profileUserId: "Xw3QpRZ7rlSvtjJEKrav2alxYTA3",
             ), // Index 4: Profile
           ],
         ),
@@ -437,24 +438,48 @@ class HomeWidget extends ConsumerWidget {
           forceMaterialTransparency: true,
           backgroundColor: Colors.white,
           elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.camera_alt_rounded,
+              color: Colors.black,
+              size: 21,
+            ),
+            onPressed: onCameraPressed,
+            tooltip: 'Camera',
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                Icons.send_rounded,
+                color: Colors.black,
+                size: 21,
+              ),
+              onPressed: onMessagePressed,
+              tooltip: 'Messages',
+            ),
+          ],
           title: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Image.asset(
                 "assets/TraviaLogo.png",
-                height: 90,
-                width: 90,
+                height: 70,
+                width: 70,
               ),
-              // Vertical divider line
               Container(
                 height: 24,
                 width: 2,
                 color: Colors.grey,
                 margin: EdgeInsets.symmetric(horizontal: 8),
               ),
-              // Animated typing text
-              TypewriterAnimatedText(
-                text: "Plan Smart. Travel Far.",
-                style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.bold),
+              Expanded(
+                child: TypewriterAnimatedText(
+                  text: "Plan Smart. Travel Far.",
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 12.6,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               SizedBox(width: 10),
               if (isLoading)
@@ -681,6 +706,7 @@ class HomeWidget extends ConsumerWidget {
                       postImageUrl: post.mediaUrl,
                       commentCount: post.commentCount,
                       likesCount: post.likesCount,
+                      dislikesCount: post.dislikesCount,
                       postId: post.postId,
                       userId: post.userId,
                       postCaption: post.caption,
@@ -782,16 +808,6 @@ Widget _buildPlanningCard(BuildContext context) {
       ],
     ),
   );
-}
-
-class ExplorePage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: Text("Explore"),
-        ),
-        body: Center(child: Text("Explore Page")),
-      );
 }
 
 class PlanPage extends StatelessWidget {

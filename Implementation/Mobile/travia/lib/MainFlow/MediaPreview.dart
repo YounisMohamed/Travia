@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
+import '../Helpers/AppColors.dart';
 import '../Providers/ChatMediaProvider.dart';
 import '../Providers/UploadProviders.dart';
 import 'FullscreenPhotoViewer.dart';
@@ -605,6 +606,182 @@ class MediaFilePreview extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class ExplorePostMediaDisplay extends ConsumerWidget {
+  final String mediaUrl;
+  final bool isVideo;
+
+  const ExplorePostMediaDisplay({
+    Key? key,
+    required this.mediaUrl,
+    this.isVideo = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (!isVideo) {
+      // Image content
+      return Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(
+          minHeight: 200,
+          maxHeight: 300,
+        ),
+        color: Colors.grey.shade100,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Shimmer placeholder that fills the container
+            ShimmerLoadingEffect(),
+
+            // Image with proper sizing using CachedNetworkImage
+            Center(
+              child: CachedNetworkImage(
+                imageUrl: mediaUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                fadeInDuration: const Duration(milliseconds: 500),
+                fadeInCurve: Curves.easeOut,
+                placeholder: (context, url) => const SizedBox.shrink(),
+                imageBuilder: (context, imageProvider) => AnimatedOpacity(
+                  opacity: 1.0,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOut,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: imageProvider,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) {
+                  print("ERROR: $error");
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.grey, size: 48),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Image could not be loaded',
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Video content
+      final videoState = ref.watch(videoPlayerControllerProvider(mediaUrl));
+
+      return Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(
+          minHeight: 200,
+          maxHeight: 300,
+        ),
+        color: Colors.grey.shade100,
+        child: videoState.when(
+          data: (controller) {
+            final isPlaying = controller.value.isPlaying;
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                // Video player
+                controller.value.isInitialized
+                    ? AspectRatio(
+                        aspectRatio: controller.value.aspectRatio,
+                        child: VideoPlayer(controller),
+                      )
+                    : const Center(child: CircularProgressIndicator()),
+
+                // Animated play/pause button
+                AnimatedOpacity(
+                  opacity: isPlaying ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: GestureDetector(
+                    onTap: () {
+                      final notifier = ref.read(videoPlayerControllerProvider(mediaUrl).notifier);
+                      isPlaying ? notifier.pause() : notifier.play();
+                    },
+                    child: Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: kDeepPink.withOpacity(0.7),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Video progress indicator
+                if (controller.value.isInitialized)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: ValueListenableBuilder(
+                      valueListenable: controller,
+                      builder: (context, value, child) {
+                        final position = value.position;
+                        final duration = value.duration;
+                        final progress = position.inMilliseconds / (duration.inMilliseconds == 0 ? 1 : duration.inMilliseconds);
+
+                        return LinearProgressIndicator(
+                          value: progress,
+                          color: kDeepPink,
+                          backgroundColor: kDeepPink.withOpacity(0.3),
+                          minHeight: 3,
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+          loading: () => const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(kDeepPink),
+            ),
+          ),
+          error: (e, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Video could not be loaded',
+                  style: TextStyle(color: Colors.red.shade700),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
   }
 }
 

@@ -1,65 +1,26 @@
 import 'package:hive/hive.dart';
 
-part 'ConversationDetail.g.dart';
-
-@HiveType(typeId: 2)
 class ConversationDetail extends HiveObject {
-  @HiveField(0)
   final String conversationId;
-
-  @HiveField(1)
   final String conversationType;
-
-  @HiveField(2)
   final String? title;
-
-  @HiveField(3)
   final DateTime createdAt;
-
-  @HiveField(4)
   final DateTime updatedAt;
-
-  @HiveField(5)
   final DateTime? lastMessageAt;
-
-  @HiveField(6)
   final String? lastMessageId;
-
-  @HiveField(7)
   final String? lastMessageContent;
-
-  @HiveField(8)
   final String? lastMessageContentType;
-
-  @HiveField(9)
   final String userId;
-
-  @HiveField(10)
   final DateTime? lastReadAt;
-
-  @HiveField(11)
   final String? userUsername;
-
-  @HiveField(12)
   final String? userPhotoUrl;
-
-  @HiveField(13)
   final int unreadCount;
-
-  @HiveField(14)
   final String? sender;
-
-  @HiveField(15)
   final bool notificationsEnabled;
-
-  @HiveField(16)
   final bool isTyping;
-
-  @HiveField(17)
   final bool isPinned;
-
-  @HiveField(18)
   final String? chatTheme;
+  final String? groupPicture;
 
   ConversationDetail({
     required this.conversationId,
@@ -77,6 +38,7 @@ class ConversationDetail extends HiveObject {
     this.userPhotoUrl,
     required this.unreadCount,
     this.sender,
+    this.groupPicture,
     required this.notificationsEnabled,
     required this.isTyping,
     required this.isPinned,
@@ -85,6 +47,7 @@ class ConversationDetail extends HiveObject {
 
   factory ConversationDetail.fromMap(Map<String, dynamic> map) {
     return ConversationDetail(
+      groupPicture: map['group_picture'],
       conversationId: map['conversation_id'],
       conversationType: map['conversation_type'],
       title: map['title'],
@@ -109,6 +72,7 @@ class ConversationDetail extends HiveObject {
 
   Map<String, dynamic> toMap() {
     return {
+      'group_picture': groupPicture,
       'conversation_id': conversationId,
       'conversation_type': conversationType,
       'title': title,

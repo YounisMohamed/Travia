@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:travia/MainFlow/ProfilePage.dart';
 
 import 'Auth/ForgotPassword.dart';
 import 'Auth/SignInPage.dart';
@@ -129,16 +130,18 @@ class MyApp extends StatelessWidget {
 
     final GoRouter router = GoRouter(
         initialLocation: initialLocation,
-        //initialLocation: "/messages/a4564cf8-afa4-4266-999a-8e4f81086bcd",
+        //initialLocation: "/messages/9dd27c1c-89ea-4ade-afe6-bc57abf4bf65",
         //initialLocation: '/recorder',
         //initialLocation: '/dms-page',
         //initialLocation: '/error-page/shit/shit',
+        //initialLocation: "/complete-profile",
         routes: [
           // ====================== AUTH ROUTES ======================
           GoRoute(
             path: '/signin',
             builder: (context, state) => SignInPage(),
           ),
+
           GoRoute(
             path: '/signup',
             builder: (context, state) => SignUpPage(),
@@ -210,6 +213,13 @@ class MyApp extends StatelessWidget {
             builder: (context, state) {
               final postId = state.pathParameters['postId']!;
               return PostDetailsPage(postId: postId);
+            },
+          ),
+          GoRoute(
+            path: '/profile/:profileId',
+            builder: (context, state) {
+              final profileId = state.pathParameters['profileId']!;
+              return ProfilePage(profileUserId: profileId);
             },
           ),
           GoRoute(

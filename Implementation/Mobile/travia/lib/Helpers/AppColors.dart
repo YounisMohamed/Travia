@@ -7,6 +7,7 @@ const Color kDeepBlue = Color(0xff1D2860);
 const Color kDeepPinkLight = Color(0xFFe70950);
 const Color kDeepGrey = Color(0xFFE6EEFA);
 const Color kDarkBackground = Color(0xFF121212);
+const Color kBackgroundColor = Color(0xFFF8F8F8);
 const Color kWhite = Colors.white;
 const Color kBlackOpaque = Colors.black54;
 const double kBorderRadius = 8.0;

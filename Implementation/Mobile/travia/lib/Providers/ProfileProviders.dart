@@ -124,3 +124,7 @@ final filteredPostsProvider = Provider.family<AsyncValue<List<Post>>, List<Strin
 });
 
 final selectedPostTabProvider = StateProvider<int>((ref) => 0); // 0 = Posts, 1 = Liked, etc.
+
+final profileLoadingProvider = StateProvider<bool>((ref) => false);
+final profileTitleProvider = StateProvider<String?>((ref) => null);
+final profilePictureProvider = StateProvider<String?>((ref) => null);

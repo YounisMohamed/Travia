@@ -11,6 +11,7 @@ import 'package:story_view/controller/story_controller.dart';
 import 'package:story_view/utils.dart';
 import 'package:story_view/widgets/story_view.dart';
 import 'package:travia/Classes/story_item_model.dart';
+import 'package:travia/Helpers/AppColors.dart';
 
 import '../Classes/story_model.dart';
 import '../Helpers/DummyCards.dart';
@@ -212,7 +213,7 @@ class StoryBar extends ConsumerWidget {
           children: [
             CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.purpleAccent,
+              backgroundColor: kDeepPink,
               child: CircleAvatar(
                 radius: 25,
                 backgroundImage: story.userPhotoUrl != null ? CachedNetworkImageProvider(story.userPhotoUrl!) : null,
@@ -750,7 +751,7 @@ class _AddStoryBubble extends StatelessWidget {
                   child: CircleAvatar(
                     radius: 10,
                     backgroundColor: Colors.white,
-                    child: Icon(hasActiveStory ? Icons.add_circle : Icons.add, color: Colors.purple, size: 16),
+                    child: Icon(hasActiveStory ? Icons.add_circle : Icons.add, color: kDeepPink, size: 16),
                   ),
                 ),
               ],

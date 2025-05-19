@@ -22,26 +22,26 @@ final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((re
 
       final List<ConversationDetail> details = (response as List)
           .map((data) => ConversationDetail(
-                conversationId: data['conversation_id'],
-                conversationType: data['conversation_type'],
-                title: data['title'],
-                createdAt: DateTime.parse(data['created_at']),
-                updatedAt: DateTime.parse(data['updated_at']),
-                lastMessageAt: data['last_message_at'] != null ? DateTime.parse(data['last_message_at']) : null,
-                lastMessageId: data['last_message_id'],
-                lastMessageContent: data['last_message_content'],
-                lastMessageContentType: data['last_message_content_type'],
-                userId: data['user_id'],
-                lastReadAt: data['last_read_at'] != null ? DateTime.parse(data['last_read_at']) : null,
-                userUsername: data['user_username'],
-                userPhotoUrl: data['user_photo_url'],
-                unreadCount: data['unread_count'] ?? 0,
-                sender: data['sender'],
-                notificationsEnabled: data['notifications_enabled'],
-                isTyping: data['is_typing'],
-                isPinned: data['is_pinned'],
-                chatTheme: data['chat_theme'],
-              ))
+              conversationId: data['conversation_id'],
+              conversationType: data['conversation_type'],
+              title: data['title'],
+              createdAt: DateTime.parse(data['created_at']),
+              updatedAt: DateTime.parse(data['updated_at']),
+              lastMessageAt: data['last_message_at'] != null ? DateTime.parse(data['last_message_at']) : null,
+              lastMessageId: data['last_message_id'],
+              lastMessageContent: data['last_message_content'],
+              lastMessageContentType: data['last_message_content_type'],
+              userId: data['user_id'],
+              lastReadAt: data['last_read_at'] != null ? DateTime.parse(data['last_read_at']) : null,
+              userUsername: data['user_username'],
+              userPhotoUrl: data['user_photo_url'],
+              unreadCount: data['unread_count'] ?? 0,
+              sender: data['sender'],
+              notificationsEnabled: data['notifications_enabled'],
+              isTyping: data['is_typing'],
+              isPinned: data['is_pinned'],
+              chatTheme: data['chat_theme'],
+              groupPicture: data['group_picture']))
           .toList();
 
       yield details;

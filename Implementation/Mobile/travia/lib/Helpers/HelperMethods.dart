@@ -149,3 +149,17 @@ Future<bool> addStoryItem({
     return false;
   }
 }
+
+final Map<String, DateTime> _notificationCooldowns = {};
+
+bool canSendNotification(String postId, String reactionType, String userId) {
+  final key = '${postId}_$reactionType\_$userId';
+  final now = DateTime.now();
+  final lastSent = _notificationCooldowns[key];
+
+  if (lastSent == null || now.difference(lastSent) > const Duration(seconds: 15)) {
+    _notificationCooldowns[key] = now;
+    return true;
+  }
+  return false;
+}

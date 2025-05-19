@@ -1,6 +1,5 @@
 import 'dart:developer';
 
-import 'package:dismissible_page/dismissible_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/Loading.dart';
-import 'package:travia/MainFlow/ChatPage.dart';
 import 'package:travia/Providers/ConversationNotificationsProvider.dart';
 
 import '../Classes/UserSupabase.dart';
@@ -55,7 +53,7 @@ class _DMsPageState extends ConsumerState<DMsPage> {
 
       if (conversationId != null) {
         if (context.mounted) {
-          context.pushTransparentRoute(ChatPage(conversationId: conversationId));
+          context.push("/messages/$conversationId");
         }
       }
     } catch (e) {
@@ -156,6 +154,7 @@ class _DMsPageState extends ConsumerState<DMsPage> {
                   unreadCount: detail.unreadCount,
                   isPinned: detail.isPinned,
                   sender: detail.sender,
+                  groupPicture: detail.groupPicture,
                 );
               },
             );
@@ -182,12 +181,14 @@ class ConversationTile extends ConsumerWidget {
   final String? sender;
   final bool isPinned;
   final String? chatTheme;
+  final String? groupPicture;
 
   const ConversationTile({
     super.key,
     required this.conversationId,
     required this.conversationType,
     this.title,
+    this.groupPicture,
     this.lastMessageContent,
     this.lastMessageContentType,
     this.lastMessageAt,
@@ -231,8 +232,11 @@ class ConversationTile extends ConsumerWidget {
         leading: CircleAvatar(
           radius: 22,
           backgroundColor: Colors.blue.shade100,
-          backgroundImage: isDirect && userPhotoUrl != null ? NetworkImage(userPhotoUrl!) : null,
-          child: isGroup ? Icon(Icons.group, color: Colors.blue.shade700, size: 22) : null,
+          backgroundImage: isDirect && userPhotoUrl != null
+              ? NetworkImage(userPhotoUrl!)
+              : isGroup && groupPicture != null
+                  ? NetworkImage(groupPicture!)
+                  : null,
         ),
         title: Text(
           displayTitle,
@@ -332,7 +336,7 @@ class ConversationTile extends ConsumerWidget {
           ],
         ),
         onTap: () {
-          context.pushTransparentRoute(ChatPage(conversationId: conversationId));
+          context.push("/messages/$conversationId");
           print('Tapped conversation: $conversationId');
         },
       ),
