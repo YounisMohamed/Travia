@@ -58,7 +58,7 @@ class _DMsPageState extends ConsumerState<DMsPage> {
       }
     } catch (e) {
       log(e.toString());
-      Popup.showPopUp(text: "Something went wrong", context: context, color: Colors.red);
+      Popup.showError(text: "Something went wrong", context: context);
     }
   }
 
@@ -358,7 +358,7 @@ class ConversationTile extends ConsumerWidget {
         } catch (e) {
           log(e.toString());
           if (context.mounted) {
-            Popup.showPopUp(text: "Error happened while deleting the conversation", context: context, color: Colors.red);
+            Popup.showError(text: "Error happened while deleting the conversation", context: context);
           }
         } finally {
           ref.read(conversationIsLoadingProvider.notifier).state = false;

@@ -1,6 +1,4 @@
-import 'package:hive/hive.dart';
-
-class Post extends HiveObject {
+class Post {
   final DateTime createdAt;
   final String userId;
   final String mediaUrl;
@@ -13,6 +11,8 @@ class Post extends HiveObject {
   final int likesCount;
   final int dislikesCount;
   final int viewCount;
+  final String? videoThumbnail;
+
   Post({
     required this.createdAt,
     required this.userId,
@@ -26,7 +26,9 @@ class Post extends HiveObject {
     required this.dislikesCount,
     required this.postId,
     required this.viewCount,
+    this.videoThumbnail,
   });
+
   factory Post.fromMap(Map<String, dynamic> map) {
     return Post(
       createdAt: DateTime.parse(map['created_at']),
@@ -41,7 +43,9 @@ class Post extends HiveObject {
       dislikesCount: map['dislikes_count'],
       postId: map['id'],
       viewCount: map['views'],
+      videoThumbnail: map['video_thumbnail'],
     );
   }
+
   factory Post.fromJson(Map<String, dynamic> json) => Post.fromMap(json);
 }

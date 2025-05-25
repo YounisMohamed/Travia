@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:travia/MainFlow/FriendsPage.dart';
 import 'package:travia/MainFlow/ProfilePage.dart';
 
 import 'Auth/ForgotPassword.dart';
@@ -229,6 +230,10 @@ class MyApp extends StatelessWidget {
           GoRoute(
             path: '/dms-page',
             builder: (context, state) => DMsPage(),
+          ),
+          GoRoute(
+            path: '/friends',
+            builder: (context, state) => FriendsScreen(),
           ),
           GoRoute(
             path: '/messages/:conversationId',

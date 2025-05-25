@@ -84,10 +84,9 @@ class StoryBar extends ConsumerWidget {
                       if (storyId == null) {
                         ref.read(loadingProvider.notifier).setLoadingToFalse();
                         print("Failed to create story");
-                        Popup.showPopUp(
+                        Popup.showError(
                           text: 'Failed to create story',
                           context: context,
-                          color: Colors.redAccent,
                         );
                         return;
                       }
@@ -145,22 +144,19 @@ class StoryBar extends ConsumerWidget {
                     print("Upload complete: $successCount succeeded, $failCount failed");
                     if (successCount > 0 && failCount == 0) {
                       final isUpdate = userStory != null;
-                      Popup.showPopUp(
+                      Popup.showSuccess(
                         text: isUpdate ? 'Your story has been updated!' : 'Your story has been created!',
                         context: context,
-                        color: Colors.greenAccent,
                       );
                     } else if (successCount > 0 && failCount > 0) {
-                      Popup.showPopUp(
+                      Popup.showInfo(
                         text: 'Added $successCount items to your story, but $failCount failed',
                         context: context,
-                        color: Colors.orangeAccent,
                       );
                     } else {
-                      Popup.showPopUp(
+                      Popup.showError(
                         text: 'Failed to update story',
                         context: context,
-                        color: Colors.redAccent,
                       );
                     }
                     ref.invalidate(storiesProvider);
@@ -539,10 +535,9 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                                       ref.read(currentStoryItemIndexProvider.notifier).state = newIndex;
                                     });
 
-                                    Popup.showPopUp(
+                                    Popup.showSuccess(
                                       text: "Story item deleted, refresh to see changes",
                                       context: context,
-                                      color: Colors.green,
                                     );
 
                                     Navigator.of(context).pop();
@@ -553,10 +548,9 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                                     });
                                   } catch (e) {
                                     print("Error while deleting story item: $e");
-                                    Popup.showPopUp(
+                                    Popup.showError(
                                       text: "Error while deleting the story item",
                                       context: context,
-                                      color: Colors.red,
                                     );
                                     Navigator.of(context).pop();
                                   }
@@ -651,10 +645,9 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                           final currentUserId = FirebaseAuth.instance.currentUser!.uid;
                           final targetUserId = story.userId;
                           if (currentUserId == targetUserId) {
-                            Popup.showPopUp(
+                            Popup.showWarning(
                               text: "Cant send a message to yourself :)",
                               context: context,
-                              color: Colors.red,
                             );
                             return;
                           }
@@ -688,18 +681,16 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                               sender_user_id: currentUserId,
                             );
 
-                            // 6. Optional: Show success message
-                            Popup.showPopUp(
+                            // 6. Show success message
+                            Popup.showSuccess(
                               text: "Reply sent",
                               context: context,
-                              color: Colors.green,
                             );
                           } catch (e) {
                             print("Error sending story reply: $e");
-                            Popup.showPopUp(
+                            Popup.showError(
                               text: "Failed to send reply",
                               context: context,
-                              color: Colors.red,
                             );
                           }
                         }),

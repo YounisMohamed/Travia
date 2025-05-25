@@ -9,8 +9,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
-import '../Helpers/Popup.dart';
+import '../Helpers/PopUp.dart';
 import '../main.dart';
 import 'ImagePickerProvider.dart';
 
@@ -172,15 +173,16 @@ class MediaUploadService {
     }
   }
 
-  static Future<void> savePostToDatabase(String userId, String imageUrl, String caption, String location) async {
+  static Future<void> savePostToDatabase(String userId, String mediaUrl, String caption, String location, {String? videoThumbnail}) async {
     try {
       await supabase.from('posts').insert({
         'user_id': userId,
-        'media_url': imageUrl,
+        'media_url': mediaUrl,
         'caption': caption,
         'location': location,
         'created_at': DateTime.now().toUtc().toIso8601String(),
         'comments_count': 0,
+        if (videoThumbnail != null) 'video_thumbnail': videoThumbnail,
       });
     } catch (e) {
       print("Database Error: $e");
@@ -214,32 +216,59 @@ class PostUploadNotifier extends MediaUploadNotifier {
     required String location,
     required BuildContext context,
   }) async {
-    final image = ref.read(singleMediaPickerProvider);
-    if (image == null) {
-      Popup.showPopUp(text: "Please select an image!", context: context, color: Colors.red);
+    final mediaFile = ref.read(singleMediaPickerProvider);
+    if (mediaFile == null) {
+      Popup.showError(text: "Please select an image or video!", context: context);
       return;
     }
 
     setLoading(true);
 
     try {
-      final imageUrl = await MediaUploadService.uploadMedia(
-        mediaFile: image,
+      final mediaUrl = await MediaUploadService.uploadMedia(
+        mediaFile: mediaFile,
         userId: userId,
         bucketName: 'posts',
         folderPath: 'posts',
-        compress: true, // Enable compression
+        compress: true,
       );
 
-      if (imageUrl == null) {
-        throw Exception("Failed to upload image");
+      if (mediaUrl == null) throw Exception("Failed to upload media");
+
+      String? thumbnailUrl;
+
+      final isVideo = mediaFile.path.endsWith(".mp4") || mediaFile.path.endsWith(".mov");
+      if (isVideo) {
+        final uint8list = await VideoThumbnail.thumbnailData(
+          video: mediaFile.path,
+          imageFormat: ImageFormat.PNG,
+          maxWidth: 300,
+          quality: 75,
+        );
+
+        if (uint8list != null) {
+          final fileName = 'thumb_${DateTime.now().millisecondsSinceEpoch}.png';
+          final storagePath = 'thumbnails/$userId/$fileName';
+
+          final uploadRes = await supabase.storage.from('posts').uploadBinary(storagePath, uint8list, fileOptions: const FileOptions(contentType: 'image/png'));
+
+          final publicUrl = supabase.storage.from('posts').getPublicUrl(storagePath);
+          thumbnailUrl = publicUrl;
+        }
       }
 
-      await MediaUploadService.savePostToDatabase(userId, imageUrl, caption, location);
-      Popup.showPopUp(text: "Post uploaded successfully!", context: context, color: Colors.green);
+      await MediaUploadService.savePostToDatabase(
+        userId,
+        mediaUrl,
+        caption,
+        location,
+        videoThumbnail: thumbnailUrl,
+      );
+
+      Popup.showSuccess(text: "Post uploaded successfully!", context: context);
     } catch (e) {
       print("Post Upload Error: $e");
-      Popup.showPopUp(text: "Post upload failed!", context: context, color: Colors.red);
+      Popup.showError(text: "Post upload failed!", context: context);
     } finally {
       setLoading(false);
     }

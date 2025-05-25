@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
 
 BoxDecoration backGroundColor() {
-  return BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFEFD5), Colors.white],
-    ),
-  );
+  return BoxDecoration(color: Colors.white);
 }
 
 final List<Map<String, String>> popularCountries = [

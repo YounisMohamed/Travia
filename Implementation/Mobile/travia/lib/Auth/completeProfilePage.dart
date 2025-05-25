@@ -297,7 +297,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                   String username = _usernameController.text.trim().toLowerCase();
                                   bool userNameExists = await checkIfUsernameExists(username);
                                   if (userNameExists) {
-                                    Popup.showPopUp(text: "Username already exists", context: context);
+                                    Popup.showWarning(text: "Username already exists", context: context);
                                     ref.read(loadingProvider.notifier).setLoadingToFalse();
                                     return;
                                   }
@@ -316,7 +316,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                                   ref.read(loadingProvider.notifier).setLoadingToFalse();
                                   context.go("/home");
                                 } catch (e) {
-                                  Popup.showPopUp(text: "Error while updating profile", context: context);
+                                  Popup.showError(text: "Error while updating profile", context: context);
                                   print(e);
                                 } finally {
                                   ref.read(loadingProvider.notifier).setLoadingToFalse();

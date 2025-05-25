@@ -50,14 +50,14 @@ Deno.serve(async (req) => {
 
     const fcmTokens = userData.fcm_token as string[];
 
-    const defaultPhoto = "https://picsum.photos/200"; // TODO: should be set to app logo later
 
     
 
     // Import Firebase service account credentials
-    const { default: serviceAccount } = await import("../service-account.json", {
-      with: { type: "json" },
-    });
+    const { default: serviceAccount } = await import("./service-account.json", {
+  with: { type: "json" },
+});
+
 
     // Get Firebase access token
     const accessToken = await getAccessToken({
@@ -79,8 +79,18 @@ Deno.serve(async (req) => {
             notification: {
               title: title,
               body: content,
-              image: sender_photo === null ? defaultPhoto : sender_photo,
+              image: sender_photo,
             },
+            android: {
+          notification: {
+            icon: "ic_launcher", 
+            color: "#b60f68", 
+            default_sound: true,
+            default_vibrate_timings: true,
+            notification_priority: "PRIORITY_HIGH",
+            visibility: "PUBLIC"
+          }
+        },
             data: {
               type: type,
               source_id: source_id,

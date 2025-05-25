@@ -336,7 +336,7 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
           onPressed: () {
             final content = selectedMessages.map((m) => m.content).join('\n');
             Clipboard.setData(ClipboardData(text: content));
-            Popup.showPopUp(text: "Copied to clipboard!", context: context, color: Colors.greenAccent);
+            Popup.showInfo(text: "Copied to clipboard!", context: context);
             ref.read(messageActionsProvider.notifier).clearSelectedMessages();
           },
         ),
@@ -439,7 +439,7 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
             await removeMessageForMe(messageId: message.messageId, currentUserId: currentUserId);
           }
         } catch (e) {
-          Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
+          Popup.showError(text: "Failed to delete messages", context: context);
         }
       },
     ));
@@ -456,7 +456,7 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               await removeMessage(messageId: message.messageId);
             }
           } catch (e) {
-            Popup.showPopUp(text: "Failed to delete messages", context: context, color: Colors.redAccent);
+            Popup.showError(text: "Failed to delete messages", context: context);
           }
         },
       ));
@@ -524,7 +524,7 @@ class _GroupMembersDialogState extends ConsumerState<GroupMembersDialog> {
           );
 
       if (mediaUrl == null) {
-        Popup.showPopUp(text: "Failed To edit group picture", context: context, color: Colors.red);
+        Popup.showError(text: "Failed To edit group picture", context: context);
         return;
       }
 
@@ -532,9 +532,9 @@ class _GroupMembersDialogState extends ConsumerState<GroupMembersDialog> {
 
       ref.read(groupPictureProvider.notifier).state = mediaUrl;
 
-      Popup.showPopUp(text: "Group Picture Updated", context: context, color: Colors.greenAccent);
+      Popup.showInfo(text: "Group Picture Updated", context: context);
     } catch (e) {
-      Popup.showPopUp(text: "Failed To edit group picture", context: context, color: Colors.red);
+      Popup.showError(text: "Failed To edit group picture", context: context);
     } finally {
       ref.read(imagesOnlyPickerProvider.notifier).clearImage();
       ref.read(groupLoadingProvider.notifier).state = false;
@@ -546,7 +546,7 @@ class _GroupMembersDialogState extends ConsumerState<GroupMembersDialog> {
     final currentTitle = ref.read(groupTitleProvider);
 
     if (newTitle.isEmpty) {
-      Popup.showPopUp(text: "Title cannot be empty", context: context, color: Colors.red);
+      Popup.showWarning(text: "Title cannot be empty", context: context);
       return;
     }
 
@@ -560,9 +560,9 @@ class _GroupMembersDialogState extends ConsumerState<GroupMembersDialog> {
       await supabase.from('conversations').update({'title': newTitle}).eq('conversation_id', widget.conversationId);
       ref.read(groupTitleProvider.notifier).state = newTitle;
 
-      Popup.showPopUp(text: "Group title updated", context: context, color: Colors.greenAccent);
+      Popup.showInfo(text: "Group title updated", context: context);
     } catch (e) {
-      Popup.showPopUp(text: "Failed to update title", context: context, color: Colors.red);
+      Popup.showError(text: "Failed to update title", context: context);
     } finally {
       ref.read(groupLoadingProvider.notifier).state = false;
     }
@@ -1166,10 +1166,9 @@ class MessageInputBar extends ConsumerWidget {
 
                                     // Show loading indicator if multiple files selected
                                     if (mediaFiles.length > 1) {
-                                      Popup.showPopUp(
+                                      Popup.showInfo(
                                         text: "Uploading ${mediaFiles.length} files...",
                                         context: context,
-                                        color: Colors.greenAccent,
                                       );
                                     }
 
@@ -1193,7 +1192,7 @@ class MessageInputBar extends ConsumerWidget {
                                         );
                                       } catch (e) {
                                         print("Error sending media file: $e");
-                                        Popup.showPopUp(text: "Failed sending media", context: context, color: Colors.redAccent);
+                                        Popup.showError(text: "Failed sending media", context: context);
                                       }
                                     }
 
@@ -1202,10 +1201,9 @@ class MessageInputBar extends ConsumerWidget {
 
                                     // Show success message if multiple files were sent
                                     if (mediaFiles.length > 1) {
-                                      Popup.showPopUp(
+                                      Popup.showSuccess(
                                         text: "Sent ${mediaFiles.length} media files",
                                         context: context,
-                                        color: Colors.greenAccent,
                                       );
                                     }
                                   },
@@ -1235,6 +1233,7 @@ class MessageInputBar extends ConsumerWidget {
                                 constraints: const BoxConstraints(maxHeight: 150),
                                 child: TextField(
                                   controller: messageController,
+                                  cursorColor: Colors.black,
                                   maxLines: null,
                                   minLines: 1,
                                   textDirection: textDirection,
@@ -1880,18 +1879,11 @@ class MessageBubble extends ConsumerWidget {
     );
   }
 
-  // Build a media message bubble
-
-  // rest of code
-
-  // Common swipe wrapper for all message types
-
-  // Common avatar widget for both sender and receiver
   Widget _buildAvatar() {
     return CircleAvatar(
       radius: 16,
       backgroundImage: NetworkImage(
-        message.senderProfilePic ?? "https://ui-avatars.com/api/?name=${message.senderUsername}&rounded=true&background=random",
+        message.senderProfilePic ?? "",
       ),
     );
   }

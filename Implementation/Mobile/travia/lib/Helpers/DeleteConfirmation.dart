@@ -5,23 +5,6 @@ import 'package:material_dialogs/widgets/buttons/icon_outline_button.dart';
 
 import 'AppColors.dart'; // Import your app's colors
 
-/// A reusable dialog function that creates a bottom material dialog with customizable actions.
-///
-/// The dialog includes a title, message, and two buttons - a cancel button and an action button.
-/// The action button can be customized with different colors, icons, and text.
-///
-/// Parameters:
-/// - `context`: Required. The BuildContext for showing the dialog.
-/// - `title`: Required. The title of the dialog.
-/// - `message`: Required. The message content of the dialog.
-/// - `actionText`: Required. The text for the action button.
-/// - `actionIcon`: Required. The icon for the action button.
-/// - `onActionPressed`: Required. The callback when the action button is pressed.
-/// - `cancelText`: Optional. The text for the cancel button. Defaults to 'Cancel'.
-/// - `cancelIcon`: Optional. The icon for the cancel button. Defaults to Icons.cancel_outlined.
-/// - `actionColor`: Optional. The background color of the action button. Defaults to kDeepPurple.
-/// - `dialogColor`: Optional. The background color of the dialog. Defaults to kWhite.
-/// - `isDismissible`: Optional. Whether the dialog can be dismissed by tapping outside. Defaults to true.
 Future<void> showCustomDialog({
   required BuildContext context,
   required String title,
@@ -31,8 +14,8 @@ Future<void> showCustomDialog({
   required Future<void> Function() onActionPressed,
   String cancelText = 'Cancel',
   IconData cancelIcon = Icons.cancel_outlined,
-  Color actionColor = kDeepPurple, // Updated to use app theme color
-  Color dialogColor = kWhite, // Updated to use app theme color
+  Color actionColor = kDeepPink,
+  Color dialogColor = kWhite,
   bool isDismissible = true,
 }) async {
   return Dialogs.bottomMaterialDialog(
@@ -71,21 +54,12 @@ Future<void> showCustomDialog({
   );
 }
 
-/// A variant of showCustomDialog that allows multiple action buttons.
-///
-/// Parameters:
-/// - `context`: Required. The BuildContext for showing the dialog.
-/// - `title`: Required. The title of the dialog.
-/// - `message`: Required. The message content of the dialog.
-/// - `actions`: Required. List of DialogAction objects representing action buttons.
-/// - `dialogColor`: Optional. The background color of the dialog. Defaults to kWhite.
-/// - `isDismissible`: Optional. Whether the dialog can be dismissed by tapping outside. Defaults to true.
 Future<void> showCustomDialogWithMultipleActions({
   required BuildContext context,
   required String title,
   required String message,
   required List<DialogAction> actions,
-  Color dialogColor = kWhite, // Updated to use app theme color
+  Color dialogColor = kWhite,
   bool isDismissible = true,
 }) async {
   final actionButtons = <Widget>[];
@@ -135,13 +109,6 @@ Future<void> showCustomDialogWithMultipleActions({
   );
 }
 
-/// Represents an action button in the custom dialog.
-///
-/// Parameters:
-/// - `text`: Required. The text to display on the button.
-/// - `icon`: Required. The icon to display on the button.
-/// - `onPressed`: Required. The callback when the button is pressed.
-/// - `color`: Optional. The background color of the button. Defaults to kDeepPurple.
 class DialogAction {
   final String text;
   final IconData icon;
@@ -156,17 +123,6 @@ class DialogAction {
   });
 }
 
-/// A specialized method for showing delete confirmation dialogs.
-///
-/// This is a convenience wrapper around showCustomDialog that
-/// pre-configures the dialog with delete-specific styling.
-///
-/// Parameters:
-/// - `context`: Required. The BuildContext for showing the dialog.
-/// - `title`: Optional. The title of the dialog. Defaults to 'Delete'.
-/// - `message`: Required. The message content of the dialog.
-/// - `actionText`: Optional. The text for the delete button. Defaults to 'Delete'.
-/// - `onDeletePressed`: Required. The callback when the delete button is pressed.
 Future<void> showDeleteConfirmationDialog({
   required BuildContext context,
   String title = 'Delete',

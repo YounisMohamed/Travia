@@ -32,6 +32,31 @@ class NotificationReadDeleteState extends StateNotifier<Map<String, dynamic>> {
     _deleteFromDatabase(notificationId);
   }
 
+  // NEW: Mark all notifications as read
+  Future<void> markAllAsRead(List<NotificationModel> notifications) async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    // Get all unread notification IDs
+    final unreadNotificationIds = notifications.where((notification) => !notification.isRead).map((notification) => notification.id).toList();
+
+    if (unreadNotificationIds.isEmpty) return;
+
+    // Optimistically update all unread notifications to read
+    final updatedReadMap = Map<String, bool>.from(state['read']);
+    for (final id in unreadNotificationIds) {
+      updatedReadMap[id] = true;
+    }
+
+    state = {
+      'read': updatedReadMap,
+      'removed': state['removed'],
+    };
+
+    // Update database in background
+    _markAllAsReadInDatabase(currentUserId);
+  }
+
   Future<void> _updateDatabase(String notificationId) async {
     try {
       await supabase.from('notifications').update({'is_read': true}).eq('id', notificationId);
@@ -45,6 +70,15 @@ class NotificationReadDeleteState extends StateNotifier<Map<String, dynamic>> {
       await supabase.from('notifications').delete().eq('id', notificationId);
     } catch (e) {
       print('Error deleting notification: $e');
+    }
+  }
+
+  Future<void> _markAllAsReadInDatabase(String currentUserId) async {
+    try {
+      await supabase.from('notifications').update({'is_read': true}).eq('target_user_id', currentUserId).eq('is_read', false);
+      print('All notifications marked as read successfully');
+    } catch (e) {
+      print('Error marking all notifications as read: $e');
     }
   }
 }

@@ -10,7 +10,7 @@ class UserModel {
   final DateTime? updatedAt;
   final String relationshipStatus;
   final String gender;
-  final int age;
+  final DateTime age;
   final List<String> viewedPosts;
   final List<String> savedPosts;
   final List<String> likedPosts;
@@ -20,6 +20,8 @@ class UserModel {
   final List<String> followingIds;
   final List<String> friendIds;
   final List<String> visitedCountries;
+  final bool public;
+  final bool showLikedPosts;
 
   UserModel({
     required this.id,
@@ -30,13 +32,15 @@ class UserModel {
     required this.friendIds,
     required this.visitedCountries,
     required this.photoUrl,
+    required this.public,
+    required this.showLikedPosts,
     this.bio,
     this.isPrivate = false,
     this.createdAt,
     this.updatedAt,
     this.relationshipStatus = 'Single',
     this.gender = 'Male',
-    this.age = 25,
+    required this.age, // now required DateTime
     this.viewedPosts = const [],
     this.savedPosts = const [],
     this.uploadedPosts = const [],
@@ -48,6 +52,8 @@ class UserModel {
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       id: map['id'],
+      public: map['public'],
+      showLikedPosts: map['showLikedPosts'],
       email: map['email'],
       displayName: map['display_name'],
       username: map['username'],
@@ -60,7 +66,7 @@ class UserModel {
       updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
       relationshipStatus: map['relationship_status'] ?? 'Single',
       gender: map['gender'] ?? 'Male',
-      age: map['age'] ?? 25,
+      age: map['age'] != null ? DateTime.parse(map['age']) : DateTime(2000, 1, 1),
       viewedPosts: List<String>.from(map['viewed_posts'] ?? []),
       savedPosts: List<String>.from(map['saved_posts'] ?? []),
       uploadedPosts: List<String>.from(map['uploaded_posts'] ?? []),
@@ -74,6 +80,8 @@ class UserModel {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'showLikedPosts': showLikedPosts,
+      'public': public,
       'email': email,
       'display_name': displayName,
       'username': username,
@@ -86,7 +94,7 @@ class UserModel {
       'updated_at': updatedAt?.toIso8601String(),
       'relationship_status': relationshipStatus,
       'gender': gender,
-      'age': age,
+      'age': age.toIso8601String(), // serialize DateTime to ISO format
       'viewed_posts': viewedPosts,
       'visited_countries': visitedCountries,
       'saved_posts': savedPosts,

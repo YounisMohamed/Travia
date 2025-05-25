@@ -41,8 +41,6 @@ class _HomePageState extends ConsumerState<MainNavigationPage> {
   late PageController horizontalPageController;
   late PageController mainPageController;
 
-  bool _isChangingPage = false;
-
   @override
   void initState() {
     super.initState();
@@ -228,6 +226,7 @@ class _HomePageState extends ConsumerState<MainNavigationPage> {
     }
   }
 
+  bool _isChangingPage = false;
   void _changeMainPage(int index) {
     if (_isChangingPage) return;
 
@@ -318,6 +317,7 @@ class _HomePageState extends ConsumerState<MainNavigationPage> {
                   HomeWidget(
                     onCameraPressed: () => _changeHorizontalPage(0),
                     onMessagePressed: () => _changeHorizontalPage(2),
+                    onExplorePressed: () => _changeMainPage(0),
                   ),
                   DMsPage(),
                 ],
@@ -402,10 +402,12 @@ class BottomNav extends StatelessWidget {
 class HomeWidget extends ConsumerWidget {
   final VoidCallback onCameraPressed;
   final VoidCallback onMessagePressed;
+  final VoidCallback onExplorePressed;
 
   const HomeWidget({
     required this.onCameraPressed,
     required this.onMessagePressed,
+    required this.onExplorePressed,
     Key? key,
   }) : super(key: key);
 
@@ -618,41 +620,6 @@ class HomeWidget extends ConsumerWidget {
     );
   }
 
-  // Loading skeleton for horizontal layouts
-  Widget _buildLoadingState(BuildContext context) {
-    return ListView(
-      children: [
-        // Section title skeleton
-        Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Container(
-            height: 24,
-            width: 120,
-            decoration: BoxDecoration(
-              color: Colors.grey,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ),
-        // Horizontal list skeleton with more responsive layout
-        SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6, // Responsive height
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: 3,
-            itemBuilder: (context, index) => Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: AspectRatio(
-                aspectRatio: 0.7, // Card aspect ratio
-                child: DummyPostCard(),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // Build a horizontal scrolling section with title
   Widget _buildPostSection({
     required BuildContext context,
@@ -669,15 +636,61 @@ class HomeWidget extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Section title
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            title,
-            style: GoogleFonts.ibmPlexSans(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+        Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                title,
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+            SizedBox(
+              width: 2,
+            ),
+            GestureDetector(
+              onTap: () {
+                onExplorePressed();
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(top: 14.0),
+                child: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        kDeepPink,
+                        kDeepPinkLight,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: kDeepPink.withOpacity(0.4),
+                        blurRadius: 3,
+                        spreadRadius: 1,
+                      ),
+                      BoxShadow(
+                        color: kDeepPinkLight.withOpacity(0.3),
+                        blurRadius: 2,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 15,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
 
         // Horizontal scrolling posts with responsive layout
@@ -717,6 +730,40 @@ class HomeWidget extends ConsumerWidget {
                 ),
               );
             },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingState(BuildContext context) {
+    return ListView(
+      children: [
+        // Section title skeleton
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Container(
+            height: 24,
+            width: 120,
+            decoration: BoxDecoration(
+              color: Colors.grey,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+        // Horizontal list skeleton with more responsive layout
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6, // Responsive height
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: 3,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: AspectRatio(
+                aspectRatio: 0.7, // Card aspect ratio
+                child: DummyPostCard(),
+              ),
+            ),
           ),
         ),
       ],

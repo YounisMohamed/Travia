@@ -453,7 +453,7 @@ class MediaPostPreview extends ConsumerWidget {
                     width: 58,
                     height: 58,
                     decoration: BoxDecoration(
-                      color: colorScheme.primary.withOpacity(0.7),
+                      color: kDeepPink,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -552,7 +552,7 @@ class MediaFilePreview extends ConsumerWidget {
             if (!isPlaying)
               Container(
                 decoration: const BoxDecoration(
-                  color: Colors.black26,
+                  color: kDeepPink,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.play_arrow, color: Colors.white, size: 40),
@@ -724,7 +724,7 @@ class ExplorePostMediaDisplay extends ConsumerWidget {
                       width: 58,
                       height: 58,
                       decoration: BoxDecoration(
-                        color: kDeepPink.withOpacity(0.7),
+                        color: kDeepPink,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -868,7 +868,7 @@ class FullScreenVideoPlayer extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: const BoxDecoration(
-                    color: Colors.black45,
+                    color: kDeepPink,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -893,7 +893,7 @@ class FullScreenVideoPlayer extends ConsumerWidget {
                     allowScrubbing: true,
                     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
                     colors: const VideoProgressColors(
-                      playedColor: Colors.blue,
+                      playedColor: kDeepPink,
                       bufferedColor: Colors.grey,
                       backgroundColor: Colors.black45,
                     ),
@@ -988,7 +988,7 @@ class FancyLoadingIndicator extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SpinKitPulsingGrid(
-            color: colorScheme.primary,
+            color: kDeepPink,
             size: 50.0,
           ),
         ],

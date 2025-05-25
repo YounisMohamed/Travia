@@ -179,7 +179,7 @@ class PostCard extends StatelessWidget {
                                 ref.read(loadingProvider.notifier).setLoadingToTrue();
                                 await deletePostFromDatabase(postId);
                               } catch (e) {
-                                Popup.showPopUp(text: "Error deleting post..", context: context);
+                                Popup.showError(text: "Error deleting post..", context: context);
                               } finally {
                                 ref.invalidate(postsProvider);
                                 ref.read(loadingProvider.notifier).setLoadingToFalse();

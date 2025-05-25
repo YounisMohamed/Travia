@@ -91,7 +91,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
       }
 
       if (next is AsyncError) {
-        Popup.showPopUp(text: "Error adding comment", context: context);
+        Popup.showError(text: "Error adding comment", context: context);
       }
     });
     ref.listen(deleteCommentProvider, (prev, next) {
@@ -106,7 +106,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
       }
 
       if (next is AsyncError) {
-        Popup.showPopUp(text: "Error deleting comment", context: context);
+        Popup.showError(text: "Error deleting comment", context: context);
       }
     });
 

@@ -47,7 +47,7 @@ Future<void> signInWithEmailAndPassword(
     // Check if email is verified
     if (user != null && !user.emailVerified) {
       await FirebaseAuth.instance.signOut(); // Prevent login if not verified
-      Popup.showPopUp(
+      Popup.showWarning(
         text: "Please verify your email before logging in.",
         context: context,
       );
@@ -90,9 +90,9 @@ Future<void> signInWithEmailAndPassword(
         errorMessage = "Something went wrong. Please try again later.";
     }
 
-    Popup.showPopUp(text: errorMessage, context: context);
+    Popup.showError(text: errorMessage, context: context);
   } catch (e) {
-    Popup.showPopUp(
+    Popup.showError(
       text: "An unexpected error occurred. Please try again later.",
       context: context,
     );
@@ -124,10 +124,9 @@ Future<void> signUpWithEmailAndPassword(
     await user.sendEmailVerification();
 
     // Show popup instructing user to verify
-    Popup.showPopUp(
+    Popup.showSuccess(
       text: "A verification email has been sent to $email. Please verify before logging in.",
       context: context,
-      color: Colors.greenAccent,
     );
 
     // Start listening for verification
@@ -156,9 +155,9 @@ Future<void> signUpWithEmailAndPassword(
         errorMessage = "Something went wrong. Please try again.";
     }
 
-    Popup.showPopUp(text: errorMessage, context: context);
+    Popup.showError(text: errorMessage, context: context);
   } catch (e) {
-    Popup.showPopUp(
+    Popup.showError(
       text: "An unexpected error occurred. Please try again later.",
       context: context,
     );
@@ -191,7 +190,7 @@ Future<void> _waitForEmailVerification(User user, BuildContext context, WidgetRe
     elapsedSeconds += refreshPeriod;
     if (elapsedSeconds >= timeoutSeconds) {
       timer.cancel(); // Stop checking after timeout
-      Popup.showPopUp(
+      Popup.showError(
         text: "Email verification timed out. Please verify manually and try again.",
         context: context,
       );
@@ -233,7 +232,7 @@ Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
     }
   } catch (e) {
     print("Login error: $e");
-    Popup.showPopUp(text: "Google sign-in failed. Please check your internet and try again.", context: context);
+    Popup.showError(text: "Google sign-in failed. Please check your internet and try again.", context: context);
   } finally {
     ref.read(loadingProvider.notifier).setLoadingToFalse();
   }
@@ -245,10 +244,10 @@ Future<void> forgotPassword(BuildContext context, WidgetRef ref, String email) a
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
     await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-    Popup.showPopUp(text: "Password reset email sent. Check your inbox.", context: context, color: Colors.greenAccent);
+    Popup.showSuccess(text: "Password reset email sent. Check your inbox.", context: context);
   } catch (e) {
     print("Password reset error: $e");
-    Popup.showPopUp(text: "Failed to send password reset email. Please try again.", context: context);
+    Popup.showError(text: "Failed to send password reset email. Please try again.", context: context);
   } finally {
     ref.read(loadingProvider.notifier).setLoadingToFalse();
   }
@@ -275,7 +274,7 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     context.go("/signin");
     Phoenix.rebirth(context);
   } catch (e) {
-    Popup.showPopUp(text: "Sign-out failed", context: context);
+    Popup.showError(text: "Sign-out failed", context: context);
     print(e);
   } finally {
     ref.read(loadingProvider.notifier).setLoadingToFalse();

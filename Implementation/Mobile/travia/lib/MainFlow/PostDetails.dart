@@ -237,7 +237,7 @@ class PostDetailsPage extends ConsumerWidget {
 
                                       _commentController.clear();
                                     } catch (e) {
-                                      Popup.showPopUp(text: "Error adding comment", context: context);
+                                      Popup.showError(text: "Error adding comment", context: context);
                                     } finally {
                                       ref.read(loadingProvider.notifier).setLoadingToFalse();
                                     }

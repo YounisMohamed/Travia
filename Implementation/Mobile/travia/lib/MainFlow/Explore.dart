@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
@@ -141,7 +139,9 @@ class ExplorePage extends ConsumerWidget {
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          context.push("/friends");
+                        },
                         icon: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
@@ -240,7 +240,7 @@ class ExplorePostCard extends ConsumerWidget {
   final String userId;
 
   const ExplorePostCard(
-      {Key? key,
+      {super.key,
       required this.username,
       required this.profileImage,
       required this.mediaUrl,
@@ -250,8 +250,7 @@ class ExplorePostCard extends ConsumerWidget {
       required this.comments,
       required this.time,
       required this.postId,
-      required this.userId})
-      : super(key: key);
+      required this.userId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -272,309 +271,280 @@ class ExplorePostCard extends ConsumerWidget {
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                spreadRadius: 0,
-                blurRadius: 25,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
-                    width: 1.5,
-                  ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.25),
-                      Colors.white.withOpacity(0.1),
-                    ],
-                    stops: const [0.1, 1.0],
-                  ),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1.5,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top section with gradient background
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.black87.withOpacity(0.85),
-                            kDeepPink.withOpacity(0.85),
-                          ],
-                          stops: const [0.3, 1.0],
-                        ),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(24),
-                          topRight: Radius.circular(24),
-                        ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top section with gradient background
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.black87.withOpacity(0.85),
+                          kDeepPink.withOpacity(0.85),
+                        ],
+                        stops: const [0.3, 1.0],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(24),
-                          topRight: Radius.circular(24),
-                        ),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.white.withOpacity(0.15),
-                                  width: 1,
-                                ),
-                              ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Colors.white.withOpacity(0.15),
+                              width: 1,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Profile section
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () {
-                                          context.push("/profile/${userId}");
-                                        },
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white.withOpacity(0.6),
-                                              width: 2,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.2),
-                                                spreadRadius: 0,
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: CircleAvatar(
-                                            radius: 22,
-                                            backgroundColor: Colors.white.withOpacity(0.2),
-                                            backgroundImage: CachedNetworkImageProvider(profileImage),
-                                          ),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Profile section
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      context.push("/profile/${userId}");
+                                    },
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.6),
+                                          width: 2,
                                         ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            spreadRadius: 0,
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            GestureDetector(
-                                              onTap: () {
-                                                context.push("/profile/${userId}");
-                                              },
-                                              child: Text(
-                                                username,
-                                                style: GoogleFonts.ibmPlexSans(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 16,
-                                                  color: Colors.white,
-                                                  letterSpacing: 0.3,
-                                                ),
-                                              ),
-                                            ),
-                                            Text(
-                                              time,
-                                              style: GoogleFonts.ibmPlexSans(
-                                                color: Colors.white.withOpacity(0.7),
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                      child: CircleAvatar(
+                                        radius: 22,
+                                        backgroundColor: Colors.white.withOpacity(0.2),
+                                        backgroundImage: CachedNetworkImageProvider(profileImage),
                                       ),
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.15),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white.withOpacity(0.1),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: ClipOval(
-                                          child: BackdropFilter(
-                                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                                            child: IconButton(
-                                              onPressed: () {},
-                                              icon: Icon(
-                                                Icons.more_horiz,
-                                                color: Colors.white,
-                                                size: 20,
-                                              ),
-                                              splashRadius: 20,
-                                              padding: EdgeInsets.zero,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Post description section
-                                if (postDescription != null && postDescription!.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                    child: ExpandableText(
-                                      text: postDescription!,
-                                      postId: postId,
-                                      maxLines: 3,
                                     ),
                                   ),
-                              ],
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () {
+                                            context.push("/profile/$userId");
+                                          },
+                                          child: Text(
+                                            username,
+                                            style: GoogleFonts.ibmPlexSans(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 16,
+                                              color: Colors.white,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          time,
+                                          style: GoogleFonts.ibmPlexSans(
+                                            color: Colors.white.withOpacity(0.7),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.1),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: ClipOval(
+                                      child: IconButton(
+                                        onPressed: () {},
+                                        icon: Icon(
+                                          Icons.more_horiz,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        splashRadius: 20,
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
 
-                    // Media section
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.03),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: ExplorePostMediaDisplay(
-                        mediaUrl: mediaUrl,
-                        isVideo: mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov'),
-                      ),
-                    ),
-
-                    // Actions section
-                    ClipRRect(
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(24),
-                        bottomRight: Radius.circular(24),
-                      ),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.only(
-                              bottomLeft: Radius.circular(24),
-                              bottomRight: Radius.circular(24),
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    _buildGlassActionButton(
-                                        color: kDeepPink,
-                                        icon: reaction == 'like' ? CupertinoIcons.hand_thumbsup_fill : CupertinoIcons.hand_thumbsup,
-                                        count: '${reactionCount['likes'] ?? 0}',
-                                        onTap: () {
-                                          print("PRESSED");
-                                          ref.read(likePostProvider.notifier).toggleReaction(
-                                                postId: postId,
-                                                likerId: currentUserId!,
-                                                posterId: userId,
-                                                reactionType: 'like',
-                                              );
-
-                                          ref
-                                              .read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier)
-                                              .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
-
-                                          if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
-                                            sendNotification(
-                                              type: "like",
-                                              title: "",
-                                              content: currentUserId == userId ? "liked his own post" : "liked your post",
-                                              target_user_id: userId,
-                                              source_id: postId,
-                                              sender_user_id: currentUserId,
-                                            );
-                                          }
-                                        }),
-                                    const SizedBox(width: 20),
-                                    _buildGlassActionButton(
-                                        icon: reaction == 'dislike' ? CupertinoIcons.hand_thumbsdown_fill : CupertinoIcons.hand_thumbsdown,
-                                        count: '${reactionCount['dislikes'] ?? 0}',
-                                        color: Colors.grey.shade700,
-                                        onTap: () {
-                                          print("PRESSED");
-                                          ref.read(likePostProvider.notifier).toggleReaction(
-                                                postId: postId,
-                                                likerId: currentUserId!,
-                                                posterId: userId,
-                                                reactionType: 'dislike',
-                                              );
-
-                                          ref
-                                              .read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier)
-                                              .updateReaction(from: reaction, to: reaction == 'dislike' ? null : 'dislike');
-
-                                          if (reaction != 'like' && canSendNotification(postId, 'dislike', currentUserId!)) {
-                                            sendNotification(
-                                              type: "dislike",
-                                              title: "",
-                                              content: currentUserId == userId ? "disliked his own post" : "disliked your post",
-                                              target_user_id: userId,
-                                              source_id: postId,
-                                              sender_user_id: currentUserId,
-                                            );
-                                          }
-                                        }),
-                                    const SizedBox(width: 20),
-                                    _buildGlassActionButton(
-                                        icon: CupertinoIcons.chat_bubble,
-                                        count: '${ref.watch(postCommentCountProvider(postId))}',
-                                        color: Colors.grey.shade700,
-                                        onTap: () {
-                                          showMaterialModalBottomSheet(
-                                              context: context,
-                                              builder: (context) => CommentModal(
-                                                    postId: postId,
-                                                    posterId: userId,
-                                                  ));
-                                        }),
-                                  ],
+                            // Post description section
+                            if (postDescription != null && postDescription!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                child: ExpandableText(
+                                  text: postDescription!,
+                                  postId: postId,
+                                  maxLines: 3,
                                 ),
-                                _buildBookmarkButton(
-                                    onTap: () {
-                                      ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
-                                    },
-                                    icon: isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
-                              ],
-                            ),
-                          ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  // Media section
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.03),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: ExplorePostMediaDisplay(
+                      mediaUrl: mediaUrl,
+                      isVideo: mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov'),
+                    ),
+                  ),
+
+                  // Actions section
+                  ClipRRect(
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                _buildGlassActionButton(
+                                    color: kDeepPink,
+                                    icon: reaction == 'like' ? CupertinoIcons.hand_thumbsup_fill : CupertinoIcons.hand_thumbsup,
+                                    count: '${reactionCount['likes'] ?? 0}',
+                                    onTap: () {
+                                      print("PRESSED");
+                                      ref.read(likePostProvider.notifier).toggleReaction(
+                                            postId: postId,
+                                            likerId: currentUserId!,
+                                            posterId: userId,
+                                            reactionType: 'like',
+                                          );
+
+                                      ref
+                                          .read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier)
+                                          .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
+
+                                      if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
+                                        sendNotification(
+                                          type: "like",
+                                          title: "",
+                                          content: currentUserId == userId ? "liked his own post" : "liked your post",
+                                          target_user_id: userId,
+                                          source_id: postId,
+                                          sender_user_id: currentUserId,
+                                        );
+                                      }
+                                    }),
+                                const SizedBox(width: 20),
+                                _buildGlassActionButton(
+                                    icon: reaction == 'dislike' ? CupertinoIcons.hand_thumbsdown_fill : CupertinoIcons.hand_thumbsdown,
+                                    count: '${reactionCount['dislikes'] ?? 0}',
+                                    color: Colors.grey.shade700,
+                                    onTap: () {
+                                      print("PRESSED");
+                                      ref.read(likePostProvider.notifier).toggleReaction(
+                                            postId: postId,
+                                            likerId: currentUserId!,
+                                            posterId: userId,
+                                            reactionType: 'dislike',
+                                          );
+
+                                      ref
+                                          .read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier)
+                                          .updateReaction(from: reaction, to: reaction == 'dislike' ? null : 'dislike');
+
+                                      if (reaction != 'like' && canSendNotification(postId, 'dislike', currentUserId!)) {
+                                        sendNotification(
+                                          type: "dislike",
+                                          title: "",
+                                          content: currentUserId == userId ? "disliked his own post" : "disliked your post",
+                                          target_user_id: userId,
+                                          source_id: postId,
+                                          sender_user_id: currentUserId,
+                                        );
+                                      }
+                                    }),
+                                const SizedBox(width: 20),
+                                _buildGlassActionButton(
+                                    icon: CupertinoIcons.chat_bubble,
+                                    count: '${ref.watch(postCommentCountProvider(postId))}',
+                                    color: Colors.grey.shade700,
+                                    onTap: () {
+                                      showMaterialModalBottomSheet(
+                                          context: context,
+                                          builder: (context) => CommentModal(
+                                                postId: postId,
+                                                posterId: userId,
+                                              ));
+                                    }),
+                              ],
+                            ),
+                            _buildBookmarkButton(
+                                onTap: () {
+                                  ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
+                                },
+                                icon: isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -637,18 +607,15 @@ class ExplorePostCard extends ConsumerWidget {
           ],
         ),
         child: ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: IconButton(
-              onPressed: () {},
-              icon: Icon(
-                icon,
-                size: 18,
-                color: Colors.grey.shade700,
-              ),
-              splashRadius: 18,
-              padding: EdgeInsets.zero,
+          child: IconButton(
+            onPressed: () {},
+            icon: Icon(
+              icon,
+              size: 18,
+              color: Colors.grey.shade700,
             ),
+            splashRadius: 18,
+            padding: EdgeInsets.zero,
           ),
         ),
       ),
@@ -729,28 +696,25 @@ class ExpandableText extends ConsumerWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(30),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isExpanded ? "Show Less" : "Read More",
-                          style: GoogleFonts.ibmPlexSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                            letterSpacing: 0.2,
-                          ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isExpanded ? "Show Less" : "Read More",
+                        style: GoogleFonts.ibmPlexSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                          letterSpacing: 0.2,
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          isExpanded ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
-                          size: 14,
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        isExpanded ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
+                        size: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ],
                   ),
                 ),
               ),
