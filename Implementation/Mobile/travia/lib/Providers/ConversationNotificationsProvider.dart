@@ -16,10 +16,11 @@ class ConvNotificationsNotifier extends StateNotifier<Map<String, bool>> {
     }
 
     try {
-      final response = await supabase.from('conversation_participants').select('conversation_id, conversations(notifications_enabled)').eq('user_id', userId);
+      // Updated query to get notifications_enabled from conversation_participants
+      final response = await supabase.from('conversation_participants').select('conversation_id, notifications_enabled').eq('user_id', userId);
 
       final Map<String, bool> notiMap = {
-        for (var row in response) row['conversation_id'] as String: row['conversations']['notifications_enabled'] as bool,
+        for (var row in response) row['conversation_id'] as String: row['notifications_enabled'] as bool,
       };
 
       state = notiMap;
@@ -28,22 +29,49 @@ class ConvNotificationsNotifier extends StateNotifier<Map<String, bool>> {
     }
   }
 
-  // *Toggle Notifications (Optimistic Update)*
+  // Updated toggle method for per-participant notifications
   Future<void> toggleConvNotifications({
     required String conversationId,
   }) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      print("User ID is null");
+      return;
+    }
+
     final isEnabled = state[conversationId] ?? true;
 
     try {
       // Optimistically update state
       state = {...state, conversationId: !isEnabled};
 
-      // Update in database
-      await supabase.from('conversations').update({'notifications_enabled': !isEnabled}).eq('conversation_id', conversationId);
+      // Update in conversation_participants table instead of conversations
+      await supabase.from('conversation_participants').update({'notifications_enabled': !isEnabled}).eq('conversation_id', conversationId).eq('user_id', userId);
+
+      print("Notification toggled for user $userId in conversation $conversationId: ${!isEnabled}");
     } catch (e) {
       print("Error updating notifications: $e");
       // Revert state on failure
       state = {...state, conversationId: isEnabled};
+    }
+  }
+
+  // Optional: Method to get notification status for a specific conversation
+  bool getNotificationStatus(String conversationId) {
+    return state[conversationId] ?? true; // Default to enabled
+  }
+
+  // Optional: Method to refresh notifications for a specific conversation
+  Future<void> refreshConversationNotification(String conversationId) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final response = await supabase.from('conversation_participants').select('notifications_enabled').eq('conversation_id', conversationId).eq('user_id', userId).single();
+
+      state = {...state, conversationId: response['notifications_enabled'] as bool};
+    } catch (e) {
+      print("Error refreshing notification for conversation $conversationId: $e");
     }
   }
 }

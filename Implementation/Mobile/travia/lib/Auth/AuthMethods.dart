@@ -13,6 +13,20 @@ import '../Providers/LoadingProvider.dart';
 import '../Services/NotificationService.dart';
 import '../main.dart';
 
+// =======================================
+
+Future<bool> checkIfUsernameExists(String username) async {
+  try {
+    final response = await supabase.from('users').select('username').eq('username', username).limit(1);
+    return response.isNotEmpty;
+  } catch (e) {
+    print('Error checking username existence: $e');
+    return true; // rg3 true 3al e7tyat
+  }
+}
+
+// =======================================
+
 Future<bool> checkIfProfileExists(String userId) async {
   try {
     final response = await supabase
@@ -27,6 +41,8 @@ Future<bool> checkIfProfileExists(String userId) async {
     return false; // Assume user doesn't exist on error
   }
 }
+
+// =======================================
 
 Future<void> signInWithEmailAndPassword(
   BuildContext context,
@@ -124,10 +140,7 @@ Future<void> signUpWithEmailAndPassword(
     await user.sendEmailVerification();
 
     // Show popup instructing user to verify
-    Popup.showSuccess(
-      text: "A verification email has been sent to $email. Please verify before logging in.",
-      context: context,
-    );
+    Popup.showSuccess(text: "A verification email has been sent to $email. Please verify before logging in.", context: context, duration: 10);
 
     // Start listening for verification
     await _waitForEmailVerification(user, context, ref);

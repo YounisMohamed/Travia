@@ -157,33 +157,49 @@ class ChatPageState extends ConsumerState<ChatPage> {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (currentUserId.isEmpty) return;
 
-    final replyMessage = ref.read(replyMessageProvider);
-    final messageId = Uuid().v4();
+    try {
+      // Check if current user can interact with all target users
+      for (String targetUserId in target_user_ids) {
+        if (targetUserId == currentUserId) continue;
 
-    final placeholder = MessageClass(
-      messageId: messageId,
-      conversationId: widget.conversationId,
-      senderId: currentUserId,
-      content: content,
-      contentType: contentType,
-      sentAt: DateTime.now().toUtc(),
-      readBy: {currentUserId: DateTime.now().toUtc().toIso8601String()},
-      isEdited: false,
-      replyToMessageId: replyMessage?.messageId,
-      reactions: null,
-      isConfirmed: false,
-      isDeleted: false,
-      deletedForMeId: [],
-    );
-
-    ref.read(pendingMessagesProvider.notifier).update((state) => {
-          ...state,
-          messageId: placeholder,
+        final canInteract = await supabase.rpc('can_users_interact', params: {
+          'user1_id': currentUserId,
+          'user2_id': targetUserId,
         });
 
-    _messageController.clear();
+        if (!canInteract) {
+          // Show error message to user
+          Popup.showError(text: "Cannot send message, blocked relationship.", context: context);
+          return;
+        }
+      }
 
-    try {
+      final replyMessage = ref.read(replyMessageProvider);
+      final messageId = Uuid().v4();
+
+      final placeholder = MessageClass(
+        messageId: messageId,
+        conversationId: widget.conversationId,
+        senderId: currentUserId,
+        content: content,
+        contentType: contentType,
+        sentAt: DateTime.now().toUtc(),
+        readBy: {currentUserId: DateTime.now().toUtc().toIso8601String()},
+        isEdited: false,
+        replyToMessageId: replyMessage?.messageId,
+        reactions: null,
+        isConfirmed: false,
+        isDeleted: false,
+        deletedForMeId: [],
+      );
+
+      ref.read(pendingMessagesProvider.notifier).update((state) => {
+            ...state,
+            messageId: placeholder,
+          });
+
+      _messageController.clear();
+
       await supabase
           .from('messages')
           .insert({
@@ -202,8 +218,25 @@ class ChatPageState extends ConsumerState<ChatPage> {
         newState[messageId] = placeholder.copyWith(isConfirmed: true);
         return newState;
       });
+
+      // Send notifications only to users who can receive them (not blocked)
+      List<String> validTargetUsers = [];
       for (String target_user_id in target_user_ids) {
         if (target_user_id == currentUserId) continue;
+
+        // Double-check interaction capability before sending notification
+        final canInteract = await supabase.rpc('can_users_interact', params: {
+          'user1_id': currentUserId,
+          'user2_id': target_user_id,
+        });
+
+        if (canInteract) {
+          validTargetUsers.add(target_user_id);
+        }
+      }
+
+      // Send notifications to valid target users
+      for (String target_user_id in validTargetUsers) {
         await sendNotification(
             type: 'message',
             title: "sent you a message",
@@ -218,11 +251,23 @@ class ChatPageState extends ConsumerState<ChatPage> {
       }
     } catch (e) {
       print('Error sending message: $e');
-      ref.read(pendingMessagesProvider.notifier).update((state) {
-        final newState = Map<String, MessageClass>.from(state);
-        newState[messageId] = placeholder.copyWith(content: '${placeholder.content} (Failed)');
-        return newState;
-      });
+
+      // Handle specific blocking errors
+      if (e.toString().contains('blocked') || e.toString().contains('interact')) {
+        Popup.showError(text: "Cannot send message, blocked relationship.", context: context);
+      } else {
+        // Handle other errors
+        ref.read(pendingMessagesProvider.notifier).update((state) {
+          final newState = Map<String, MessageClass>.from(state);
+          final messageId = state.keys.last; // Get the last message ID
+          if (state.containsKey(messageId)) {
+            newState[messageId] = state[messageId]!.copyWith(content: '${state[messageId]!.content} (Failed)');
+          }
+          return newState;
+        });
+
+        Popup.showError(text: "Failed to send message, try again", context: context);
+      }
     }
   }
 }
@@ -1421,7 +1466,7 @@ class MessageBubble extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isCurrentUser) ...[
-            _buildAvatar(),
+            _buildAvatar(context),
             SizedBox(width: 8),
           ] else if (!isCurrentUser) ...[
             SizedBox(width: 40), // Space for avatar alignment
@@ -1585,7 +1630,7 @@ class MessageBubble extends ConsumerWidget {
           ),
           if (isCurrentUser) ...[
             SizedBox(width: 8),
-            _buildAvatar(),
+            _buildAvatar(context),
           ] else if (isCurrentUser) ...[
             SizedBox(width: 40), // Space for avatar alignment
           ],
@@ -1645,7 +1690,7 @@ class MessageBubble extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isCurrentUser) ...[
-            _buildAvatar(),
+            _buildAvatar(context),
             SizedBox(width: 8),
           ] else if (!isCurrentUser) ...[
             SizedBox(width: 40),
@@ -1731,7 +1776,7 @@ class MessageBubble extends ConsumerWidget {
           ),
           if (isCurrentUser) ...[
             SizedBox(width: 8),
-            _buildAvatar(),
+            _buildAvatar(context),
           ] else if (isCurrentUser) ...[
             SizedBox(width: 40), // Space for avatar alignment
           ],
@@ -1748,7 +1793,7 @@ class MessageBubble extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isCurrentUser) ...[
-            _buildAvatar(),
+            _buildAvatar(context),
             SizedBox(width: 8),
           ],
           GestureDetector(
@@ -1789,7 +1834,7 @@ class MessageBubble extends ConsumerWidget {
           ),
           if (isCurrentUser) ...[
             SizedBox(width: 8),
-            _buildAvatar(),
+            _buildAvatar(context),
           ],
         ],
       ),
@@ -1823,7 +1868,7 @@ class MessageBubble extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isCurrentUser) ...[
-            _buildAvatar(),
+            _buildAvatar(context),
             SizedBox(width: 8),
           ],
           GestureDetector(
@@ -1872,18 +1917,23 @@ class MessageBubble extends ConsumerWidget {
           ),
           if (isCurrentUser) ...[
             SizedBox(width: 8),
-            _buildAvatar(),
+            _buildAvatar(context),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildAvatar() {
-    return CircleAvatar(
-      radius: 16,
-      backgroundImage: NetworkImage(
-        message.senderProfilePic ?? "",
+  Widget _buildAvatar(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        context.push("/profile/${message.senderId}");
+      },
+      child: CircleAvatar(
+        radius: 16,
+        backgroundImage: NetworkImage(
+          message.senderProfilePic ?? "",
+        ),
       ),
     );
   }

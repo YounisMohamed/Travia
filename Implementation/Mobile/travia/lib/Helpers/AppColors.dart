@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 
-const Color kDeepPurple = Color(0xFF4A0080);
-const Color kDeepPurpleLight = Color(0xFF7F3CAC);
 const Color kDeepPink = Color(0xffb60f68);
 const Color kDeepBlue = Color(0xff1D2860);
 const Color kDeepPinkLight = Color(0xFFe70950);
-const Color kDeepGrey = Color(0xFFE6EEFA);
+const Color kDeepGrey = Color(0xFFFAFDFF);
 const Color kDarkBackground = Color(0xFF121212);
-const Color kBackgroundColor = Color(0xFFF8F8F8);
 const Color kWhite = Colors.white;
 const Color kBlackOpaque = Colors.black54;
 const double kBorderRadius = 8.0;
@@ -33,11 +30,11 @@ final Color cancelButtonColor = Colors.red;
 class TravelAppTheme {
   static ThemeData get darkTheme {
     return ThemeData.dark().copyWith(
-      primaryColor: kDeepPurple,
+      primaryColor: kDeepPink,
       scaffoldBackgroundColor: kDarkBackground,
       colorScheme: const ColorScheme.dark(
-        primary: kDeepPurple,
-        secondary: kDeepPurpleLight,
+        primary: kDeepPink,
+        secondary: kDeepPinkLight,
         surface: kDarkBackground,
       ),
     );

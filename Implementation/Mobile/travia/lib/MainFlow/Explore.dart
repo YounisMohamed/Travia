@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
@@ -7,14 +9,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/AppColors.dart';
+import 'package:travia/MainFlow/FriendsPage.dart';
 
 import '../Classes/Post.dart';
 import '../Helpers/DummyCards.dart';
 import '../Helpers/GoogleTexts.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Helpers/Loading.dart';
+import '../Helpers/PopUp.dart';
+import '../Providers/ExploreProviders.dart';
 import '../Providers/LoadingProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
@@ -22,6 +28,7 @@ import '../Providers/SavedPostsProvider.dart';
 import '../database/DatabaseMethods.dart';
 import 'CommentSheet.dart';
 import 'MediaPreview.dart';
+import 'ReportsPage.dart';
 
 class ExplorePage extends ConsumerWidget {
   const ExplorePage({
@@ -36,12 +43,13 @@ class ExplorePage extends ConsumerWidget {
     }
 
     bool isLoading = ref.watch(loadingProvider);
-    final postsAsync = ref.watch(postsProvider);
-
+    final selectedFeed = ref.watch(selectedFeedProvider);
+    final postsAsync = ref.watch(currentFeedPostsProvider);
     // Create custom swipe gesture handlers for the Home screen
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
+        backgroundColor: kDeepGrey,
         appBar: AppBar(
           forceMaterialTransparency: true,
           elevation: 0,
@@ -78,114 +86,136 @@ class ExplorePage extends ConsumerWidget {
             ],
           ),
         ),
-        body: Container(
-          child: RefreshIndicator(
-            onRefresh: refresh,
-            displacement: 32,
-            color: Colors.black,
-            backgroundColor: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-                  child: Text(
-                    "Explore",
-                    style: GoogleFonts.ibmPlexSans(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+        body: RefreshIndicator(
+          onRefresh: refresh,
+          displacement: 32,
+          color: Colors.black,
+          backgroundColor: Colors.white,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
+                child: Text(
+                  "Explore",
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kDeepPink,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.read(selectedFeedProvider.notifier).state = "For You";
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: selectedFeed == "For You" ? kDeepPink : Colors.white,
+                        foregroundColor: selectedFeed == "For You" ? Colors.white : Colors.black54,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: selectedFeed != "For You" ? BorderSide(color: Colors.grey.shade300) : BorderSide.none,
                         ),
-                        child: Text(
-                          "For You",
-                          style: GoogleFonts.ibmPlexSans(
-                            fontWeight: FontWeight.w500,
-                          ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: Text(
+                        "For You",
+                        style: GoogleFonts.ibmPlexSans(
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black54,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        ),
-                        child: Text(
-                          "Following",
-                          style: GoogleFonts.ibmPlexSans(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () {
-                          context.push("/friends");
-                        },
-                        icon: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: const Icon(CupertinoIcons.plus, size: 20),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.search, size: 24),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: postsAsync.when(
-                    loading: () => Skeletonizer(
-                      enabled: true,
-                      child: _dummyPosts(),
                     ),
-                    error: (error, stackTrace) {
-                      print(error);
-                      print(stackTrace);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (context.mounted) {
-                          context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
-                        }
-                      });
-                      return const Center(child: Text("An error occurred."));
-                    },
-                    data: (posts) {
-                      if (posts.isEmpty) {
-                        return const Center(child: Text("No posts to show for now"));
-                      } else {
-                        return _buildFeed(context, posts);
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.read(selectedFeedProvider.notifier).state = "Following";
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: selectedFeed == "Following" ? kDeepPink : Colors.white,
+                        foregroundColor: selectedFeed == "Following" ? Colors.white : Colors.black54,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: selectedFeed != "Following" ? BorderSide(color: Colors.grey.shade300) : BorderSide.none,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: Text(
+                        "Following",
+                        style: GoogleFonts.ibmPlexSans(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => FriendsScreen(userIdOfCurrentFriendsList: FirebaseAuth.instance.currentUser!.uid)));
+                      },
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: const Icon(CupertinoIcons.plus, size: 20),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.search, size: 24),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: postsAsync.when(
+                  loading: () => Skeletonizer(
+                    enabled: true,
+                    child: _dummyPosts(),
+                  ),
+                  error: (error, stackTrace) {
+                    print(error);
+                    print(stackTrace);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (context.mounted) {
+                        context.go("/error-page/${Uri.encodeComponent(error.toString())}/${Uri.encodeComponent("/")}");
                       }
-                    },
-                  ),
+                    });
+                    return const Center(child: Text("An error occurred."));
+                  },
+                  data: (posts) {
+                    if (posts.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              selectedFeed == "Following" ? Icons.people_outline : Icons.post_add_outlined,
+                              size: 64,
+                              color: kDeepPink,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              selectedFeed == "Following" ? "No posts from people you follow" : "No posts to show for now",
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else {
+                      return _buildFeed(context, posts);
+                    }
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -194,7 +224,7 @@ class ExplorePage extends ConsumerWidget {
 
   Widget _dummyPosts() {
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: 3,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
@@ -204,23 +234,73 @@ class ExplorePage extends ConsumerWidget {
   }
 
   Widget _buildFeed(BuildContext context, List<Post> posts) {
+    // Function to calculate engagement score for post ranking
+    double calculateEngagementScore(Post post) {
+      final likes = post.likesCount ?? 0;
+      final dislikes = post.dislikesCount ?? 0;
+      final comments = post.commentCount ?? 0;
+
+      // Weights for different engagement types
+      const double likeWeight = 1.0;
+      const double dislikeWeight = -0.8; // Negative impact, but less than likes
+      const double commentWeight = 1.5; // Comments are valuable engagement
+
+      // Base score calculation
+      double score = (likes * likeWeight) + (dislikes * dislikeWeight) + (comments * commentWeight);
+
+      // Apply time decay factor (newer posts get slight boost)
+      if (post.createdAt != null) {
+        final now = DateTime.now();
+        final daysSincePost = now.difference(post.createdAt!).inDays;
+
+        // Gradual decay over time (posts lose 5% score per day, minimum 50% of original)
+        final timeFactor = max(0.5, 1.0 - (daysSincePost * 0.05));
+        score *= timeFactor;
+      }
+
+      // Prevent negative scores from dominating
+      return max(0, score);
+    }
+
+    // Function to sort posts by engagement score
+    List<Post> sortPostsByEngagement(List<Post> postsToSort) {
+      final sortedPosts = List<Post>.from(postsToSort);
+      sortedPosts.sort((a, b) {
+        final scoreA = calculateEngagementScore(a);
+        final scoreB = calculateEngagementScore(b);
+        return scoreB.compareTo(scoreA); // Descending order (highest score first)
+      });
+      return sortedPosts;
+    }
+
+    // Sort posts by engagement score before displaying
+    final sortedPosts = sortPostsByEngagement(posts);
+
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      itemCount: posts.length,
+      itemCount: sortedPosts.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final post = posts[index];
-        return ExplorePostCard(
-          username: post.userUserName,
-          profileImage: post.userPhotoUrl,
-          mediaUrl: post.mediaUrl,
-          postDescription: post.caption,
-          likes: post.likesCount,
-          dislikes: post.dislikesCount,
-          comments: post.commentCount,
-          time: timeAgo(post.createdAt),
-          postId: post.postId,
-          userId: post.userId,
+        final post = sortedPosts[index];
+
+        // Optional: Add engagement indicator for top posts
+        final isTopPost = index < 5; // Top 5 posts get special treatment
+
+        return Stack(
+          children: [
+            ExplorePostCard(
+                username: post.userUserName,
+                profileImage: post.userPhotoUrl,
+                mediaUrl: post.mediaUrl,
+                postDescription: post.caption,
+                likes: post.likesCount,
+                dislikes: post.dislikesCount,
+                comments: post.commentCount,
+                time: timeAgo(post.createdAt),
+                postId: post.postId,
+                userId: post.userId,
+                isTopPost: isTopPost),
+          ],
         );
       },
     );
@@ -238,22 +318,27 @@ class ExplorePostCard extends ConsumerWidget {
   final String time;
   final String postId;
   final String userId;
+  final bool isTopPost;
 
-  const ExplorePostCard(
-      {super.key,
-      required this.username,
-      required this.profileImage,
-      required this.mediaUrl,
-      this.postDescription,
-      required this.likes,
-      required this.dislikes,
-      required this.comments,
-      required this.time,
-      required this.postId,
-      required this.userId});
+  const ExplorePostCard({
+    super.key,
+    required this.username,
+    required this.profileImage,
+    required this.mediaUrl,
+    this.postDescription,
+    required this.likes,
+    required this.dislikes,
+    required this.comments,
+    required this.time,
+    required this.postId,
+    required this.userId,
+    required this.isTopPost,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final savedState = ref.watch(savedPostsProvider);
+    final isSaved = savedState[postId] ?? false;
     return Consumer(
       builder: (context, ref, child) {
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -264,8 +349,6 @@ class ExplorePostCard extends ConsumerWidget {
           likes: likes,
           dislikes: dislikes,
         )));
-        final savedState = ref.watch(savedPostsProvider);
-        final isSaved = savedState[postId] ?? false;
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -377,6 +460,45 @@ class ExplorePostCard extends ConsumerWidget {
                                             fontSize: 13,
                                           ),
                                         ),
+                                        SizedBox(
+                                          height: 8,
+                                        ),
+                                        if (isTopPost)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [kDeepPink, Colors.black87],
+                                              ),
+                                              borderRadius: BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: kDeepPinkLight.withOpacity(0.3),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.trending_up,
+                                                  size: 12,
+                                                  color: Colors.white,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Trending',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -391,17 +513,70 @@ class ExplorePostCard extends ConsumerWidget {
                                         width: 1,
                                       ),
                                     ),
-                                    child: ClipOval(
-                                      child: IconButton(
-                                        onPressed: () {},
-                                        icon: Icon(
-                                          Icons.more_horiz,
-                                          color: Colors.white,
-                                          size: 20,
+                                    alignment: Alignment.center,
+                                    child: PopupMenuButton<String>(
+                                      color: Colors.white,
+                                      onSelected: (String result) async {
+                                        if (result == 'delete') {
+                                          try {
+                                            ref.read(loadingProvider.notifier).setLoadingToTrue();
+                                            await deletePostFromDatabase(postId);
+                                          } catch (e) {
+                                            Popup.showError(text: "Error deleting post..", context: context);
+                                          } finally {
+                                            ref.invalidate(postsProvider);
+                                            ref.read(loadingProvider.notifier).setLoadingToFalse();
+                                          }
+                                        } else if (result == 'share') {
+                                          Share.share("When we have a domain");
+                                        } else if (result == 'report') {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ReportsPage(
+                                                targetPostId: postId,
+                                                reportType: 'post',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      itemBuilder: (BuildContext context) => [
+                                        if (currentUserId == userId)
+                                          const PopupMenuItem<String>(
+                                            value: 'delete',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.delete, color: kDeepPink),
+                                                SizedBox(width: 10),
+                                                LexendText(text: 'Delete'),
+                                              ],
+                                            ),
+                                          ),
+                                        const PopupMenuItem<String>(
+                                          value: 'share',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.share, color: kDeepPink),
+                                              SizedBox(width: 10),
+                                              LexendText(text: 'Share'),
+                                            ],
+                                          ),
                                         ),
-                                        splashRadius: 20,
-                                        padding: EdgeInsets.zero,
-                                      ),
+                                        const PopupMenuItem<String>(
+                                          value: 'report',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.flag, color: kDeepPink),
+                                              SizedBox(width: 10),
+                                              LexendText(text: 'Report'),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      icon: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+                                      padding: EdgeInsets.zero, // Removes default offset/padding
+                                      constraints: const BoxConstraints(), // Avoids extra size
                                     ),
                                   ),
                                 ],
@@ -425,19 +600,46 @@ class ExplorePostCard extends ConsumerWidget {
                   ),
 
                   // Media section
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.03),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 1,
+                  GestureDetector(
+                    onTap: () {
+                      context.push("/post/$postId");
+                    },
+                    onDoubleTap: () {
+                      print("PRESSED");
+                      ref.read(likePostProvider.notifier).toggleReaction(
+                            postId: postId,
+                            likerId: currentUserId!,
+                            posterId: userId,
+                            reactionType: 'like',
+                          );
+
+                      ref.read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier).updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
+
+                      if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
+                        sendNotification(
+                          type: "like",
+                          title: "",
+                          content: currentUserId == userId ? "liked his own post" : "liked your post",
+                          target_user_id: userId,
+                          source_id: postId,
+                          sender_user_id: currentUserId,
+                        );
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.03),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                       ),
-                    ),
-                    child: ExplorePostMediaDisplay(
-                      mediaUrl: mediaUrl,
-                      isVideo: mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov'),
+                      child: ExplorePostMediaDisplay(
+                        mediaUrl: mediaUrl,
+                        isVideo: mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov'),
+                      ),
                     ),
                   ),
 
@@ -458,12 +660,12 @@ class ExplorePostCard extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             Row(
                               children: [
                                 _buildGlassActionButton(
-                                    color: kDeepPink,
+                                    color: kDeepPink.withOpacity(0.8),
                                     icon: reaction == 'like' ? CupertinoIcons.hand_thumbsup_fill : CupertinoIcons.hand_thumbsup,
                                     count: '${reactionCount['likes'] ?? 0}',
                                     onTap: () {
@@ -494,7 +696,7 @@ class ExplorePostCard extends ConsumerWidget {
                                 _buildGlassActionButton(
                                     icon: reaction == 'dislike' ? CupertinoIcons.hand_thumbsdown_fill : CupertinoIcons.hand_thumbsdown,
                                     count: '${reactionCount['dislikes'] ?? 0}',
-                                    color: Colors.grey.shade700,
+                                    color: kDeepPink.withOpacity(0.8),
                                     onTap: () {
                                       print("PRESSED");
                                       ref.read(likePostProvider.notifier).toggleReaction(
@@ -523,7 +725,7 @@ class ExplorePostCard extends ConsumerWidget {
                                 _buildGlassActionButton(
                                     icon: CupertinoIcons.chat_bubble,
                                     count: '${ref.watch(postCommentCountProvider(postId))}',
-                                    color: Colors.grey.shade700,
+                                    color: kDeepPink.withOpacity(0.8),
                                     onTap: () {
                                       showMaterialModalBottomSheet(
                                           context: context,
@@ -534,11 +736,6 @@ class ExplorePostCard extends ConsumerWidget {
                                     }),
                               ],
                             ),
-                            _buildBookmarkButton(
-                                onTap: () {
-                                  ref.read(savedPostsProvider.notifier).toggleSavePost(userId, postId);
-                                },
-                                icon: isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
                           ],
                         ),
                       ),

@@ -1,6 +1,4 @@
-import 'package:hive/hive.dart';
-
-class ConversationDetail extends HiveObject {
+class ConversationDetail {
   final String conversationId;
   final String conversationType;
   final String? title;
@@ -16,7 +14,6 @@ class ConversationDetail extends HiveObject {
   final String? userPhotoUrl;
   final int unreadCount;
   final String? sender;
-  final bool notificationsEnabled;
   final bool isTyping;
   final bool isPinned;
   final String? chatTheme;
@@ -39,7 +36,6 @@ class ConversationDetail extends HiveObject {
     required this.unreadCount,
     this.sender,
     this.groupPicture,
-    required this.notificationsEnabled,
     required this.isTyping,
     required this.isPinned,
     this.chatTheme,
@@ -60,10 +56,9 @@ class ConversationDetail extends HiveObject {
       userId: map['user_id'],
       lastReadAt: map['last_read_at'] != null ? DateTime.parse(map['last_read_at']) : null,
       userUsername: map['user_username'],
-      userPhotoUrl: map['user_photourl'],
+      userPhotoUrl: map['user_photo_url'], // Fixed key name
       unreadCount: (map['unread_count'] as num).toInt(),
       sender: map['sender'],
-      notificationsEnabled: map['notifications_enabled'],
       isTyping: map['is_typing'],
       isPinned: map['is_pinned'],
       chatTheme: map['chat_theme'],
@@ -85,10 +80,9 @@ class ConversationDetail extends HiveObject {
       'user_id': userId,
       'last_read_at': lastReadAt?.toIso8601String(),
       'user_username': userUsername,
-      'user_photourl': userPhotoUrl,
+      'user_photo_url': userPhotoUrl, // Fixed key name
       'unread_count': unreadCount,
       'sender': sender,
-      'notifications_enabled': notificationsEnabled,
       'is_typing': isTyping,
       'is_pinned': isPinned,
       'chat_theme': chatTheme,

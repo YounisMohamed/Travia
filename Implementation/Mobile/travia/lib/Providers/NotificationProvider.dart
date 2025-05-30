@@ -96,3 +96,33 @@ final notificationsProvider = StreamProvider<List<NotificationModel>>((ref) {
         return data.map((json) => NotificationModel.fromMap(json)).where((notification) => notification.targetUserId == currentUserId || notification.targetUserId == null).toList();
       });
 });
+
+final unreadNotificationCountProvider = Provider<int>((ref) {
+  final notificationsAsync = ref.watch(notificationsProvider);
+  final readState = ref.watch(notificationReadProvider);
+
+  return notificationsAsync.when(
+    data: (notifications) {
+      if (notifications.isEmpty) return 0;
+
+      int unreadCount = 0;
+      for (final notification in notifications) {
+        // Check if notification is removed locally
+        bool isRemovedLocally = readState['removed'][notification.id] == true;
+        if (isRemovedLocally) continue;
+
+        // Check if notification is read (either from database or local state)
+        bool isReadLocally = readState['read'][notification.id] == true;
+        bool isRead = notification.isRead || isReadLocally;
+
+        if (!isRead) {
+          unreadCount++;
+        }
+      }
+
+      return unreadCount;
+    },
+    loading: () => 0,
+    error: (_, __) => 0,
+  );
+});

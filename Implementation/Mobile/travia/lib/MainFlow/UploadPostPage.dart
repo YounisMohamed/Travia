@@ -31,7 +31,7 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
     final prefs = await SharedPreferences.getInstance();
     final lastCountry = prefs.getString('last_selected_country');
     setState(() {
-      _selectedCountry = lastCountry ?? popularCountries.first['name'];
+      _selectedCountry = lastCountry ?? countries.first['name'];
     });
   }
 
@@ -144,7 +144,7 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _selectedCountry ?? popularCountries.first['name'],
+                                  value: _selectedCountry ?? countries.first['name'],
                                   onChanged: isUploading
                                       ? null
                                       : (newValue) {
@@ -170,16 +170,13 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
                                       DropdownMenuItem(
                                         value: _selectedCountry,
                                         child: Text(
-                                          '${popularCountries.firstWhere((e) => e['name'] == _selectedCountry, orElse: () => {'name': _selectedCountry!, 'emoji': '🌍'})['emoji']} $_selectedCountry',
+                                          '${countries.firstWhere((e) => e['name'] == _selectedCountry, orElse: () => {'name': _selectedCountry!, 'emoji': '🌍'})['emoji']} $_selectedCountry',
                                         ),
                                       ),
-                                    ...popularCountries
-                                        .where((country) => country['name'] != _selectedCountry)
-                                        .map((country) => DropdownMenuItem(
-                                              value: country['name'],
-                                              child: Text('${country['emoji']} ${country['name']}'),
-                                            ))
-                                        .toList(),
+                                    ...countries.where((country) => country['name'] != _selectedCountry).map((country) => DropdownMenuItem(
+                                          value: country['name'],
+                                          child: Text('${country['emoji']} ${country['name']}'),
+                                        )),
                                   ],
                                 ),
                               ),

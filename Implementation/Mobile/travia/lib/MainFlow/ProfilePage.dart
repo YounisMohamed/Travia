@@ -5,19 +5,28 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/MainFlow/EditProfile.dart';
+import 'package:travia/MainFlow/FriendsPage.dart';
 
 import '../Classes/Post.dart';
 import '../Helpers/AppColors.dart';
+import '../Helpers/Constants.dart';
+import '../Helpers/DeleteConfirmation.dart';
+import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/ConversationProvider.dart';
 import '../Providers/ImagePickerProvider.dart';
 import '../Providers/ProfileProviders.dart';
 import '../Providers/UploadProviders.dart';
+import '../Services/BlockService.dart';
+import '../Services/FollowService.dart';
 import '../main.dart';
+import 'ReportsPage.dart';
+import 'SettingsPage.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   final String profileUserId;
@@ -32,6 +41,8 @@ class ProfilePage extends ConsumerStatefulWidget {
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   final PageController _pageController = PageController();
+  final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +59,95 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     super.dispose();
   }
 
+  Future<void> _handleBlockUser() async {
+    // Show confirmation dialog
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Block User',
+            style: TextStyle(
+              color: kDeepPink,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to block this user? They won\'t be able to see your posts, comment on your content, or message you.',
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kDeepPink,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Block',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: CircularProgressIndicator(color: kDeepPink),
+        ),
+      );
+
+      try {
+        final targetUserId = widget.profileUserId;
+
+        if (currentUserId != null) {
+          final success = await BlockService.blockUser(currentUserId, targetUserId);
+
+          Navigator.of(context).pop();
+
+          if (success) {
+            // Show success message
+            Popup.showSuccess(text: "User blocked successfully", context: context);
+
+            // Navigate back or refresh the page
+            Navigator.of(context).pop();
+          } else {
+            // Show error message
+            Popup.showError(text: "Error while blocking user", context: context);
+          }
+        }
+      } catch (e) {
+        Navigator.of(context).pop(); // Close loading dialog
+        Popup.showError(text: "Error while blocking user", context: context);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     Future<void> refresh() async {
@@ -55,15 +155,78 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       Phoenix.rebirth(context);
     }
 
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    //final bottomPadding = MediaQuery.of(context).padding.bottom + 30;
     final isOwnProfile = widget.profileUserId == currentUserId;
     final tabLabels = isOwnProfile ? ['Posts', 'Liked', 'Viewed', 'Saved'] : ['Posts', 'Liked'];
     final selectedTab = ref.watch(selectedPostTabProvider);
     final isLoading = ref.watch(profileLoadingProvider);
     final userAsync = ref.watch(userStreamProvider(widget.profileUserId));
+    final blockStatus = ref.watch(blockStatusProvider(widget.profileUserId));
+    final followController = ref.watch(followControllerProvider);
+    final isFollowLoading = ref.watch(isFollowActionLoadingProvider(widget.profileUserId));
+    final isFollowing = ref.watch(followStatusProvider(widget.profileUserId));
+
+    // Load follow status when page loads
+    ref.listen(followControllerProvider, (_, controller) {
+      controller.loadFollowStatus(widget.profileUserId);
+    });
+
+    Future<void> _handleBlockUser(BuildContext context, WidgetRef ref) async {
+      // Show confirmation dialog
+      showCustomDialog(
+        context: context,
+        title: "Block user",
+        message: "Are you sure you want to block this user? They won\'t be able to see your posts, comment on your content, or message you.",
+        actionText: "Block",
+        actionIcon: Icons.person,
+        onActionPressed: () async {
+          try {
+            final success = await ref.read(blockStatusProvider(widget.profileUserId).notifier).blockUser(currentUserId);
+
+            Navigator.of(context).pop();
+
+            if (success) {
+              Popup.showSuccess(text: "User blocked successfully", context: context);
+              Phoenix.rebirth(context);
+            } else {
+              Popup.showError(text: "Error while blocking user", context: context);
+            }
+          } catch (e) {
+            Navigator.of(context).pop();
+            Popup.showError(text: "Error while blocking user", context: context);
+          }
+        },
+      );
+    }
+
+    Future<void> _handleUnblockUser(BuildContext context, WidgetRef ref) async {
+      showCustomDialog(
+        context: context,
+        title: "Unblock user",
+        message: "Are you sure you want to unblock this user?",
+        actionText: "Unblock",
+        actionIcon: Icons.person,
+        onActionPressed: () async {
+          try {
+            final success = await ref.read(blockStatusProvider(widget.profileUserId).notifier).unblockUser(currentUserId);
+
+            Navigator.of(context).pop(); // Close loading dialog
+
+            if (success) {
+              // Show success message
+              Popup.showSuccess(text: "User unblocked successfully", context: context);
+            } else {
+              // Show error message
+              Popup.showError(text: "Error while unblocking user", context: context);
+            }
+          } catch (e) {
+            Navigator.of(context).pop(); // Close loading dialog
+            Popup.showError(text: "Error while unblocking user", context: context);
+          }
+        },
+      );
+    }
 
     return userAsync.when(
         data: (user) {
@@ -98,24 +261,154 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   SafeArea(
                     child: Column(
                       children: [
-                        // Navigation bar
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.02),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               Container(
-                                height: screenWidth * 0.12,
-                                width: screenWidth * 0.12,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(screenWidth * 0.06),
-                                ),
-                                child: const Icon(
-                                  Icons.more_horiz,
-                                  color: kDeepPink,
-                                ),
-                              ),
+                                  height: screenWidth * 0.12,
+                                  width: screenWidth * 0.12,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(screenWidth * 0.06),
+                                  ),
+                                  child: isOwnProfile
+                                      ? IconButton(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => SettingsPage(),
+                                              ),
+                                            );
+                                          },
+                                          icon: Icon(Icons.settings),
+                                          color: kDeepPink,
+                                        )
+                                      : PopupMenuButton<String>(
+                                          onSelected: (String value) async {
+                                            switch (value) {
+                                              case 'block':
+                                                await _handleBlockUser(context, ref);
+                                                break;
+                                              case 'unblock':
+                                                await _handleUnblockUser(context, ref);
+                                                break;
+                                              case 'report':
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => ReportsPage(
+                                                      targetUserId: widget.profileUserId,
+                                                      reportType: 'account',
+                                                    ),
+                                                  ),
+                                                );
+                                                break;
+                                            }
+                                          },
+                                          icon: Icon(Icons.more_horiz, color: kDeepPink),
+                                          color: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            side: BorderSide(color: kDeepPink.withOpacity(0.2), width: 1),
+                                          ),
+                                          elevation: 8,
+                                          shadowColor: kDeepPink.withOpacity(0.3),
+                                          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                                            PopupMenuItem<String>(
+                                              value: blockStatus.when(
+                                                data: (isBlocked) => isBlocked ? 'unblock' : 'block',
+                                                loading: () => 'block',
+                                                error: (_, __) => 'block',
+                                              ),
+                                              child: blockStatus.when(
+                                                data: (isBlocked) => Row(
+                                                  children: [
+                                                    Icon(
+                                                      isBlocked ? Icons.person_add : Icons.block,
+                                                      color: kDeepPink,
+                                                      size: 20,
+                                                    ),
+                                                    SizedBox(width: 12),
+                                                    Text(
+                                                      isBlocked ? 'Unblock User' : 'Block User',
+                                                      style: TextStyle(
+                                                        color: Colors.black87,
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                loading: () => Row(
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 20,
+                                                      height: 20,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: kDeepPink,
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 12),
+                                                    Text(
+                                                      'Loading...',
+                                                      style: TextStyle(
+                                                        color: Colors.black87,
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                error: (_, __) => Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.block,
+                                                      color: kDeepPink,
+                                                      size: 20,
+                                                    ),
+                                                    SizedBox(width: 12),
+                                                    Text(
+                                                      'Block User',
+                                                      style: TextStyle(
+                                                        color: Colors.black87,
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            PopupMenuDivider(
+                                              height: 1,
+                                            ),
+                                            PopupMenuItem<String>(
+                                              value: 'report',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.flag,
+                                                    color: kDeepPink,
+                                                    size: 20,
+                                                  ),
+                                                  SizedBox(width: 12),
+                                                  Text(
+                                                    'Report User',
+                                                    style: TextStyle(
+                                                      color: Colors.black87,
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        )),
                             ],
                           ),
                         ),
@@ -149,8 +442,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            _buildStatColumn(user.friendIds.length.toString(), 'Friends'),
-                                            _buildStatColumn(user.followingIds.length.toString(), 'Following'),
+                                            GestureDetector(
+                                                onTap: () {
+                                                  Navigator.of(context).push(MaterialPageRoute(
+                                                      builder: (_) => FriendsScreen(
+                                                            initialIndex: 1,
+                                                            userIdOfCurrentFriendsList: widget.profileUserId,
+                                                          )));
+                                                },
+                                                child: _buildStatColumn(user.friendIds.length, 'Followers')),
+                                            GestureDetector(
+                                                onTap: () {
+                                                  Navigator.of(context).push(MaterialPageRoute(
+                                                      builder: (_) => FriendsScreen(
+                                                            initialIndex: 0,
+                                                            userIdOfCurrentFriendsList: widget.profileUserId,
+                                                          )));
+                                                },
+                                                child: _buildStatColumn(user.followingIds.length, 'Following')),
                                           ],
                                         ),
                                       ),
@@ -189,18 +498,72 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
                                       SizedBox(height: screenHeight * 0.02),
 
-                                      IBMPlexSansText(
-                                        text: user.bio ?? "No Bio",
-                                        size: 15,
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: IBMPlexSansText(
+                                          text: user.bio ?? "No Bio",
+                                          size: 15,
+                                          center: true,
+                                          isBold: true,
+                                        ),
                                       ),
 
                                       SizedBox(height: screenHeight * 0.02),
 
                                       Text(
-                                        '${DateTime.now().year - user.age.year - (DateTime.now().month < user.age.month || (DateTime.now().month == user.age.month && DateTime.now().day < user.age.day) ? 1 : 0)} | ${user.relationshipStatus}',
+                                        '${user.gender} | ${DateTime.now().year - user.age.year - (DateTime.now().month < user.age.month || (DateTime.now().month == user.age.month && DateTime.now().day < user.age.day) ? 1 : 0)} | ${user.relationshipStatus}',
                                         style: TextStyle(
                                           fontSize: 14,
                                         ),
+                                      ),
+
+                                      SizedBox(height: screenHeight * 0.02),
+
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: (user.badges.isEmpty
+                                                ? [
+                                                    'New User',
+                                                  ]
+                                                : user.badges)
+                                            .map((badge) {
+                                          final badgeStyle = badgeStyles[badge] ?? defaultBadgeStyle;
+
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(colors: badgeStyle.gradient),
+                                              borderRadius: BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: badgeStyle.gradient.first.withOpacity(0.3),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  badgeStyle.icon,
+                                                  size: 12,
+                                                  color: Colors.white,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  badge,
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
                                       ),
 
                                       SizedBox(height: screenHeight * 0.02),
@@ -213,12 +576,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                             children: [
                                               Consumer(
                                                 builder: (context, ref, _) {
-                                                  final isFollowing = ref.watch(followStatusProvider(widget.profileUserId));
-                                                  final notifier = ref.read(followStatusProvider(widget.profileUserId).notifier);
-
                                                   return Expanded(
                                                     child: GestureDetector(
-                                                      onTap: notifier.toggleFollow,
+                                                      onTap: isLoading
+                                                          ? null
+                                                          : () async {
+                                                              final result = await followController.toggleFollow(widget.profileUserId);
+                                                              if (!result.isSuccess && context.mounted) {
+                                                                if (result.isBlocked) {
+                                                                  Popup.showError(text: "Cannot follow @${user.username}: You have a blocked relationship with this user", context: context);
+                                                                } else {
+                                                                  Popup.showError(text: result.errorMessage ?? "Failed to follow user", context: context);
+                                                                }
+                                                              }
+                                                            },
                                                       child: Container(
                                                         height: screenHeight * 0.06,
                                                         margin: const EdgeInsets.only(right: 10),
@@ -339,7 +710,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                             topRight: Radius.circular(30),
                                           ),
                                         ),
-                                        child: !user.public && !isOwnProfile
+                                        child: !isOwnProfile
                                             ? // Private account indicator
                                             Container(
                                                 height: screenHeight * 0.45,
@@ -623,23 +994,32 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ));
   }
 
-  Widget _buildStatColumn(String count, String label) {
-    return Column(
-      children: [
-        Text(
-          count,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+  Widget _buildStatColumn(int count, String label) {
+    return Container(
+      width: 115,
+      height: 115,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            formatCount(count),
+            style: GoogleFonts.lexendDeca(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.grey,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.lexendDeca(fontSize: 13, color: kDeepPinkLight, fontWeight: FontWeight.bold),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

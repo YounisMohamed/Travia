@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:travia/MainFlow/FriendsPage.dart';
+import 'package:travia/Auth/WelcomePage.dart';
+import 'package:travia/Helpers/AppColors.dart';
+import 'package:travia/MainFlow/BannedUserPage.dart';
 import 'package:travia/MainFlow/ProfilePage.dart';
 
 import 'Auth/ForgotPassword.dart';
@@ -139,10 +141,13 @@ class MyApp extends StatelessWidget {
         routes: [
           // ====================== AUTH ROUTES ======================
           GoRoute(
+            path: '/welcome',
+            builder: (context, state) => WelcomePage(),
+          ),
+          GoRoute(
             path: '/signin',
             builder: (context, state) => SignInPage(),
           ),
-
           GoRoute(
             path: '/signup',
             builder: (context, state) => SignUpPage(),
@@ -227,14 +232,12 @@ class MyApp extends StatelessWidget {
             path: '/upload-post',
             builder: (context, state) => UploadPostPage(),
           ),
+
           GoRoute(
             path: '/dms-page',
             builder: (context, state) => DMsPage(),
           ),
-          GoRoute(
-            path: '/friends',
-            builder: (context, state) => FriendsScreen(),
-          ),
+
           GoRoute(
             path: '/messages/:conversationId',
             builder: (context, state) {
@@ -246,20 +249,29 @@ class MyApp extends StatelessWidget {
             path: '/recorder',
             builder: (context, state) => RecorderPage(),
           ),
+          GoRoute(
+            path: '/banned',
+            builder: (context, state) => BannedUserPage(),
+          ),
         ],
         navigatorKey: navigatorKey);
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
+      title: 'Travia App',
       theme: ThemeData.light().copyWith(
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
+          backgroundColor: kDeepGrey,
           elevation: 0,
           iconTheme: IconThemeData(color: Colors.black),
         ),
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Colors.black,
+          selectionColor: Colors.black12,
+          selectionHandleColor: Colors.black,
+        ),
       ),
-      title: 'Travia App',
       routerConfig: router,
     );
   }

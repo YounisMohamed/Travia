@@ -33,6 +33,7 @@ class NotificationsPage extends ConsumerWidget {
     final notificationsAsyncValue = ref.watch(notificationsProvider);
 
     return Scaffold(
+      backgroundColor: kDeepGrey,
       appBar: AppBar(
         title: Row(
           children: [
@@ -70,7 +71,7 @@ class NotificationsPage extends ConsumerWidget {
 
               return Container(
                 margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
-                child: TextButton.icon(
+                child: IconButton(
                   onPressed: () async {
                     // Show confirmation dialog using custom dialog function
                     await showCustomDialog(
@@ -103,25 +104,6 @@ class NotificationsPage extends ConsumerWidget {
                       color: Colors.white,
                       size: 16,
                     ),
-                  ),
-                  label: const Text(
-                    'Mark All Read',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: kDeepPink,
-                    backgroundColor: kDeepPink.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: kDeepPink.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   ),
                 ),
               );
@@ -180,7 +162,7 @@ class NotificationsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your travel updates will appear here',
+                    'Your social interactions will appear here',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey.shade600,
@@ -192,9 +174,10 @@ class NotificationsPage extends ConsumerWidget {
           }
           return ListView.builder(
             padding: const EdgeInsets.only(top: 8),
-            itemCount: notifications.length,
+            itemCount: notifications.where((notification) => notification.type != "message").length,
             itemBuilder: (context, index) {
-              final notification = notifications[index];
+              final filteredNotifications = notifications.where((notification) => notification.type != "message").toList();
+              final notification = filteredNotifications[index];
               return NotificationTile(
                 senderPhoto: notification.senderPhoto,
                 username: notification.senderUsername,
@@ -500,7 +483,7 @@ class StandardNotificationTile extends StatelessWidget {
                           kDeepPink.withOpacity(0.02),
                         ],
                       ),
-                color: isRead ? Colors.white : null,
+                color: kDeepGrey,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isRead ? Colors.grey.shade200 : kDeepPink.withOpacity(0.2),

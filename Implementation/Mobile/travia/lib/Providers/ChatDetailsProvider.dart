@@ -24,31 +24,12 @@ final chatMetadataProvider = FutureProvider.family<ChatDetails, String>((ref, co
 final messagesProvider = StreamProvider.family<List<MessageClass>, String>((ref, conversationId) async* {
   print("Messages stream setup for conversationId: $conversationId");
 
-  // Step 1: Load cached messages first
-  /*
-  final cachedMessages = getMessagesFromCache(conversationId);
-  print("Loaded cached messages: ${cachedMessages.map((m) => m.messageId).toList()}");
-  if (cachedMessages.isNotEmpty) {
-    print("Emitting cached messages immediately");
-    yield cachedMessages;
-  }
-   */
-  // Step 2: Fetch live updates from Supabase
   await for (final event in supabase.from('messages').stream(primaryKey: ['message_id']).eq('conversation_id', conversationId)) {
     print("Messages stream event: $event");
 
     final messages = event.map((json) => MessageClass.fromMap(json)).toList();
     print("Messages updated: ${messages.map((m) => m.messageId).toList()}");
 
-    // Step 3: Save new messages to cache
-    /*
-    for (final message in messages) {
-      saveMessageToCache(message);
-    }
-
-     */
-
-    // Emit new messages
     yield messages;
   }
 });

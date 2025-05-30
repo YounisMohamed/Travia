@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:travia/Helpers/PopUp.dart';
 import 'package:uuid/uuid.dart';
 
 import '../Classes/Media.dart';
@@ -117,13 +118,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   void _showError(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.red,
-        ),
-      );
+      Popup.showError(text: "Sorry, an error happened", context: context);
     }
   }
 
@@ -234,7 +229,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         // Switch camera button
                         FloatingActionButton(
                           heroTag: 'switchCamera',
-                          backgroundColor: kDeepPurple.withOpacity(0.8),
+                          backgroundColor: kDeepPink.withOpacity(0.8),
                           mini: true,
                           onPressed: _switchCamera,
                           child: const Icon(Icons.flip_camera_ios, color: kWhite),
@@ -253,7 +248,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                             onPressed: _takingPicture ? null : _takePicture,
                             child: Icon(
                               Icons.camera_alt,
-                              color: _takingPicture ? Colors.grey : kDeepPurple,
+                              color: _takingPicture ? Colors.grey : kDeepPink,
                               size: 30,
                             ),
                           ),
@@ -271,7 +266,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   Center(
                     child: LoadingWidget(
                       size: 60,
-                      colors: const [kDeepPurple, kDeepPurpleLight, Colors.white],
+                      colors: const [kDeepPink, kDeepPinkLight, Colors.white],
                     ),
                   ),
               ],
@@ -279,7 +274,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           : Center(
               child: LoadingWidget(
                 size: 60,
-                colors: const [kDeepPurple, kDeepPurpleLight],
+                colors: const [kDeepPink, kDeepPinkLight],
               ),
             ),
     );

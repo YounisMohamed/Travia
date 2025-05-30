@@ -1,11 +1,13 @@
 import 'dart:developer';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:travia/Helpers/AppColors.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/ConversationNotificationsProvider.dart';
@@ -68,12 +70,13 @@ class _DMsPageState extends ConsumerState<DMsPage> {
     final isLoading = ref.watch(conversationIsLoadingProvider);
 
     return Scaffold(
+      backgroundColor: kDeepGrey,
       appBar: AppBar(
         title: Row(
           children: [
             Text(
               "Conversations",
-              style: GoogleFonts.actor(),
+              style: GoogleFonts.ibmPlexSans(fontSize: 21, fontWeight: FontWeight.bold),
             ),
             SizedBox(width: 10),
             if (isLoading)
@@ -121,16 +124,86 @@ class _DMsPageState extends ConsumerState<DMsPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey),
-                    SizedBox(height: 16),
+                    Container(
+                      padding: EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [kDeepPink.withOpacity(0.1), kDeepPinkLight.withOpacity(0.1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.chat_bubble_outline,
+                        size: 48,
+                        color: kDeepPink,
+                      ),
+                    ),
+                    SizedBox(height: 24),
                     Text(
                       'No conversations yet',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
                     SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: _createNewConversation,
-                      child: const Text('Start a conversation'),
+                    Text(
+                      'Start chatting with other travelers!',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                          colors: [kDeepPinkLight, kDeepPink],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: kDeepPink.withOpacity(0.3),
+                            spreadRadius: 1,
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _createNewConversation,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.add_comment_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Start a conversation',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -161,8 +234,12 @@ class _DMsPageState extends ConsumerState<DMsPage> {
           }),
       floatingActionButton: FloatingActionButton(
         onPressed: _createNewConversation,
-        child: const Icon(Icons.chat),
         tooltip: 'New Conversation',
+        backgroundColor: Colors.white,
+        child: const Icon(
+          Icons.chat,
+          color: kDeepPink,
+        ),
       ),
     );
   }
@@ -203,7 +280,7 @@ class ConversationTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notificationState = ref.watch(convNotificationsProvider);
-    final isNotificationEnabled = notificationState[conversationId] ?? false;
+    final isNotificationEnabled = notificationState[conversationId] ?? true;
     final typingUsersAsync = ref.watch(otherTypingProvider(conversationId));
 
     bool isDirect = conversationType == 'direct';
@@ -240,9 +317,9 @@ class ConversationTile extends ConsumerWidget {
         ),
         title: Text(
           displayTitle,
-          style: const TextStyle(
+          style: GoogleFonts.redHatDisplay(
             fontWeight: FontWeight.w600,
-            fontSize: 16,
+            fontSize: 17,
             color: Colors.black87,
           ),
           maxLines: 1,
@@ -256,13 +333,13 @@ class ConversationTile extends ConsumerWidget {
               if (typingUsers.isNotEmpty)
                 Text(
                   typingText,
-                  style: TextStyle(fontSize: 13, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.lexend(fontSize: 15, color: kDeepPink, fontWeight: FontWeight.bold),
                 )
               else
                 RichText(
                   text: TextSpan(
-                    style: GoogleFonts.roboto(
-                      fontSize: 12,
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
                       color: Colors.black87,
                       height: 1.4,
                     ),
@@ -270,9 +347,9 @@ class ConversationTile extends ConsumerWidget {
                       if (!isDirect && (sender != null))
                         TextSpan(
                           text: "$sender: ",
-                          style: GoogleFonts.roboto(
+                          style: GoogleFonts.lexend(
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade700,
+                            color: kDeepPink,
                           ),
                         ),
                       TextSpan(
@@ -291,8 +368,8 @@ class ConversationTile extends ConsumerWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     time,
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: GoogleFonts.lexend(
+                      fontSize: 13,
                       color: Colors.grey.shade600,
                     ),
                   ),
@@ -304,14 +381,14 @@ class ConversationTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              iconSize: 24,
+              iconSize: 21,
               padding: const EdgeInsets.all(8),
               onPressed: () {
                 ref.read(convNotificationsProvider.notifier).toggleConvNotifications(conversationId: conversationId);
               },
               icon: Icon(
-                isNotificationEnabled ? Icons.notifications : Icons.notifications_off,
-                color: Colors.grey.shade600,
+                isNotificationEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
+                color: kDeepPink,
               ),
             ),
             if (unreadCount > 0)
@@ -319,7 +396,7 @@ class ConversationTile extends ConsumerWidget {
                 width: 16,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade600,
+                  color: kDeepPink,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -385,12 +462,6 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
   final TextEditingController _groupNameController = TextEditingController();
   late TabController _tabController;
 
-  final Color _primaryColor = Colors.purple;
-  final Color _accentColor = const Color(0xFFFF9800);
-  final Color _backgroundColor = const Color(0xFFF5F7FA);
-  final Color _greenColor = const Color(0xFF4CAF50);
-  final Color _errorColor = const Color(0xFFE53935);
-
   @override
   void initState() {
     super.initState();
@@ -428,13 +499,7 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
       log(e.toString());
       if (mounted) {
         Navigator.of(context).pop(null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create conversation: $e'),
-            backgroundColor: _errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        Popup.showError(text: 'Failed to create conversation: $e', context: context);
       }
     }
   }
@@ -444,25 +509,13 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
     final isCreatingGroup = ref.read(isCreatingGroupProvider);
 
     if (selectedUsers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select at least one traveler'),
-          backgroundColor: _errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      Popup.showWarning(text: 'Please select at least one traveler', context: context);
       return;
     }
 
     String groupName = _groupNameController.text.trim();
     if (groupName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter a group name for your travel squad'),
-          backgroundColor: _errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      Popup.showWarning(text: 'Please enter a group name for your travel squad', context: context);
       return;
     }
 
@@ -480,13 +533,7 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
     } catch (e) {
       log(e.toString());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create travel group: $e'),
-            backgroundColor: _errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        Popup.showError(text: 'Failed to create travel group: $e', context: context);
       }
     } finally {
       if (mounted) {
@@ -503,7 +550,7 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 8,
-      backgroundColor: _backgroundColor,
+      backgroundColor: Colors.white,
       child: Container(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -512,54 +559,77 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
           children: [
             Row(
               children: [
-                Icon(Icons.explore, color: _primaryColor, size: 28),
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [kDeepPink, kDeepPinkLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.explore, color: Colors.white, size: 24),
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Connect',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: _primaryColor,
+                        color: Colors.black87,
                         fontWeight: FontWeight.bold,
                       ),
+                ),
+                Spacer(),
+                IconButton(
+                  icon: Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
             const SizedBox(height: 20),
             Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: _primaryColor,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                  indicator: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: _primaryColor,
+              decoration: BoxDecoration(
+                color: kDeepGrey,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: EdgeInsets.all(4),
+              child: TabBar(
+                controller: _tabController,
+                labelColor: Colors.white,
+                unselectedLabelColor: kDeepPink,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(
+                    colors: [kDeepPinkLight, kDeepPink],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  tabs: [
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.person, size: 20),
-                          SizedBox(width: 8),
-                          Text('Direct'),
-                        ],
-                      ),
+                ),
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.person, size: 20),
+                        SizedBox(width: 8),
+                        Text('Direct'),
+                      ],
                     ),
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.groups, size: 20),
-                          SizedBox(width: 8),
-                          Text('Squad'),
-                        ],
-                      ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.groups, size: 20),
+                        SizedBox(width: 8),
+                        Text('Squad'),
+                      ],
                     ),
-                  ],
-                )),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
             Expanded(
               child: TabBarView(
@@ -579,7 +649,8 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
   Widget _buildDirectMessageTab(AsyncValue<List<UserModel>> userSearchResult) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
+        color: kDeepGrey,
+        borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -587,19 +658,18 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
           TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Find travelers...',
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              prefixIcon: Icon(Icons.search, color: _primaryColor),
-              suffixIcon: Icon(Icons.travel_explore, color: _accentColor),
+              hintText: 'Find travelers..',
+              hintStyle: TextStyle(color: Colors.grey.shade600),
+              suffixIcon: Icon(Icons.travel_explore, color: kDeepPinkLight),
               filled: true,
               fillColor: Colors.white,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                borderSide: BorderSide(color: kDeepPink.withOpacity(0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _primaryColor, width: 2),
+                borderSide: BorderSide(color: kDeepPink, width: 2),
               ),
             ),
             onChanged: (value) {
@@ -609,95 +679,66 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
           const SizedBox(height: 16),
           Expanded(
             child: userSearchResult.when(
-              loading: () => Center(child: CircularProgressIndicator(color: _primaryColor)),
-              error: (err, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, color: _errorColor, size: 48),
-                    const SizedBox(height: 8),
-                    Text('Error: $err', style: TextStyle(color: _errorColor)),
-                  ],
-                ),
-              ),
+              loading: () => Center(child: CircularProgressIndicator(color: kDeepPink)),
+              error: (err, stack) => _buildErrorWidget(err.toString()),
               data: (users) {
-                if (ref.read(searchQueryProvider).isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search, color: _primaryColor.withOpacity(0.6), size: 64),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: Text(
-                            'Search for travellers to talk to!',
-                            style: TextStyle(color: _primaryColor, fontSize: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                final searchQuery = ref.read(searchQueryProvider);
+                if (searchQuery.isEmpty) {
+                  return _buildEmptySearchPrompt('Search for travelers to connect with!');
                 }
-
                 if (users.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_search, color: Colors.grey.shade400, size: 64),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No travelers found',
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  );
+                  return _buildNotFoundWidget('No travelers found');
                 }
 
                 return ListView.separated(
                   itemCount: users.length,
-                  separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade200),
+                  separatorBuilder: (_, __) => Divider(height: 1, color: kDeepPink.withOpacity(0.1)),
                   itemBuilder: (context, index) {
                     final user = users[index];
-                    return Card(
-                      elevation: 0,
-                      color: Colors.transparent,
+                    return Container(
                       margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: Offset(0, 2)),
+                        ],
+                      ),
                       child: ListTile(
-                        dense: true, // Makes the ListTile more compact
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         leading: CircleAvatar(
-                          radius: 18, // Reduced from 24
-                          backgroundColor: _accentColor,
+                          radius: 20,
+                          backgroundColor: kDeepPink,
                           backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                          child: user.photoUrl == null
-                              ? Text(
-                                  user.displayName[0].toUpperCase(),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                )
-                              : null,
+                          child: user.photoUrl == null ? Text(user.displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
                         ),
                         title: Text(
                           user.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis, // Ensures text doesn't wrap
+                          overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
                           '@${user.username}',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis, // Ensures text doesn't wrap
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        trailing: IconButton(
-                          icon: Icon(Icons.chat, size: 20, color: _primaryColor),
-                          onPressed: () => _createDirectConversation(user),
-                          tooltip: 'Chat',
-                          constraints: BoxConstraints.tightFor(width: 40, height: 40),
+                        trailing: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            icon: Icon(Icons.chat_bubble_outline, size: 20, color: Colors.white),
+                            onPressed: () => _createDirectConversation(user),
+                            tooltip: 'Start Chat',
+                            constraints: BoxConstraints.tightFor(width: 40, height: 40),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         onTap: () => _createDirectConversation(user),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     );
                   },
@@ -715,27 +756,25 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
     final isCreatingGroup = ref.watch(isCreatingGroupProvider);
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
-      ),
+      decoration: BoxDecoration(color: kDeepGrey, borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           TextField(
             controller: _groupNameController,
             decoration: InputDecoration(
-              hintText: 'Name your squad...',
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              prefixIcon: Icon(Icons.tour, color: _accentColor),
+              hintText: 'Name your squad..',
+              hintStyle: TextStyle(color: Colors.grey.shade600),
+              prefixIcon: Icon(Icons.tour, color: kDeepPink),
               filled: true,
               fillColor: Colors.white,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _accentColor.withOpacity(0.3)),
+                borderSide: BorderSide(color: kDeepPink.withOpacity(0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _accentColor, width: 2),
+                borderSide: BorderSide(color: kDeepPink, width: 2),
               ),
             ),
           ),
@@ -747,7 +786,7 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _primaryColor.withOpacity(0.2)),
+                border: Border.all(color: kDeepPink.withOpacity(0.2)),
               ),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
@@ -759,21 +798,13 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
                     padding: const EdgeInsets.only(right: 8),
                     child: Chip(
                       avatar: CircleAvatar(
-                        backgroundColor: _accentColor,
+                        backgroundColor: kDeepPink,
                         backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                        child: user.photoUrl == null
-                            ? Text(
-                                user.displayName[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                              )
-                            : null,
+                        child: user.photoUrl == null ? Text(user.displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)) : null,
                       ),
-                      label: Text(
-                        user.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      backgroundColor: _primaryColor.withOpacity(0.1),
-                      deleteIcon: Icon(Icons.close, size: 16, color: _primaryColor),
+                      label: Text(user.displayName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      backgroundColor: kDeepPink.withOpacity(0.1),
+                      deleteIcon: Icon(Icons.close, size: 18, color: kDeepPink),
                       onDeleted: () => _toggleUserSelection(user),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       labelPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -783,21 +814,21 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
                 },
               ),
             ),
-          const SizedBox(height: 12),
+          if (selectedUsers.isNotEmpty) const SizedBox(height: 12),
           TextField(
             decoration: InputDecoration(
-              hintText: 'Add to your squad...',
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              prefixIcon: Icon(Icons.person_add, color: _primaryColor),
+              hintText: 'Search travelers..',
+              hintStyle: TextStyle(color: Colors.grey.shade600),
+              prefixIcon: Icon(Icons.person_add, color: kDeepPink),
               filled: true,
               fillColor: Colors.white,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _primaryColor.withOpacity(0.3)),
+                borderSide: BorderSide(color: kDeepPink.withOpacity(0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _primaryColor, width: 2),
+                borderSide: BorderSide(color: kDeepPink, width: 2),
               ),
             ),
             onChanged: (value) {
@@ -807,143 +838,101 @@ class _NewConversationDialogState extends ConsumerState<NewConversationDialog> w
           const SizedBox(height: 16),
           Expanded(
             child: userSearchResult.when(
-              loading: () => Center(child: CircularProgressIndicator(color: _primaryColor)),
-              error: (err, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, color: _errorColor, size: 48),
-                    const SizedBox(height: 8),
-                    Text('Error: $err', style: TextStyle(color: _errorColor)),
-                  ],
-                ),
-              ),
+              loading: () => Center(child: CircularProgressIndicator(color: kDeepPink)),
+              error: (err, stack) => _buildErrorWidget(err.toString()),
               data: (users) {
-                if (ref.read(searchQueryProvider).isEmpty && selectedUsers.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.group_add, color: _primaryColor.withOpacity(0.6), size: 64),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: Text(
-                            'Search to add travelers to your squad!',
-                            style: TextStyle(color: _primaryColor, fontSize: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                final query = ref.read(searchQueryProvider);
+                if (query.isEmpty && selectedUsers.isEmpty) {
+                  return _buildEmptySearchPrompt('Search travelers for your squad!');
                 }
-
-                if (users.isEmpty && ref.read(searchQueryProvider).isNotEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_search, color: Colors.grey.shade400, size: 64),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No travelers found with that name :(',
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  );
+                if (users.isEmpty && query.isNotEmpty) {
+                  return _buildNotFoundWidget('No travelers found');
                 }
 
                 return ListView.separated(
                   itemCount: users.length,
-                  separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade200),
+                  separatorBuilder: (_, __) => Divider(height: 1, color: kDeepPink.withOpacity(0.1)),
                   itemBuilder: (context, index) {
                     final user = users[index];
-                    final isSelected = selectedUsers.any((u) => u.id == user.id);
-
-                    return Card(
-                      elevation: 0,
-                      color: isSelected ? _primaryColor.withOpacity(0.05) : Colors.transparent,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: isSelected ? BorderSide(color: _primaryColor.withOpacity(0.3), width: 1) : BorderSide.none,
+                    return ListTile(
+                      dense: true,
+                      leading: CircleAvatar(
+                        backgroundColor: kDeepPink,
+                        backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
+                        child: user.photoUrl == null ? Text(user.displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        leading: CircleAvatar(
-                          radius: 24,
-                          backgroundColor: _accentColor,
-                          backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                          child: user.photoUrl == null
-                              ? Text(
-                                  user.displayName[0].toUpperCase(),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                )
-                              : null,
-                        ),
-                        title: Text(
-                          user.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          '@${user.username}',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 9),
-                        ),
-                        trailing: isSelected
-                            ? Icon(Icons.check_circle, color: _greenColor, size: 28)
-                            : Container(
-                                decoration: BoxDecoration(
-                                  color: _primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.all(8),
-                                child: Icon(Icons.add, color: _primaryColor),
-                              ),
-                        onTap: () => _toggleUserSelection(user),
+                      title: Text(user.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text('@${user.username}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade600)),
+                      trailing: Checkbox(
+                        value: selectedUsers.contains(user),
+                        onChanged: (_) => _toggleUserSelection(user),
+                        activeColor: kDeepPink,
                       ),
+                      onTap: () => _toggleUserSelection(user),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      tileColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     );
                   },
                 );
               },
             ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: isCreatingGroup ? null : _createGroupConversation,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _accentColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
-              ),
-              child: isCreatingGroup
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.group_add, color: Colors.white),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Start Travel Squad',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget(String errorText) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
+            child: Icon(Icons.error_outline, color: Colors.red, size: 48),
           ),
+          const SizedBox(height: 16),
+          Text('Oops! Something went wrong', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(errorText, style: TextStyle(color: Colors.grey.shade600), textAlign: TextAlign.center),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptySearchPrompt(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [kDeepPink.withOpacity(0.1), kDeepPinkLight.withOpacity(0.1)]),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.search, color: kDeepPink, size: 48),
+          ),
+          const SizedBox(height: 16),
+          Text(message, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotFoundWidget(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.person_search, color: Colors.grey.shade400, size: 64),
+          const SizedBox(height: 16),
+          Text(message, style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
         ],
       ),
     );

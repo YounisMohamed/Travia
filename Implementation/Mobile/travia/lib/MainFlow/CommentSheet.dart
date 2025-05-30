@@ -20,6 +20,7 @@ import '../Providers/LoadingProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/ReplyToCommentProvider.dart';
 import '../database/DatabaseMethods.dart';
+import 'ReportsPage.dart';
 
 class CommentModal extends ConsumerStatefulWidget {
   final String postId;
@@ -99,10 +100,6 @@ class _CommentModalState extends ConsumerState<CommentModal> {
         ref.read(isCommentsLoadingProvider.notifier).state = true;
       } else {
         ref.read(isCommentsLoadingProvider.notifier).state = false;
-      }
-
-      if (next is AsyncData) {
-        // optionally show a snackbar/toast
       }
 
       if (next is AsyncError) {
@@ -192,10 +189,11 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                               updateTextDirection(ref, text);
                             },
                             controller: _commentController,
-                            style: GoogleFonts.poppins(color: commentTextColor, fontSize: 15),
+                            cursorColor: Colors.black,
+                            style: GoogleFonts.lexendDeca(color: commentTextColor, fontSize: 15),
                             decoration: InputDecoration(
                               hintText: replyState != null ? "Replying to @${replyState.username}..." : "Add a comment...",
-                              hintStyle: GoogleFonts.poppins(color: hintTextColor, fontSize: 15),
+                              hintStyle: GoogleFonts.lexendDeca(color: hintTextColor, fontSize: 15, fontWeight: FontWeight.bold),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                             ),
@@ -218,18 +216,21 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                     ),
 
                     // **Send Button**
-                    GestureDetector(
-                      onTap: () {
-                        final content = _commentController.text.trim();
-                        if (content.isEmpty) return;
-                        ref.read(commentSubmitProvider.notifier).submitComment(
-                              postId: widget.postId,
-                              content: content,
-                              posterId: widget.posterId,
-                              parentCommentId: replyState?.parentCommentId,
-                            );
-                      },
-                      child: Icon(Icons.send, color: kDeepPink, size: 22),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: GestureDetector(
+                        onTap: () {
+                          final content = _commentController.text.trim();
+                          if (content.isEmpty) return;
+                          ref.read(commentSubmitProvider.notifier).submitComment(
+                                postId: widget.postId,
+                                content: content,
+                                posterId: widget.posterId,
+                                parentCommentId: replyState?.parentCommentId,
+                              );
+                        },
+                        child: Icon(Icons.send, color: kDeepPink, size: 22),
+                      ),
                     ),
                   ],
                 ),
@@ -484,7 +485,7 @@ class RegularCommentCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12), // Add spacing between avatar and content
-                  // Main Content Column - Using Expanded to take remaining space
+                  // Main Content Column
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,7 +632,30 @@ class RegularCommentCard extends StatelessWidget {
                                 "Reply",
                                 style: TextStyle(
                                   color: kDeepPink,
-                                  fontSize: 14,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Report Button
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ReportsPage(
+                                      targetCommentId: commentId,
+                                      reportType: 'comment',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                "Report",
+                                style: TextStyle(
+                                  color: Colors.black.withOpacity(0.3),
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -785,10 +809,7 @@ class ReplyCommentCard extends ConsumerWidget {
                             children: [
                               Text(
                                 'Replying to ',
-                                style: TextStyle(
-                                  color: contrastCommentCardColor.withOpacity(0.7),
-                                  fontSize: 12,
-                                ),
+                                style: GoogleFonts.lexendDeca(color: contrastCommentCardColor.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                               GestureDetector(
                                 onTap: () {
@@ -796,7 +817,7 @@ class ReplyCommentCard extends ConsumerWidget {
                                 },
                                 child: Text(
                                   "@$userNameOfParentComment",
-                                  style: const TextStyle(
+                                  style: GoogleFonts.lexendDeca(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.blue,
                                     fontSize: 12,
@@ -913,6 +934,29 @@ class ReplyCommentCard extends ConsumerWidget {
                                 style: TextStyle(
                                   color: kDeepPink,
                                   fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Report Button
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ReportsPage(
+                                      targetCommentId: commentId,
+                                      reportType: 'comment',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                "Report",
+                                style: TextStyle(
+                                  color: Colors.black.withOpacity(0.3),
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),

@@ -12,7 +12,8 @@ Future<void> insertUser({
   bool isPrivate = false,
   String gender = 'Male',
   relationshipStatus = 'Single',
-  int age = 25,
+  required String age,
+  List<String> visitedCountries = const [],
 }) async {
   try {
     String photoUrl = "";
@@ -32,6 +33,7 @@ Future<void> insertUser({
       'gender': gender,
       'photo_url': photoUrl,
       'relationship_status': relationshipStatus,
+      'visited_countries': visitedCountries, // Add this field
       'created_at': DateTime.now().toUtc().toIso8601String(),
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       'saved_posts': <String>[],

@@ -53,130 +53,128 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       color: backgroundColor,
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        body: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 50),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Image.asset(
-                  "assets/TraviaLogo.png",
-                  height: 130,
-                  width: 130,
-                ),
-                IBMPlexSansText(
-                  text: "SIGN IN",
-                  color: Colors.black,
-                  isBold: true,
-                  size: 16,
-                ),
-                SizedBox(height: height * 0.05),
-                GoogleSignInButton(
-                  contextOfParent: context,
-                  ref: ref,
-                ),
-                SizedBox(height: height * 0.1),
-                Form(
-                  key: _formKey,
-                  child: Padding(
-                    padding: padding,
-                    child: Column(
-                      children: [
-                        DefaultTextFormField(
-                          type: TextInputType.emailAddress,
-                          controller: _emailController,
-                          label: "Email Address",
-                          icon: emailIcon,
-                          validatorFun: (val) {
-                            if (val.toString().isEmpty) {
-                              return "Email cannot be empty";
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: height * 0.03),
-                        DefaultTextFormField(
-                          type: TextInputType.visiblePassword,
-                          controller: _passwordController,
-                          label: "Password",
-                          isSecure: !visiblePassword,
-                          icon: lockIcon,
-                          validatorFun: (val) {
-                            if (val.toString().isEmpty) {
-                              return "Password cannot be empty";
-                            }
-                            if (val.toString().length < 6) {
-                              return "Password is less than 6";
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: height * 0.009),
-                        Row(
-                          children: [
-                            IBMPlexSansText(
-                              text: "Show Password",
-                              color: Colors.black,
-                              size: 12,
-                            ),
-                            SizedBox(width: width * 0.01),
-                            Checkbox(
-                              value: visiblePassword,
-                              onChanged: (bool? newValue) {
-                                ref.read(visibleProvider.notifier).toggleVisible(newValue!);
+        body: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Image.asset(
+                "assets/TraviaLogo.png",
+                height: 130,
+                width: 130,
+              ),
+              IBMPlexSansText(
+                text: "SIGN IN",
+                color: Colors.black,
+                isBold: true,
+                size: 16,
+              ),
+              SizedBox(height: height * 0.05),
+              GoogleSignInButton(
+                contextOfParent: context,
+                ref: ref,
+              ),
+              SizedBox(height: height * 0.1),
+              Form(
+                key: _formKey,
+                child: Padding(
+                  padding: padding,
+                  child: Column(
+                    children: [
+                      DefaultTextFormField(
+                        type: TextInputType.emailAddress,
+                        controller: _emailController,
+                        label: "Email Address",
+                        icon: emailIcon,
+                        validatorFun: (val) {
+                          if (val.toString().isEmpty) {
+                            return "Email cannot be empty";
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: height * 0.03),
+                      DefaultTextFormField(
+                        type: TextInputType.visiblePassword,
+                        controller: _passwordController,
+                        label: "Password",
+                        isSecure: !visiblePassword,
+                        icon: lockIcon,
+                        validatorFun: (val) {
+                          if (val.toString().isEmpty) {
+                            return "Password cannot be empty";
+                          }
+                          if (val.toString().length < 6) {
+                            return "Password is less than 6";
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: height * 0.009),
+                      Row(
+                        children: [
+                          IBMPlexSansText(
+                            text: "Show Password",
+                            color: Colors.black,
+                            size: 12,
+                          ),
+                          SizedBox(width: width * 0.01),
+                          Checkbox(
+                            value: visiblePassword,
+                            activeColor: kDeepPink,
+                            onChanged: (bool? newValue) {
+                              ref.read(visibleProvider.notifier).toggleVisible(newValue!);
+                            },
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: height * 0.05),
+                      isLoading
+                          ? LoadingWidget()
+                          : MUIGradientBlockButton(
+                              text: "SIGN IN",
+                              onPressed: () async {
+                                if (_formKey.currentState!.validate()) {
+                                  ref.read(loadingProvider.notifier).state = true;
+                                  await signInWithEmailAndPassword(
+                                    context,
+                                    ref,
+                                    email: _emailController.text,
+                                    password: _passwordController.text,
+                                  );
+                                }
                               },
+                              bgGradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink]),
+                              animationDuration: 5,
                             ),
-                          ],
-                        ),
-                        SizedBox(height: height * 0.05),
-                        isLoading
-                            ? LoadingWidget()
-                            : MUIGradientBlockButton(
-                                text: "SIGN IN",
-                                onPressed: () async {
-                                  if (_formKey.currentState!.validate()) {
-                                    ref.read(loadingProvider.notifier).state = true;
-                                    await signInWithEmailAndPassword(
-                                      context,
-                                      ref,
-                                      email: _emailController.text,
-                                      password: _passwordController.text,
-                                    );
-                                  }
-                                },
-                                bgGradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink]),
-                                animationDuration: 5,
-                              ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-                SizedBox(height: height * 0.05),
-                TextButton(
-                  onPressed: () {
-                    context.push("/signup");
-                  },
-                  child: RedHatText(
-                    text: "I don't have an account",
-                    size: 12,
-                    color: Colors.grey,
-                    underlined: true,
-                  ),
+              ),
+              SizedBox(height: height * 0.05),
+              TextButton(
+                onPressed: () {
+                  context.push("/signup");
+                },
+                child: RedHatText(
+                  text: "I don't have an account",
+                  size: 12,
+                  color: Colors.grey,
+                  underlined: true,
                 ),
-                TextButton(
-                  onPressed: () {
-                    context.push("/forgotpassword");
-                  },
-                  child: RedHatText(
-                    text: "I forgot my password",
-                    size: 12,
-                    color: Colors.grey,
-                    underlined: true,
-                  ),
+              ),
+              TextButton(
+                onPressed: () {
+                  context.push("/forgotpassword");
+                },
+                child: RedHatText(
+                  text: "I forgot my password",
+                  size: 12,
+                  color: Colors.grey,
+                  underlined: true,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

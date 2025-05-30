@@ -582,7 +582,7 @@ class AlbumSelector extends StatelessWidget {
                       );
                     },
                   ),
-                  trailing: album.name == currentAlbumName ? const Icon(Icons.check_circle, color: kDeepPurple) : null,
+                  trailing: album.name == currentAlbumName ? const Icon(Icons.check_circle, color: kDeepPink) : null,
                   onTap: () {
                     onAlbumSelected(album);
                     Navigator.pop(context);

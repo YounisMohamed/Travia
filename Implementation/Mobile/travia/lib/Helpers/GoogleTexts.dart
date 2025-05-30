@@ -109,17 +109,44 @@ class IBMPlexSansText extends StatelessWidget {
   }
 }
 
+class LexendText extends StatelessWidget {
+  final String text;
+  final Color color;
+  final bool isBold;
+  final double size;
+  final bool underlined;
+  final bool center;
+  final bool italic;
+
+  const LexendText({super.key, required this.text, this.color = Colors.black, this.isBold = false, this.size = 16, this.underlined = false, this.center = false, this.italic = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      textAlign: center ? TextAlign.center : TextAlign.start,
+      style: GoogleFonts.lexendDeca(
+        color: color,
+        fontSize: size,
+        fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+        decoration: underlined ? TextDecoration.underline : TextDecoration.none,
+        fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+      ),
+    );
+  }
+}
+
 class TypewriterAnimatedText extends StatefulWidget {
   final String text;
   final TextStyle? style;
   final Duration typingSpeed;
 
   const TypewriterAnimatedText({
-    Key? key,
+    super.key,
     required this.text,
     this.style,
     this.typingSpeed = const Duration(milliseconds: 80),
-  }) : super(key: key);
+  });
 
   @override
   State<TypewriterAnimatedText> createState() => _TypewriterAnimatedTextState();

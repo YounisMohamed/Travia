@@ -39,7 +39,7 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
 
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go('/signin');
+        if (mounted) context.go('/welcome');
       });
       return;
     }
@@ -75,6 +75,33 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
     }
 
     await prefs?.setString('supabase_user_id_${user.uid}', supabaseUserId);
+
+    // Check if user is banned
+    try {
+      final banCheckResponse =
+          await supabase.from('users').select('is_banned').eq('id', supabaseUserId).single().timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while checking user status'));
+
+      if (!mounted) return;
+
+      final isBanned = banCheckResponse['is_banned'] as bool? ?? false;
+
+      if (isBanned) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) context.go('/banned');
+        });
+        return;
+      }
+    } catch (e) {
+      print("Error checking ban status: $e");
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.go("/error-page/${Uri.encodeComponent(e.toString())}/${Uri.encodeComponent("/")}");
+          }
+        });
+      }
+      return;
+    }
 
     try {
       // Create a completer to handle completion of all tasks

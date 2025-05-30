@@ -5,7 +5,6 @@ class UserModel {
   final String username;
   final String photoUrl;
   final String? bio;
-  final bool isPrivate;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final String relationshipStatus;
@@ -20,8 +19,11 @@ class UserModel {
   final List<String> followingIds;
   final List<String> friendIds;
   final List<String> visitedCountries;
-  final bool public;
   final bool showLikedPosts;
+  final List<String> blockedUserIds;
+  final List<String> blockedByUserIds;
+  final bool isBanned;
+  final List<String> badges;
 
   UserModel({
     required this.id,
@@ -32,27 +34,28 @@ class UserModel {
     required this.friendIds,
     required this.visitedCountries,
     required this.photoUrl,
-    required this.public,
     required this.showLikedPosts,
     this.bio,
-    this.isPrivate = false,
     this.createdAt,
     this.updatedAt,
     this.relationshipStatus = 'Single',
     this.gender = 'Male',
-    required this.age, // now required DateTime
+    required this.age,
     this.viewedPosts = const [],
     this.savedPosts = const [],
     this.uploadedPosts = const [],
     this.likedPosts = const [],
     this.isYounis = false,
     this.fcmToken,
+    this.blockedUserIds = const [],
+    this.blockedByUserIds = const [],
+    required this.isBanned,
+    required this.badges,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       id: map['id'],
-      public: map['public'],
       showLikedPosts: map['showLikedPosts'],
       email: map['email'],
       displayName: map['display_name'],
@@ -61,7 +64,6 @@ class UserModel {
       bio: map['bio'],
       followingIds: List<String>.from(map['following_ids'] ?? []),
       friendIds: List<String>.from(map['friend_ids'] ?? []),
-      isPrivate: map['is_private'] ?? false,
       createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
       updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
       relationshipStatus: map['relationship_status'] ?? 'Single',
@@ -74,6 +76,10 @@ class UserModel {
       visitedCountries: List<String>.from(map['visited_countries'] ?? []),
       isYounis: map['is_younis'] ?? false,
       fcmToken: map['fcm_token'] != null ? List<String>.from(map['fcm_token']) : null,
+      blockedUserIds: List<String>.from(map['blocked_user_ids'] ?? []),
+      blockedByUserIds: List<String>.from(map['blocked_by_user_ids'] ?? []),
+      isBanned: map['is_banned'] ?? false,
+      badges: List<String>.from(map['badges'] ?? []),
     );
   }
 
@@ -81,7 +87,6 @@ class UserModel {
     return {
       'id': id,
       'showLikedPosts': showLikedPosts,
-      'public': public,
       'email': email,
       'display_name': displayName,
       'username': username,
@@ -89,12 +94,11 @@ class UserModel {
       'bio': bio,
       'friend_ids': friendIds,
       'following_ids': followingIds,
-      'is_private': isPrivate,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'relationship_status': relationshipStatus,
       'gender': gender,
-      'age': age.toIso8601String(), // serialize DateTime to ISO format
+      'age': age.toIso8601String(),
       'viewed_posts': viewedPosts,
       'visited_countries': visitedCountries,
       'saved_posts': savedPosts,
@@ -102,6 +106,78 @@ class UserModel {
       'liked_posts': likedPosts,
       'is_younis': isYounis,
       'fcm_token': fcmToken,
+      'blocked_user_ids': blockedUserIds,
+      'blocked_by_user_ids': blockedByUserIds,
+      'is_banned': isBanned,
+      'badges': badges,
     };
+  }
+
+  bool hasBlocked(String userId) {
+    return blockedUserIds.contains(userId);
+  }
+
+  bool isBlockedBy(String userId) {
+    return blockedByUserIds.contains(userId);
+  }
+
+  bool isBlockedOrBlocking(String userId) {
+    return hasBlocked(userId) || isBlockedBy(userId);
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? displayName,
+    String? username,
+    String? photoUrl,
+    String? bio,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? relationshipStatus,
+    String? gender,
+    DateTime? age,
+    List<String>? viewedPosts,
+    List<String>? savedPosts,
+    List<String>? likedPosts,
+    List<String>? uploadedPosts,
+    bool? isYounis,
+    List<String>? fcmToken,
+    List<String>? followingIds,
+    List<String>? friendIds,
+    List<String>? visitedCountries,
+    bool? showLikedPosts,
+    List<String>? blockedUserIds,
+    List<String>? blockedByUserIds,
+    bool? isBanned,
+    List<String>? badges,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      username: username ?? this.username,
+      photoUrl: photoUrl ?? this.photoUrl,
+      bio: bio ?? this.bio,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      relationshipStatus: relationshipStatus ?? this.relationshipStatus,
+      gender: gender ?? this.gender,
+      age: age ?? this.age,
+      viewedPosts: viewedPosts ?? this.viewedPosts,
+      savedPosts: savedPosts ?? this.savedPosts,
+      likedPosts: likedPosts ?? this.likedPosts,
+      uploadedPosts: uploadedPosts ?? this.uploadedPosts,
+      isYounis: isYounis ?? this.isYounis,
+      fcmToken: fcmToken ?? this.fcmToken,
+      followingIds: followingIds ?? this.followingIds,
+      friendIds: friendIds ?? this.friendIds,
+      visitedCountries: visitedCountries ?? this.visitedCountries,
+      showLikedPosts: showLikedPosts ?? this.showLikedPosts,
+      blockedUserIds: blockedUserIds ?? this.blockedUserIds,
+      blockedByUserIds: blockedByUserIds ?? this.blockedByUserIds,
+      isBanned: isBanned ?? this.isBanned,
+      badges: badges ?? this.badges,
+    );
   }
 }

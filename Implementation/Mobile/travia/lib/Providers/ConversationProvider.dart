@@ -37,7 +37,6 @@ final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((re
               userPhotoUrl: data['user_photo_url'],
               unreadCount: data['unread_count'] ?? 0,
               sender: data['sender'],
-              notificationsEnabled: data['notifications_enabled'],
               isTyping: data['is_typing'],
               isPinned: data['is_pinned'],
               chatTheme: data['chat_theme'],
@@ -53,6 +52,8 @@ final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((re
   }
 });
 
+final deletingConversationProvider = StateProvider<Set<String>>((ref) => {});
+
 final userSearchProvider = FutureProvider.family<List<UserModel>, String>((ref, query) async {
   if (query.isEmpty) return [];
 
@@ -65,8 +66,6 @@ final userSearchProvider = FutureProvider.family<List<UserModel>, String>((ref, 
 
   return (response as List).map((user) => UserModel.fromMap(user)).toList();
 });
-
-final deletingConversationProvider = StateProvider<Set<String>>((ref) => {});
 
 final createConversationProvider = FutureProvider.family<String, String>((ref, otherUserId) async {
   final currentUserId = FirebaseAuth.instance.currentUser!.uid;
@@ -98,7 +97,6 @@ final createConversationProvider = FutureProvider.family<String, String>((ref, o
         'conversation_type': 'direct',
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
-        'notifications_enabled': true,
         'is_pinned': false,
       })
       .select()
@@ -136,7 +134,6 @@ final createGroupConversationProvider = FutureProvider.family<String, GroupChatP
         'title': params.groupName,
         'created_at': now,
         'updated_at': now,
-        'notifications_enabled': true,
         'is_pinned': false,
         'admin_id': currentUserId,
       })
@@ -164,4 +161,24 @@ final createGroupConversationProvider = FutureProvider.family<String, GroupChatP
   await supabase.from('conversation_participants').insert(participantEntries);
 
   return conversationId;
+});
+
+final unreadDMCountProvider = Provider<int>((ref) {
+  final conversationsAsync = ref.watch(conversationDetailsProvider);
+
+  return conversationsAsync.when(
+    data: (conversations) {
+      if (conversations.isEmpty) return 0;
+
+      // Sum up all unread counts from all conversations
+      int totalUnreadCount = 0;
+      for (final conversation in conversations) {
+        totalUnreadCount += conversation.unreadCount;
+      }
+
+      return totalUnreadCount;
+    },
+    loading: () => 0,
+    error: (_, __) => 0,
+  );
 });

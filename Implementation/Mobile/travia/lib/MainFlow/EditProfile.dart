@@ -1,21 +1,29 @@
 import 'package:bottom_picker/bottom_picker.dart';
 import 'package:bottom_picker/resources/arrays.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:travia/Classes/UserSupabase.dart';
 import 'package:travia/main.dart';
 
+import '../Auth/AuthMethods.dart';
 import '../Helpers/AppColors.dart';
+import '../Helpers/Constants.dart';
+import '../Helpers/DropDown.dart';
+import '../Helpers/HelperMethods.dart';
+import '../Helpers/PopUp.dart';
 
 final profileDisplayNameProvider = StateProvider.family<String, UserModel>((ref, user) => user.displayName ?? "");
 final profileUsernameProvider = StateProvider.family<String, UserModel>((ref, user) => user.username ?? "");
 final profileBioProvider = StateProvider.family<String, UserModel>((ref, user) => user.bio ?? "");
 final profileDateOfBirthProvider = StateProvider.family<DateTime, UserModel>((ref, user) => user.age);
-final profileGenderProvider = StateProvider.family<String, UserModel>((ref, user) => user.gender ?? "");
-final profileRelationshipStatusProvider = StateProvider.family<String, UserModel>((ref, user) => user.relationshipStatus ?? "");
-final profileIsPublicProvider = StateProvider.family<bool, UserModel>((ref, user) => user.public);
 final showLikedPostsProvider = StateProvider.family<bool, UserModel>((ref, user) => user.showLikedPosts);
+final profileGenderProvider = StateProvider.family<String?, UserModel>((ref, user) => user.gender);
+final profileRelationshipStatusProvider = StateProvider.family<String?, UserModel>((ref, user) => user.relationshipStatus);
+final profileVisitedCountriesProvider = StateProvider.family<List<String>, UserModel>(
+  (ref, user) => user.visitedCountries,
+);
 
 class EditProfilePage extends ConsumerStatefulWidget {
   final UserModel user;
@@ -31,44 +39,16 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   late TextEditingController usernameController;
   late TextEditingController bioController;
 
-  String? getValidGenderValue(String value) {
-    const validGenders = ["Male", "Female", "Other"];
-    if (value.isEmpty) return null;
-
-    // Try to find exact match first
-    if (validGenders.contains(value)) return value;
-
-    // Try case-insensitive match
-    String? match = validGenders.firstWhere(
-      (item) => item.toLowerCase() == value.toLowerCase(),
-      orElse: () => "",
-    );
-
-    return match.isEmpty ? null : match;
-  }
-
-  String? getValidRelationshipValue(String value) {
-    const validStatuses = ["taken", "single", "it's complicated"];
-    if (value.isEmpty) return null;
-
-    // Try to find exact match first
-    if (validStatuses.contains(value)) return value;
-
-    // Try case-insensitive match
-    String? match = validStatuses.firstWhere(
-      (item) => item.toLowerCase() == value.toLowerCase(),
-      orElse: () => "",
-    );
-
-    return match.isEmpty ? null : match;
-  }
+  // Dropdown options
+  final List<String> genderOptions = ['Male', 'Female'];
+  final List<String> relationshipOptions = ['Single', 'Married', 'Complicated'];
 
   @override
   void initState() {
     super.initState();
     // Initialize controllers with user data
-    displayNameController = TextEditingController(text: widget.user.displayName ?? "");
-    usernameController = TextEditingController(text: widget.user.username ?? "");
+    displayNameController = TextEditingController(text: widget.user.displayName);
+    usernameController = TextEditingController(text: widget.user.username);
     bioController = TextEditingController(text: widget.user.bio ?? "");
   }
 
@@ -84,18 +64,200 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     bioController.dispose();
   }
 
+  // Date picker function
+  void showDatePicker(BuildContext context) {
+    BottomPicker.date(
+      pickerTitle: Text(
+        'Select Date of Birth',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+          color: Colors.black,
+        ),
+      ),
+      backgroundColor: Colors.white,
+      pickerTextStyle: const TextStyle(
+        color: Colors.black,
+        fontSize: 16,
+      ),
+      onSubmit: (date) {
+        ref.read(profileDateOfBirthProvider(widget.user).notifier).state = date;
+      },
+      buttonSingleColor: kDeepPink,
+      initialDateTime: ref.watch(profileDateOfBirthProvider(widget.user)),
+      maxDateTime: DateTime.now(),
+      closeIconColor: Colors.black,
+      bottomPickerTheme: BottomPickerTheme.plumPlate,
+      buttonAlignment: MainAxisAlignment.center,
+      titleAlignment: Alignment.center,
+      buttonContent: Center(
+        child: Text(
+          'Confirm',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    ).show(context);
+  }
+
+  void showCountrySelectionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        // Use Consumer to watch the provider inside the dialog
+        return Consumer(
+          builder: (context, ref, _) {
+            final visitedCountries = ref.watch(profileVisitedCountriesProvider(widget.user));
+
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                height: MediaQuery.of(context).size.height * 0.7,
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Previously Visited Countries',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.grey),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    Divider(color: kDeepPink.withOpacity(0.3)),
+                    SizedBox(height: 8),
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.8,
+                        ),
+                        itemCount: countries.length,
+                        itemBuilder: (context, index) {
+                          final country = countries[index];
+                          final isSelected = visitedCountries.contains(country['emoji']);
+
+                          return GestureDetector(
+                            onTap: () {
+                              final currentList = List<String>.from(visitedCountries);
+                              if (isSelected) {
+                                currentList.remove(country['emoji']);
+                              } else {
+                                currentList.add(country['emoji']!);
+                              }
+                              ref.read(profileVisitedCountriesProvider(widget.user).notifier).state = currentList;
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected ? kDeepPink : Colors.grey.shade300,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                color: isSelected ? kDeepPink.withOpacity(0.1) : Colors.white,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: CachedNetworkImage(
+                                        imageUrl: 'https://flagsapi.com/${country['code']}/flat/64.png',
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    country['code']!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? kDeepPink : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink]),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            child: Text(
+                              'Done (${visitedCountries.length} selected)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  bool _isBadgeSectionExpanded = false;
+
   @override
   Widget build(BuildContext context) {
-    // Access providers with user parameter
-    final displayName = ref.watch(profileDisplayNameProvider(widget.user));
-    final username = ref.watch(profileUsernameProvider(widget.user));
-    final bio = ref.watch(profileBioProvider(widget.user));
-    final dateOfBirth = ref.watch(profileDateOfBirthProvider(widget.user));
-    final gender = ref.watch(profileGenderProvider(widget.user));
-    final relationshipStatus = ref.watch(profileRelationshipStatusProvider(widget.user));
-    final isPublic = ref.watch(profileIsPublicProvider(widget.user));
     final isShowLikedPosts = ref.watch(showLikedPostsProvider(widget.user));
-
+    final selectedGender = ref.watch(profileGenderProvider(widget.user));
+    final selectedRelationship = ref.watch(profileRelationshipStatusProvider(widget.user));
+    final visitedCountries = ref.watch(profileVisitedCountriesProvider(widget.user));
     // Consistent text field decoration
     InputDecoration getTextFieldDecoration(String label) {
       return InputDecoration(
@@ -113,45 +275,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         labelStyle: const TextStyle(color: Colors.black),
         focusColor: Colors.black,
       );
-    }
-
-    // Date picker function
-    void showDatePicker(BuildContext context) {
-      BottomPicker.date(
-        pickerTitle: Text(
-          'Select Date of Birth',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: Colors.black,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        pickerTextStyle: const TextStyle(
-          color: Colors.black,
-          fontSize: 16,
-        ),
-        onSubmit: (date) {
-          ref.read(profileDateOfBirthProvider(widget.user).notifier).state = date;
-        },
-        buttonSingleColor: kDeepPink,
-        initialDateTime: dateOfBirth,
-        maxDateTime: DateTime.now(),
-        closeIconColor: Colors.black,
-        bottomPickerTheme: BottomPickerTheme.plumPlate,
-        buttonAlignment: MainAxisAlignment.center,
-        titleAlignment: Alignment.center,
-        buttonContent: Center(
-          child: Text(
-            'Confirm',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ).show(context);
     }
 
     return Scaffold(
@@ -187,8 +310,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 3),
-                        image: const DecorationImage(
-                          image: NetworkImage("https://lh3.googleusercontent.com/a/ACg8ocKstmlfI0S9ZjDG-7UCvToQOhYVIz7YX9bUJpsSNdT7XoKVsgc=s96-c"),
+                        image: DecorationImage(
+                          image: CachedNetworkImageProvider(widget.user.photoUrl),
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -221,7 +344,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 cursorColor: Colors.black,
                 decoration: getTextFieldDecoration('Display Name'),
                 onChanged: (value) {
-                  ref.read(profileDisplayNameProvider(widget.user).notifier).state = value; // Fixed: added widget.user
+                  ref.read(profileDisplayNameProvider(widget.user).notifier).state = value;
                 },
               ),
               const SizedBox(height: 16),
@@ -239,12 +362,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 cursorColor: Colors.black,
                 decoration: getTextFieldDecoration('User name'),
                 onChanged: (value) {
-                  ref.read(profileUsernameProvider(widget.user).notifier).state = value; // Fixed: added widget.user
+                  ref.read(profileUsernameProvider(widget.user).notifier).state = value;
                 },
               ),
               const SizedBox(height: 16),
 
-              // Bio - New field
+              // Bio
               const Text(
                 'Bio',
                 style: TextStyle(
@@ -258,7 +381,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 maxLines: 3,
                 decoration: getTextFieldDecoration('Bio'),
                 onChanged: (value) {
-                  ref.read(profileBioProvider(widget.user).notifier).state = value; // Fixed: added widget.user
+                  ref.read(profileBioProvider(widget.user).notifier).state = value;
                 },
               ),
               const SizedBox(height: 16),
@@ -283,7 +406,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        DateFormat('dd/MM/yyyy').format(dateOfBirth),
+                        DateFormat('dd/MM/yyyy').format(ref.watch(profileDateOfBirthProvider(widget.user))),
                         style: const TextStyle(fontSize: 16),
                       ),
                       const Icon(Icons.calendar_today, color: Colors.black),
@@ -293,7 +416,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               ),
               const SizedBox(height: 16),
 
-              // Gender
+              // Gender Dropdown
               const Text(
                 'Gender',
                 style: TextStyle(
@@ -301,88 +424,94 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: getValidGenderValue(gender),
-                    isExpanded: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    items: <String>["Male", "Female", "Other"].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        ref.read(profileGenderProvider(widget.user).notifier).state = newValue;
-                      }
-                    },
-                  ),
-                ),
+              AppCustomDropdown<String>(
+                hintText: "Select your gender",
+                value: selectedGender,
+                prefixIcon: Icon(Icons.people, size: 22, color: Colors.grey.shade600),
+                items: genderOptions,
+                onChanged: (value) {
+                  ref.read(profileGenderProvider(widget.user).notifier).state = value;
+                },
+                validator: (value) => value == null ? "Please select your gender" : null,
               ),
               const SizedBox(height: 16),
 
-              // Relationship status
+              // Relationship Status Dropdown
               const Text(
-                'Relationship status',
+                'Relationship Status',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
+              AppCustomDropdown<String>(
+                hintText: "Select your relationship status",
+                value: selectedRelationship,
+                prefixIcon: Icon(Icons.favorite, size: 22, color: Colors.redAccent),
+                items: relationshipOptions,
+                onChanged: (value) {
+                  ref.read(profileRelationshipStatusProvider(widget.user).notifier).state = value;
+                },
+                validator: (value) => value == null ? "Please select your relationship status" : null,
+              ),
+              const SizedBox(height: 16),
+              const SizedBox(height: 16),
+
+              // Previously Visited Countries
+              const Text(
+                'Previously Visited Countries',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: getValidRelationshipValue(relationshipStatus),
-                    isExpanded: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    items: <String>["taken", "single", "it's complicated"].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        ref.read(profileRelationshipStatusProvider(widget.user).notifier).state = newValue;
-                      }
-                    },
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => showCountrySelectionDialog(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: visitedCountries.isEmpty
+                            ? Text(
+                                'Select countries you\'ve visited',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                              )
+                            : Text(
+                                visitedCountries.join(' '),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                      ),
+                      const Icon(Icons.flight_takeoff, color: Colors.black),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Make account public',
+              if (visitedCountries.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text(
+                    '${visitedCountries.length} countries selected',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 12,
+                      color: kDeepPink,
                     ),
                   ),
-                  Switch(
-                    value: isPublic, // Fixed: use the watched value
-                    onChanged: (value) {
-                      ref.read(profileIsPublicProvider(widget.user).notifier).state = value; // Fixed: added widget.user
-                    },
-                    activeColor: kDeepPink,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                ),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -403,30 +532,175 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 ],
               ),
               const SizedBox(height: 24),
+              StatefulBuilder(
+                builder: (context, setState) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '🎖 Badges',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => setState(() => _isBadgeSectionExpanded = !_isBadgeSectionExpanded),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _isBadgeSectionExpanded ? Icons.expand_less : Icons.expand_more,
+                              color: kDeepPink,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isBadgeSectionExpanded ? 'Hide badge tutorial' : 'How to earn badges',
+                              style: TextStyle(
+                                color: kDeepPink,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 200),
+                        crossFadeState: _isBadgeSectionExpanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+                        firstChild: Column(
+                          children: [
+                            const SizedBox(height: 12),
+                            ...badgeStyles.entries.map((entry) {
+                              final name = entry.key;
+                              final style = entry.value;
+                              final description = badgeDescriptions[name] ?? 'Earn this badge by engaging with the app.';
 
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(colors: style.gradient),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: style.gradient.first.withOpacity(0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(style.icon, color: Colors.white, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            description,
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            const SizedBox(height: 12),
+                          ],
+                        ),
+                        secondChild: const SizedBox.shrink(),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () async {
                     try {
+                      final username = ref.read(profileUsernameProvider(widget.user)).toLowerCase();
+                      bool userNameExists = await checkIfUsernameExists(username);
+                      if (userNameExists && username != widget.user.username) {
+                        Popup.showWarning(text: "Username already exists", context: context);
+                        return;
+                      }
+
+                      final displayName = ref.read(profileDisplayNameProvider(widget.user));
+                      final displayNameTrimmed = displayName.trim();
+
+                      if (displayNameTrimmed.isEmpty) {
+                        Popup.showWarning(text: "Display name cannot be empty", context: context);
+                        return;
+                      }
+                      if (displayNameTrimmed.length < 3) {
+                        Popup.showWarning(text: "Display name must be at least 3 characters long", context: context);
+                        return;
+                      }
+                      if (displayNameTrimmed.length > 25) {
+                        Popup.showWarning(text: "Display name cannot exceed 25 characters", context: context);
+                        return;
+                      }
+                      final validDisplayNameRegex = RegExp(r'^[a-zA-Z0-9._ ]+$');
+                      if (!validDisplayNameRegex.hasMatch(displayNameTrimmed)) {
+                        Popup.showWarning(
+                          text: "Only letters, numbers, '.', '_', and spaces are allowed in display name",
+                          context: context,
+                        );
+                        return;
+                      }
+
+                      final age = ref.read(profileDateOfBirthProvider(widget.user));
+                      final today = DateTime.now();
+                      final ageInYears = today.year - age.year - ((today.month < age.month || (today.month == age.month && today.day < age.day)) ? 1 : 0);
+                      bool ageValid = ageInYears >= 16 && ageInYears <= 100;
+                      if (!ageValid) {
+                        Popup.showWarning(text: "Birthdate not valid", context: context);
+                        return;
+                      }
+
+                      final bio = ref.read(profileBioProvider(widget.user));
+                      if (bio.length > 100) {
+                        Popup.showWarning(text: "Bio too long, at most 100 characters", context: context);
+                        return;
+                      }
+                      final visited_countries = ref.read(profileVisitedCountriesProvider(widget.user));
+                      if (visited_countries.length > 80) {
+                        Popup.showWarning(text: "You have been to way too many countries man.", context: context);
+                        return;
+                      }
                       await supabase.from("users").update({
-                        'display_name': ref.read(profileDisplayNameProvider(widget.user)),
-                        'username': ref.read(profileUsernameProvider(widget.user)),
-                        'bio': ref.read(profileBioProvider(widget.user)),
-                        'age': ref.read(profileDateOfBirthProvider(widget.user)).toIso8601String(),
+                        'display_name': displayNameTrimmed,
+                        'username': ref.read(profileUsernameProvider(widget.user)).toLowerCase(),
+                        'bio': bio,
+                        'age': age.toIso8601String(),
                         'gender': ref.read(profileGenderProvider(widget.user)),
                         'relationship_status': ref.read(profileRelationshipStatusProvider(widget.user)),
-                        'public': ref.read(profileIsPublicProvider(widget.user)),
+                        'visited_countries': visited_countries,
                         'showLikedPosts': ref.read(showLikedPostsProvider(widget.user)),
                         'updated_at': DateTime.now().toIso8601String(),
                       }).eq('id', widget.user.id);
 
                       Navigator.pop(context);
                     } catch (e) {
-                      // Handle error - show snackbar or dialog
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error updating profile: $e')),
-                      );
+                      Popup.showError(text: "Error happened while updating", context: context);
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -453,3 +727,18 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
   }
 }
+
+const badgeDescriptions = {
+  'Founder': 'Exclusive to the creator of the app.',
+  'isYounisBaby': 'Special badge for being Younis himself.',
+  'Poster': 'Upload 5 or more posts to earn this badge.',
+  'Story Teller': 'Share at least 5 stories to unlock this badge.',
+  'Adventurer': 'Create 5 or more plans.',
+  'Social': 'Participate in 10 or more chats to get this badge.',
+  'Trendy': 'Post 6+ posts that each reach the trend.',
+  'Ramy': 'Add "Ramy" to your display name. That\'s it.',
+  'International': 'Add 5 or more visited countries to your profile.',
+  'Popular': 'Get followed by at least 20 users.',
+  'Clean': 'Earned by having zero reports on your profile.',
+  'New User': 'Welcome! Start engaging to earn your first badge.',
+};

@@ -1,74 +1,11 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../Classes/Post.dart';
 import '../Classes/UserSupabase.dart';
 import '../main.dart';
 import 'PostsCommentsProviders.dart';
-
-final followStatusProvider = StateNotifierProvider.family<FollowStatusNotifier, bool, String>(
-  (ref, profileUserId) => FollowStatusNotifier(profileUserId),
-);
-
-class FollowStatusNotifier extends StateNotifier<bool> {
-  final String profileUserId;
-  final currentUserId = FirebaseAuth.instance.currentUser!.uid;
-
-  FollowStatusNotifier(this.profileUserId) : super(false) {
-    _loadFollowStatus();
-  }
-
-  Future<void> _loadFollowStatus() async {
-    final res = await supabase.from('users').select('following_ids').eq('id', currentUserId).single();
-
-    final followingIds = List<String>.from(res['following_ids'] ?? []);
-    state = followingIds.contains(profileUserId);
-  }
-
-  Future<void> toggleFollow() async {
-    // Store the current state
-    final isCurrentlyFollowing = state;
-
-    // Update state optimistically for better UI responsiveness
-    state = !isCurrentlyFollowing;
-
-    try {
-      final currentUserRes = await supabase.from('users').select('following_ids').eq('id', currentUserId).single();
-
-      final profileUserRes = await supabase.from('users').select('friend_ids').eq('id', profileUserId).single();
-
-      List<String> followingIds = List<String>.from(currentUserRes['following_ids'] ?? []);
-      List<String> friendIds = List<String>.from(profileUserRes['friend_ids'] ?? []);
-
-      if (!isCurrentlyFollowing) {
-        // Follow action: Add IDs
-        if (!followingIds.contains(profileUserId)) {
-          followingIds.add(profileUserId);
-        }
-        if (!friendIds.contains(currentUserId)) {
-          friendIds.add(currentUserId);
-        }
-      } else {
-        followingIds.remove(profileUserId);
-        friendIds.remove(currentUserId);
-      }
-
-      await Future.wait([
-        supabase.from('users').update({
-          'following_ids': followingIds,
-        }).eq('id', currentUserId),
-        supabase.from('users').update({
-          'friend_ids': friendIds,
-        }).eq('id', profileUserId)
-      ]);
-    } catch (e) {
-      print('Error updating follow/friend lists: $e');
-      state = isCurrentlyFollowing;
-    }
-  }
-}
 
 final userStreamProvider = StreamProvider.family<UserModel, String>((ref, profileId) async* {
   try {

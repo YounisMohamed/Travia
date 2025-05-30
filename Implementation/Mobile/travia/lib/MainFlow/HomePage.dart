@@ -1,5 +1,8 @@
+import 'dart:math';
+
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +18,8 @@ import '../Helpers/AppColors.dart';
 import '../Helpers/GoogleTexts.dart';
 import '../Helpers/Loading.dart';
 import '../Providers/BottomBarProvider.dart';
+import '../Providers/ConversationProvider.dart';
+import '../Providers/NotificationProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Services/UserPresenceService.dart';
 import '../database/DatabaseMethods.dart';
@@ -33,10 +38,10 @@ class MainNavigationPage extends ConsumerStatefulWidget {
   const MainNavigationPage({super.key, this.type, this.source_id});
 
   @override
-  ConsumerState<MainNavigationPage> createState() => _HomePageState();
+  ConsumerState<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
-class _HomePageState extends ConsumerState<MainNavigationPage> {
+class _MainNavigationPageState extends ConsumerState<MainNavigationPage> {
   final user = FirebaseAuth.instance.currentUser;
   late PageController horizontalPageController;
   late PageController mainPageController;
@@ -325,13 +330,14 @@ class _HomePageState extends ConsumerState<MainNavigationPage> {
             ),
             NotificationsPage(), // Index 3: Notifications
             ProfilePage(
-              profileUserId: "Xw3QpRZ7rlSvtjJEKrav2alxYTA3",
+              profileUserId: FirebaseAuth.instance.currentUser!.uid,
             ), // Index 4: Profile
           ],
         ),
         bottomNavigationBar: BottomNav(
           currentIndex: currentIndex,
           onTap: _changeMainPage,
+          ref: ref,
         ),
       ),
     );
@@ -341,18 +347,21 @@ class _HomePageState extends ConsumerState<MainNavigationPage> {
 class BottomNav extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
+  final WidgetRef ref;
 
   const BottomNav({
     required this.currentIndex,
     required this.onTap,
+    required this.ref,
     Key? key,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
+
     return Container(
       decoration: BoxDecoration(
-        // Gradient background from black to deep pink
         gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
@@ -371,30 +380,102 @@ class BottomNav extends StatelessWidget {
       ),
       child: CurvedNavigationBar(
         key: GlobalKey<CurvedNavigationBarState>(),
-        backgroundColor: Colors.transparent, // Transparent to show gradient
-        color: Colors.white,
+        backgroundColor: Colors.transparent,
+        color: kDeepGrey,
         buttonBackgroundColor: kDeepPink,
-        height: 60,
+        height: 75, // Increased height to accommodate text
         animationDuration: Duration(milliseconds: 300),
         index: currentIndex,
         onTap: onTap,
         letIndexChange: (index) => true, // Always allow index change
         items: [
-          _buildIcon(Icons.explore_outlined, currentIndex == 0), // Explore
-          _buildIcon(Icons.flight_takeoff, currentIndex == 1), // Plan
-          _buildIcon(Icons.home_outlined, currentIndex == 2), // Home (center)
-          _buildIcon(Icons.notifications_none, currentIndex == 3), // Notifications
-          _buildIcon(Icons.person_outline, currentIndex == 4), // Profile
+          _buildIconWithLabel(Icons.explore_outlined, 'Explore', currentIndex == 0),
+          _buildIconWithLabel(Icons.flight_takeoff, 'Plan', currentIndex == 1),
+          _buildIconWithLabel(Icons.home_outlined, 'Home', currentIndex == 2),
+          _buildNotificationIconWithLabel(unreadCount, 'Alerts', currentIndex == 3),
+          _buildIconWithLabel(Icons.person_outline, 'Profile', currentIndex == 4),
         ],
       ),
     );
   }
 
-  Widget _buildIcon(IconData icon, bool isSelected) {
-    return Icon(
-      icon,
-      size: isSelected ? 30 : 26,
-      color: isSelected ? Colors.white : Colors.black54,
+  Widget _buildIconWithLabel(IconData icon, String label, bool isSelected) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          size: isSelected ? 24 : 20,
+          color: isSelected ? Colors.white : Colors.black54,
+        ),
+        Text(
+          label,
+          style: GoogleFonts.ibmPlexSans(
+            fontSize: isSelected ? 11 : 10,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.black54,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationIconWithLabel(int unreadCount, String label, bool isSelected) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(
+              Icons.notifications_none,
+              size: isSelected ? 24 : 20,
+              color: isSelected ? Colors.white : Colors.black54,
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: -8,
+                top: -4,
+                child: Container(
+                  padding: EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: kDeepPink.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 1,
+                    ),
+                  ),
+                  constraints: BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    unreadCount > 99 ? '99+' : unreadCount.toString(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        Text(
+          label,
+          style: GoogleFonts.ibmPlexSans(
+            fontSize: isSelected ? 11 : 10,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.black54,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }
@@ -420,6 +501,7 @@ class HomeWidget extends ConsumerWidget {
 
     bool isLoading = ref.watch(loadingProvider);
     final postsAsync = ref.watch(postsProvider);
+    final unreadDMCount = ref.watch(unreadDMCountProvider);
 
     // Create custom swipe gesture handlers for the Home screen
     return GestureDetector(
@@ -436,28 +518,62 @@ class HomeWidget extends ConsumerWidget {
         }
       },
       child: Scaffold(
+        backgroundColor: kDeepGrey,
         appBar: AppBar(
           forceMaterialTransparency: true,
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
             icon: Icon(
-              Icons.camera_alt_rounded,
-              color: Colors.black,
-              size: 21,
+              CupertinoIcons.add_circled_solid,
+              color: kDeepPinkLight,
+              size: 25,
             ),
             onPressed: onCameraPressed,
             tooltip: 'Camera',
           ),
           actions: [
-            IconButton(
-              icon: Icon(
-                Icons.send_rounded,
-                color: Colors.black,
-                size: 21,
-              ),
-              onPressed: onMessagePressed,
-              tooltip: 'Messages',
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.send_rounded,
+                    color: kDeepPinkLight,
+                    size: 23,
+                  ),
+                  onPressed: onMessagePressed,
+                  tooltip: 'Messages',
+                ),
+                if (unreadDMCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: kDeepPink.withOpacity(0.8),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadDMCount > 99 ? '99+' : unreadDMCount.toString(),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: unreadDMCount > 99 ? 8 : 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
           title: Row(
@@ -495,7 +611,6 @@ class HomeWidget extends ConsumerWidget {
         ),
         body: Column(
           children: [
-            // Add the stories bar here
             StoryBar(),
             Expanded(
               child: RefreshIndicator(
@@ -535,6 +650,44 @@ class HomeWidget extends ConsumerWidget {
   }
 
   Widget _buildFeed(BuildContext context, List<Post> posts) {
+    // Function to calculate engagement score for post ranking
+
+    double calculateEngagementScore(Post post) {
+      final likes = post.likesCount;
+      final dislikes = post.dislikesCount;
+      final comments = post.commentCount;
+
+      // Weights for different engagement types
+      const double likeWeight = 1.0;
+      const double dislikeWeight = -0.8; // Negative impact, but less than likes
+      const double commentWeight = 1.5; // Comments are valuable engagement
+
+      // Base score calculation
+      double score = (likes * likeWeight) + (dislikes * dislikeWeight) + (comments * commentWeight);
+
+      // Apply time decay factor (newer posts get slight boost)
+      final now = DateTime.now();
+      final daysSincePost = now.difference(post.createdAt).inDays;
+
+      // Gradual decay over time (posts lose 5% score per day, minimum 50% of original)
+      final timeFactor = max(0.5, 1.0 - (daysSincePost * 0.05));
+      score *= timeFactor;
+
+      // Prevent negative scores from dominating
+      return max(0, score);
+    }
+
+    // Function to sort posts by engagement score
+    List<Post> sortPostsByEngagement(List<Post> postsToSort) {
+      final sortedPosts = List<Post>.from(postsToSort);
+      sortedPosts.sort((a, b) {
+        final scoreA = calculateEngagementScore(a);
+        final scoreB = calculateEngagementScore(b);
+        return scoreB.compareTo(scoreA); // Descending order (highest score first)
+      });
+      return sortedPosts;
+    }
+
     // Function to group posts by location efficiently
     Map<String, List<Post>> groupPostsByLocation(List<Post> allPosts) {
       final result = <String, List<Post>>{};
@@ -543,8 +696,8 @@ class HomeWidget extends ConsumerWidget {
 
       // First pass: count posts per city and collect posts with no location
       for (final post in allPosts) {
-        if (post.location!.isNotEmpty) {
-          final city = post.location!.split(',').first.trim();
+        if (post.location.isNotEmpty) {
+          final city = post.location.split(',').first.trim();
           cityPostCounts[city] = (cityPostCounts[city] ?? 0) + 1;
         } else {
           postsWithNoLocation.add(post);
@@ -575,20 +728,32 @@ class HomeWidget extends ConsumerWidget {
         result["Others"] = postsWithNoLocation;
       }
 
+      // Sort posts within each location group by engagement
+      for (final key in result.keys) {
+        result[key] = sortPostsByEngagement(result[key]!);
+      }
+
       return result;
     }
 
-    // Group posts by location
+    // Sort all posts by engagement for the recommended section
+    final sortedPosts = sortPostsByEngagement(posts);
+
+    // Group posts by location (already sorted within each group)
     final postsByLocation = groupPostsByLocation(posts);
 
     // Create a list to hold all sections (for better organization)
     final List<Widget> sections = [];
 
-    // First section - Recommended For You
-    sections.add(_buildPostSection(context: context, title: "Recommended For You", posts: posts));
+    // First section - Recommended For You (using sorted posts)
+    sections.add(_buildPostSection(
+      context: context,
+      title: "Recommended For You",
+      posts: sortedPosts.take(20).toList(), // Limit to top 20 for performance
+    ));
     sections.add(SizedBox(height: 20));
 
-    // Add location-based sections
+    // Add location-based sections (posts already sorted within each group)
     for (final entry in postsByLocation.entries) {
       // Skip "Others" section for now - we'll add it at the end
       if (entry.key == "Others") continue;
@@ -620,7 +785,7 @@ class HomeWidget extends ConsumerWidget {
     );
   }
 
-  // Build a horizontal scrolling section with title
+// Build a horizontal scrolling section with title
   Widget _buildPostSection({
     required BuildContext context,
     required String title,
@@ -635,22 +800,43 @@ class HomeWidget extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section title
+        // Section title with engagement indicator for recommended section
         Row(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                title,
-                style: GoogleFonts.ibmPlexSans(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Row(
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.ibmPlexSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (title == "Recommended For You") ...[
+                    SizedBox(width: 8),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: kDeepPink.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: kDeepPink.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        "Trending",
+                        style: GoogleFonts.ibmPlexSans(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: kDeepPink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            SizedBox(
-              width: 2,
-            ),
+            SizedBox(width: 2),
             GestureDetector(
               onTap: () {
                 onExplorePressed();

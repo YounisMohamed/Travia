@@ -12,12 +12,14 @@ import 'package:travia/Providers/LoadingProvider.dart';
 import 'package:travia/database/DatabaseMethods.dart';
 
 import '../Helpers/AppColors.dart';
+import '../Helpers/GoogleTexts.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/PostsLikesProvider.dart';
 import '../Providers/SavedPostsProvider.dart';
 import 'CommentSheet.dart';
 import 'MediaPreview.dart';
+import 'ReportsPage.dart';
 
 class PostCard extends StatelessWidget {
   final String profilePicUrl;
@@ -75,7 +77,10 @@ class PostCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.black.withOpacity(0.8), kDeepPink.withOpacity(0.9)],
+                colors: [
+                  kDeepPink.withOpacity(0.9),
+                  Colors.black87,
+                ],
               ),
             ),
             child: Column(
@@ -173,6 +178,7 @@ class PostCard extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: PopupMenuButton<String>(
+                          color: Colors.white,
                           onSelected: (String result) async {
                             if (result == 'delete') {
                               try {
@@ -189,37 +195,47 @@ class PostCard extends StatelessWidget {
                               Share.share("When we have a domain");
                               // TODO: Share
                             }
-                            // TODO: REPORT FUNCTIONALITY
+                            if (result == 'report') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ReportsPage(
+                                    targetPostId: postId,
+                                    reportType: 'post',
+                                  ),
+                                ),
+                              );
+                            }
                           },
                           itemBuilder: (BuildContext context) => [
                             if (userId == currentUserId)
-                              const PopupMenuItem<String>(
+                              PopupMenuItem<String>(
                                 value: 'delete',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.delete, color: Colors.red),
-                                    SizedBox(width: 10),
-                                    Text('Delete Post'),
+                                    const Icon(Icons.delete, color: kDeepPink),
+                                    const SizedBox(width: 10),
+                                    LexendText(text: 'Delete'),
                                   ],
                                 ),
                               ),
-                            const PopupMenuItem<String>(
+                            PopupMenuItem<String>(
                               value: 'share',
                               child: Row(
                                 children: [
-                                  Icon(Icons.share, color: Colors.blue),
-                                  SizedBox(width: 10),
-                                  Text('Share'),
+                                  const Icon(Icons.share, color: kDeepPink),
+                                  const SizedBox(width: 10),
+                                  LexendText(text: 'Share'),
                                 ],
                               ),
                             ),
-                            const PopupMenuItem<String>(
+                            PopupMenuItem<String>(
                               value: 'report',
                               child: Row(
                                 children: [
-                                  Icon(Icons.flag, color: Colors.orange),
-                                  SizedBox(width: 10),
-                                  Text('Report'),
+                                  const Icon(Icons.flag, color: kDeepPink),
+                                  const SizedBox(width: 10),
+                                  LexendText(text: 'Report'),
                                 ],
                               ),
                             ),
@@ -295,7 +311,7 @@ class PostCard extends StatelessWidget {
                                     child: _buildGlassActionButton(
                                       icon: CupertinoIcons.chat_bubble,
                                       count: '${ref.watch(postCommentCountProvider(postId))}',
-                                      color: Colors.grey.shade700,
+                                      color: kDeepPinkLight.withOpacity(0.8),
                                     )),
                               ],
                             ),
@@ -333,7 +349,7 @@ class PostCard extends StatelessWidget {
                                     }
                                   },
                                   child: _buildGlassActionButton(
-                                    color: Colors.black,
+                                    color: kDeepPinkLight.withOpacity(0.8),
                                     icon: reaction == 'like' ? CupertinoIcons.hand_thumbsup_fill : CupertinoIcons.hand_thumbsup,
                                     count: '${reactionCount['likes'] ?? 0}',
                                   ),
@@ -364,7 +380,7 @@ class PostCard extends StatelessWidget {
                                     }
                                   },
                                   child: _buildGlassActionButton(
-                                    color: Colors.black,
+                                    color: kDeepPinkLight.withOpacity(0.8),
                                     icon: reaction == 'dislike' ? CupertinoIcons.hand_thumbsdown_fill : CupertinoIcons.hand_thumbsdown,
                                     count: '${reactionCount['dislikes'] ?? 0}',
                                   ),
@@ -429,7 +445,7 @@ class PostCard extends StatelessWidget {
             style: GoogleFonts.ibmPlexSans(
               fontWeight: FontWeight.w600,
               fontSize: 14,
-              color: Colors.grey.shade800,
+              color: Colors.white,
             ),
           ),
         ],

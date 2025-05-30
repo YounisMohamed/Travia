@@ -2,39 +2,65 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { JWT } from 'npm:google-auth-library@9'
 
 interface Notification {
-id: string;
-target_user_id: string | null;
-sender_user_id: string | null;
-source_id: string | null;
-type: string;
-content: string;
-created_at: string | null;
-is_read: boolean;
-sender_photo: string | null;
-user_username: string | null;
-title: string | null;
+  id: string;
+  target_user_id: string | null;
+  sender_user_id: string | null;
+  source_id: string | null;
+  type: string;
+  content: string;
+  created_at: string | null;
+  is_read: boolean;
+  sender_photo: string | null;
+  user_username: string | null;
+  title: string | null;
 }
 
 interface WebhookPayload {
-type: "INSERT";
-table: string;
-record: Notification;
-schema: "public";
-old_record: null | Notification;
+  type: "INSERT";
+  table: string;
+  record: Notification;
+  schema: "public";
+  old_record: null | Notification;
 }
 
 const supabase = createClient(
-Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_URL") ?? "",
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
 );
 
 Deno.serve(async (req) => {
   try {
     const payload: WebhookPayload = await req.json();
-    const { target_user_id, source_id, type, content , title, sender_photo} = payload.record;
+    const { target_user_id, source_id, type, content, title, sender_photo } = payload.record;
 
     if (!target_user_id) {
       return new Response(JSON.stringify({ error: "No target user ID found" }), { status: 400 });
+    }
+
+    const conversationTypes = ['message', 'typing', 'call']; // TODO: Add other conversation types later :)
+     
+    if (conversationTypes.includes(type) && source_id) {
+      // Check if user has notifications enabled for this conversation
+      const { data: participantData, error: participantError } = await supabase
+        .from("conversation_participants")
+        .select("notifications_enabled")
+        .eq("conversation_id", source_id)
+        .eq("user_id", target_user_id)
+        .single();
+
+      if (participantError) {
+        console.error("Error checking participant notifications:", participantError);
+        return new Response(JSON.stringify({ error: "Error checking participant notifications" }), { status: 400 });
+      }
+
+      // If notifications are disabled for this user in this conversation, skip sending
+      if (!participantData || !participantData.notifications_enabled) {
+        return new Response(JSON.stringify({ 
+          message: "Notification skipped - user has disabled notifications for this conversation",
+          target_user_id,
+          source_id 
+        }), { status: 200 });
+      }
     }
 
     // Fetch FCM tokens for the target user
@@ -50,14 +76,10 @@ Deno.serve(async (req) => {
 
     const fcmTokens = userData.fcm_token as string[];
 
-
-    
-
     // Import Firebase service account credentials
     const { default: serviceAccount } = await import("./service-account.json", {
-  with: { type: "json" },
-});
-
+      with: { type: "json" },
+    });
 
     // Get Firebase access token
     const accessToken = await getAccessToken({
@@ -82,15 +104,15 @@ Deno.serve(async (req) => {
               image: sender_photo,
             },
             android: {
-          notification: {
-            icon: "ic_launcher", 
-            color: "#b60f68", 
-            default_sound: true,
-            default_vibrate_timings: true,
-            notification_priority: "PRIORITY_HIGH",
-            visibility: "PUBLIC"
-          }
-        },
+              notification: {
+                icon: "ic_launcher", 
+                color: "#b60f68", 
+                default_sound: true,
+                default_vibrate_timings: true,
+                notification_priority: "PRIORITY_HIGH",
+                visibility: "PUBLIC"
+              }
+            },
             data: {
               type: type,
               source_id: source_id,
@@ -109,7 +131,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Some notifications failed" }), { status: 500 });
     }
 
-    return new Response(JSON.stringify({ success: "Notifications sent" }), {
+    return new Response(JSON.stringify({ 
+      success: "Notifications sent",
+      target_user_id,
+      source_id,
+      type
+    }), {
       headers: { "Content-Type": "application/json" },
     });
 
@@ -119,16 +146,14 @@ Deno.serve(async (req) => {
   }
 });
 
-
-
 const getAccessToken = ({
-clientEmail,
-privateKey
+  clientEmail,
+  privateKey
 }: {
-clientEmail: string,
-privateKey: string
+  clientEmail: string,
+  privateKey: string
 }): Promise<string> => {
-return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const jwtClient = new JWT({
       email: clientEmail,
       key: privateKey.replace(/\\n/g, '\n'),      
