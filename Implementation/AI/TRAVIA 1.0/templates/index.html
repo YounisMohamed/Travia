@@ -1,0 +1,43 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h1 class="display-4 mb-4">
+            <i class="fas fa-map-marked-alt text-primary"></i>
+            Welcome to Travel AI
+        </h1>
+        <p class="lead mb-4">
+            Discover personalized travel itineraries powered by AI and reinforcement learning.
+            Choose an existing user or create a new one to get started.
+        </p>
+        <div class="d-grid gap-2 d-md-block">
+            <a href="/select_user" class="btn btn-primary btn-lg">
+                <i class="fas fa-users"></i> Select Existing User
+            </a>
+            <a href="/new_user" class="btn btn-success btn-lg">
+                <i class="fas fa-user-plus"></i> Create New User
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4 text-center">
+        <i class="fas fa-robot fa-3x text-primary mb-3"></i>
+        <h4>AI-Powered</h4>
+        <p>Our advanced AI analyzes your preferences to suggest the best places for your trip.</p>
+    </div>
+    <div class="col-md-4 text-center">
+        <i class="fas fa-heart fa-3x text-danger mb-3"></i>
+        <h4>Learns from You</h4>
+        <p>Like and dislike recommendations to improve future suggestions with reinforcement learning.</p>
+    </div>
+    <div class="col-md-4 text-center">
+        <i class="fas fa-calendar-alt fa-3x text-success mb-3"></i>
+        <h4>Complete Itineraries</h4>
+        <p>Get detailed day-by-day itineraries with 5 carefully selected places per day.</p>
+    </div>
+</div>
+{% endblock %}
