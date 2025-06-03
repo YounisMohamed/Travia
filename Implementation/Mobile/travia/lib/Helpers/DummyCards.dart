@@ -488,7 +488,7 @@ class ProfilePageSkeleton extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.02),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Container(
                         height: screenWidth * 0.12,

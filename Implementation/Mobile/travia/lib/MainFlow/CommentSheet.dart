@@ -20,6 +20,7 @@ import '../Providers/LoadingProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/ReplyToCommentProvider.dart';
 import '../database/DatabaseMethods.dart';
+import '../main.dart';
 import 'ReportsPage.dart';
 
 class CommentModal extends ConsumerStatefulWidget {
@@ -202,7 +203,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                       ),
                     ),
 
-                    // **Cancel Reply Button**
+                    // Cancel Reply Button
                     Consumer(
                       builder: (context, ref, child) {
                         final isReplying = ref.watch(replyStateProvider) != null;
@@ -215,13 +216,17 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                       },
                     ),
 
-                    // **Send Button**
+                    // Send Button
                     Padding(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(10.0),
                       child: GestureDetector(
                         onTap: () {
                           final content = _commentController.text.trim();
                           if (content.isEmpty) return;
+                          if (filter.hasProfanity(content) || hasArabicProfanity(content)) {
+                            Popup.showWarning(text: "Bad words detected", context: context);
+                            return;
+                          }
                           ref.read(commentSubmitProvider.notifier).submitComment(
                                 postId: widget.postId,
                                 content: content,
@@ -236,7 +241,7 @@ class _CommentModalState extends ConsumerState<CommentModal> {
                 ),
               ),
 
-              // **Comments List**
+              // Comments List
               Flexible(
                 child: Consumer(
                   builder: (context, ref, child) {

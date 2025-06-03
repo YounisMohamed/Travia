@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
+import 'package:travia/Helpers/PopUp.dart';
 import 'package:uuid/uuid.dart';
 
 import '../Helpers/AppColors.dart';
@@ -21,11 +22,25 @@ class _SimpleRecorderButtonState extends ConsumerState<SimpleRecorderButton> {
   final _audioRecorder = AudioRecorder();
 
   Future<void> _startRecording() async {
-    if (await _audioRecorder.hasPermission()) {
-      const config = RecordConfig(encoder: AudioEncoder.aacLc, numChannels: 1);
-      await _audioRecorder.start(config, path: '${Directory.systemTemp.path}/edited_${const Uuid().v4()}.mp3');
-      ref.read(recordingStateProvider.notifier).startRecording();
+    final hasPermission = await _audioRecorder.hasPermission();
+
+    if (!hasPermission) {
+      // Permission denied or not yet granted
+      Popup.showInfo(text: "Microphone permission is required to record audio.", context: context);
+      return;
     }
+
+    const config = RecordConfig(
+      encoder: AudioEncoder.aacLc,
+      numChannels: 1,
+    );
+
+    await _audioRecorder.start(
+      config,
+      path: '${Directory.systemTemp.path}/edited_${const Uuid().v4()}.mp3',
+    );
+
+    ref.read(recordingStateProvider.notifier).startRecording();
   }
 
   Future<void> _stopRecording() async {

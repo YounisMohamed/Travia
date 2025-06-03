@@ -270,8 +270,6 @@ Future<void> forgotPassword(BuildContext context, WidgetRef ref, String email) a
 
 Future<void> signOut(BuildContext context, WidgetRef ref) async {
   try {
-    ref.read(loadingProvider.notifier).setLoadingToTrue();
-
     // First remove FCM token (NOTIFICATIONS TOKEN)
     await NotificationService.removeFcmToken();
 
@@ -284,16 +282,40 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     }
     ref.invalidate(postsProvider);
 
-    context.go("/signin");
+    context.go("/splash-screen");
     Phoenix.rebirth(context);
   } catch (e) {
     Popup.showError(text: "Sign-out failed", context: context);
     print(e);
-  } finally {
-    ref.read(loadingProvider.notifier).setLoadingToFalse();
   }
 }
 
 final firebaseAuthProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
+
+// =====================================
+
+Future<void> deleteAccount(BuildContext context) async {
+  try {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+
+    await NotificationService.removeFcmToken();
+
+    await supabase.from("users").delete().eq("id", userId);
+
+    await FirebaseAuth.instance.signOut();
+
+    final googleSignIn = GoogleSignIn(
+      clientId: "536970171951-k30lmtrdnc348rr806u0lroar3kh5clj.apps.googleusercontent.com",
+    );
+    if (await googleSignIn.isSignedIn()) {
+      await googleSignIn.signOut();
+    }
+    context.go("/splash-screen");
+    Phoenix.rebirth(context);
+  } catch (e) {
+    Popup.showError(text: "Delete account failed", context: context);
+    print('Delete error: $e');
+  }
+}

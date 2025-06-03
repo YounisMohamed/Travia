@@ -39,6 +39,7 @@ class LikeNotifierPost extends StateNotifier<Map<String, String?>> {
     final newState = isSameReaction ? null : reactionType;
 
     try {
+      // Optimistically update state
       state = {...state, postId: newState};
 
       if (isSameReaction) {
@@ -68,15 +69,34 @@ class PostReactionCountNotifier extends StateNotifier<Map<String, int>> {
   PostReactionCountNotifier({required int likes, required int dislikes}) : super({'likes': likes, 'dislikes': dislikes});
 
   void updateReaction({required String? from, required String? to}) {
+    // Create a new map to ensure state change detection
     final copy = Map<String, int>.from(state);
 
-    if (from != null) copy[from] = (copy[from] ?? 1) - 1;
-    if (to != null) copy[to] = (copy[to] ?? 0) + 1;
+    if (from != null && copy.containsKey(from)) {
+      copy[from] = (copy[from] ?? 1) - 1;
+      if (copy[from]! < 0) copy[from] = 0;
+    }
 
-    state = copy;
+    if (to != null) {
+      copy[to] = (copy[to] ?? 0) + 1;
+    }
+
+    // Force state update by creating a new map
+    state = Map<String, int>.from(copy);
   }
 }
 
-final postReactionCountProvider = StateNotifierProvider.family<PostReactionCountNotifier, Map<String, int>, ({String postId, int likes, int dislikes})>(
-  (ref, args) => PostReactionCountNotifier(likes: args.likes, dislikes: args.dislikes),
+// Use autoDispose to ensure fresh state for each post
+final postReactionCountProvider = StateNotifierProvider.autoDispose.family<PostReactionCountNotifier, Map<String, int>, ({String postId, int likes, int dislikes})>(
+  (ref, args) {
+    // Listen to like state changes to keep counts in sync
+    ref.listen<Map<String, String?>>(
+      likePostProvider,
+      (previous, next) {
+        // This will trigger whenever the like state changes
+      },
+    );
+
+    return PostReactionCountNotifier(likes: args.likes, dislikes: args.dislikes);
+  },
 );

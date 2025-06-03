@@ -2,18 +2,18 @@ import 'dart:math';
 
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_exit_app/flutter_exit_app.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
 import '../Classes/Post.dart';
+import '../Classes/RealTimeManager.dart';
 import '../Helpers/AppColors.dart';
 import '../Helpers/GoogleTexts.dart';
 import '../Helpers/Loading.dart';
@@ -22,15 +22,12 @@ import '../Providers/ConversationProvider.dart';
 import '../Providers/NotificationProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Services/UserPresenceService.dart';
-import '../database/DatabaseMethods.dart';
-import '../main.dart';
 import 'DMsPage.dart';
 import 'Explore.dart';
 import 'NotificationsPage.dart';
 import 'PostCard.dart';
 import 'ProfilePage.dart';
 import 'Story.dart';
-import 'UploadPostPage.dart';
 
 class MainNavigationPage extends ConsumerStatefulWidget {
   final String? type;
@@ -41,26 +38,25 @@ class MainNavigationPage extends ConsumerStatefulWidget {
   ConsumerState<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
-class _MainNavigationPageState extends ConsumerState<MainNavigationPage> {
+class _MainNavigationPageState extends ConsumerState<MainNavigationPage> with WidgetsBindingObserver {
   final user = FirebaseAuth.instance.currentUser;
-  late PageController horizontalPageController;
-  late PageController mainPageController;
 
   @override
   void initState() {
     super.initState();
-
-    // Initialize the horizontal page controller for sliding between UploadPost, Home, and DMs
-    horizontalPageController = PageController(initialPage: 1);
-
-    // Initialize the main page controller for the bottom navigation (with Home as default), Home index = 2,
-    mainPageController = PageController(initialPage: 2);
+    WidgetsBinding.instance.addObserver(this);
 
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.go("/signin");
+        context.go("/splash-screen");
       });
     }
+
+    // Setup realtime channels
+    if (user != null) {
+      ref.read(realtimeManagerProvider).setupChannels(user!.uid);
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(userPresenceServiceProvider).initialize();
     });
@@ -83,147 +79,174 @@ class _MainNavigationPageState extends ConsumerState<MainNavigationPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _setupChannels();
+    // You can also setup channels here if needed
+    if (user != null) {
+      ref.read(realtimeManagerProvider).setupChannels(user!.uid);
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final realtimeManager = ref.read(realtimeManagerProvider);
+
     if (state == AppLifecycleState.resumed) {
-      _setupChannels();
+      if (user != null) {
+        realtimeManager.setupChannels(user!.uid);
+      }
     } else if (state == AppLifecycleState.paused) {
-      _disposeChannels();
+      realtimeManager.disposeChannels(); // Note: remove the underscore since it's called from outside
     }
-  }
-
-  void _setupChannels() {
-    final currentUserId = user!.uid;
-
-    supabase
-        .channel('public:stories')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'stories',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'user_id',
-            value: currentUserId,
-          ),
-          callback: (payload) {},
-        )
-        .subscribe();
-    supabase
-        .channel('public:users')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'users',
-          callback: (payload) {},
-        )
-        .subscribe();
-    supabase
-        .channel('public:story_items')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'story_items',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'user_id',
-            value: currentUserId,
-          ),
-          callback: (payload) {},
-        )
-        .subscribe();
-
-    supabase
-        .channel('public:conversation_participants')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'conversation_participants',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'user_id',
-            value: currentUserId,
-          ),
-          callback: (payload) {},
-        )
-        .subscribe();
-    supabase
-        .channel('public:notifications')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'notifications',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'target_user_id',
-              value: currentUserId,
-            ),
-            callback: (payload) {})
-        .subscribe();
-    supabase
-        .channel('public:posts')
-        .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'posts',
-            callback: (payload) {
-              //print('Change received: ${payload.toString()}');
-            })
-        .subscribe();
-    supabase.channel('public:comments').onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'comments', callback: (payload) {}).subscribe();
-
-    fetchConversationIds(user!.uid).then((conversationIds) {
-      supabase
-          .channel('public:conversations')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'conversations',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.inFilter,
-              column: 'conversation_id',
-              value: conversationIds,
-            ),
-            callback: (payload) {},
-          )
-          .subscribe();
-      supabase
-          .channel('public:messages')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'messages',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.inFilter,
-              column: 'conversation_id',
-              value: conversationIds,
-            ),
-            callback: (payload) {},
-          )
-          .subscribe();
-    });
-  }
-
-  void _disposeChannels() {
-    supabase.removeAllChannels();
   }
 
   @override
   void dispose() {
-    horizontalPageController.dispose();
-    mainPageController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    ref.read(realtimeManagerProvider).disposeChannels(); // Clean up channels
     super.dispose();
   }
 
-  // Handle horizontal page changes manually
+  late PageController horizontalPageController;
+
+  void _changeMainPage(int index) {
+    // Simply update the provider state - no page controller needed
+    ref.read(currentIndexProvider.notifier).state = index;
+
+    // When Home is selected (index 2), ensure horizontal page is at Home (index 0)
+    if (index == 2) {
+      ref.read(horizontalPageProvider.notifier).state = 0;
+    }
+  }
+
+  DateTime? _lastBackPressTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = ref.watch(currentIndexProvider);
+    final horizontalIndex = ref.watch(horizontalPageProvider);
+
+    // Helper function to get the current page widget
+    Widget getCurrentPage() {
+      switch (currentIndex) {
+        case 0:
+          return ExplorePage();
+        case 1:
+          return PlanPage();
+        case 2:
+          // When on Home tab, show the horizontal PageView
+          return HomePageViewWidget(
+            key: ValueKey('home_page_view'),
+            onChangeMainPage: _changeMainPage,
+          );
+        case 3:
+          return NotificationsPage();
+        case 4:
+          return ProfilePage(
+            profileUserId: FirebaseAuth.instance.currentUser!.uid,
+          );
+        default:
+          return ExplorePage();
+      }
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+
+        // Check if we're on the home page (main index 2) and home screen (horizontal index 0)
+        final isOnHomePage = currentIndex == 2;
+        final isOnHomeScreen = horizontalIndex == 0;
+
+        if (isOnHomePage && isOnHomeScreen) {
+          // We're on the home screen, handle exit logic
+          final now = DateTime.now();
+          if (_lastBackPressTime == null || now.difference(_lastBackPressTime!) > Duration(seconds: 2)) {
+            // First back press or more than 2 seconds since last press
+            _lastBackPressTime = now;
+
+            // Show exit confirmation
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.exit_to_app, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Press back again to exit',
+                      style: GoogleFonts.lexendDeca(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                duration: Duration(seconds: 2),
+                backgroundColor: kDeepPink,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                margin: EdgeInsets.all(16),
+              ),
+            );
+          } else {
+            FlutterExitApp.exitApp();
+          }
+        } else {
+          // Not on home screen, navigate back to home
+          if (!isOnHomePage) {
+            _changeMainPage(2); // Navigate to home (index 2)
+          } else if (!isOnHomeScreen) {
+            // Need to navigate back to home screen within HomePageViewWidget
+            ref.read(horizontalPageProvider.notifier).state = 0;
+          }
+        }
+      },
+      child: Scaffold(
+        body: getCurrentPage(),
+        bottomNavigationBar: BottomNav(
+          currentIndex: currentIndex,
+          onTap: _changeMainPage,
+          ref: ref,
+        ),
+      ),
+    );
+  }
+}
+
+class HomePageViewWidget extends ConsumerStatefulWidget {
+  final Function(int) onChangeMainPage;
+
+  const HomePageViewWidget({
+    Key? key,
+    required this.onChangeMainPage,
+  }) : super(key: key);
+
+  @override
+  ConsumerState<HomePageViewWidget> createState() => _HomePageViewWidgetState();
+}
+
+class _HomePageViewWidgetState extends ConsumerState<HomePageViewWidget> {
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPage = ref.read(horizontalPageProvider);
+    _pageController = PageController(initialPage: initialPage);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   void _changeHorizontalPage(int index) {
     ref.read(horizontalPageProvider.notifier).state = index;
-    if (horizontalPageController.hasClients) {
-      // For horizontal pages, always animate since they're adjacent
-      horizontalPageController.animateToPage(
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
         index,
         duration: Duration(milliseconds: 200),
         curve: Curves.easeInOut,
@@ -231,114 +254,28 @@ class _MainNavigationPageState extends ConsumerState<MainNavigationPage> {
     }
   }
 
-  bool _isChangingPage = false;
-  void _changeMainPage(int index) {
-    if (_isChangingPage) return;
-
-    _isChangingPage = true;
-
-    // First update the provider state
-    ref.read(currentIndexProvider.notifier).state = index;
-
-    // Get the current index before changing
-    final currentPage = mainPageController.page?.round() ?? 2; // Default to home index
-    final distance = (index - currentPage).abs();
-
-    // Then jump or animate the page controller based on distance
-    if (mainPageController.hasClients) {
-      if (distance > 1) {
-        // If pages are not adjacent, jump immediately for instant transition
-        mainPageController.jumpToPage(index);
-        _isChangingPage = false;
-      } else {
-        // For adjacent pages, use animation for a smooth transition
-        mainPageController
-            .animateToPage(
-          index,
-          duration: Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-        )
-            .then((_) {
-          _isChangingPage = false;
-        });
-      }
-    } else {
-      _isChangingPage = false;
-    }
-
-    // When Home is selected (index 2), ensure horizontal page is at Home (index 1)
-    if (index == 2) {
-      ref.read(horizontalPageProvider.notifier).state = 1;
-      if (horizontalPageController.hasClients) {
-        horizontalPageController.animateToPage(
-          1,
-          duration: Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final currentIndex = ref.watch(currentIndexProvider);
+    // Listen to horizontal page changes from other sources (like back button)
+    ref.listen<int>(horizontalPageProvider, (previous, next) {
+      if (_pageController.hasClients && _pageController.page?.round() != next) {
+        _pageController.jumpToPage(next);
+      }
+    });
 
-    return PopScope(
-      canPop: (horizontalPageController.hasClients && horizontalPageController.page?.round() == 1) &&
-          (mainPageController.hasClients && mainPageController.page?.round() == 2), // Update to check for index 2 (home)
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          // If we're not on the home page in the main navigation
-          if (mainPageController.hasClients && mainPageController.page?.round() != 2) {
-            _changeMainPage(2); // Navigate to home (index 2)
-          }
-          // If we're on home but not on the home screen in horizontal navigation
-          else if (horizontalPageController.hasClients && horizontalPageController.page?.round() != 1) {
-            _changeHorizontalPage(1);
-          }
-        }
-      },
-      child: Scaffold(
-        body: PageView(
-          controller: mainPageController,
-          physics: NeverScrollableScrollPhysics(), // prevent swipe
-          onPageChanged: (index) {
-            if (!_isChangingPage) {
-              ref.read(currentIndexProvider.notifier).state = index;
-            }
-          },
-          children: [
-            ExplorePage(), // Index 0: Explore
-            PlanPage(), // Index 1: Plan
-            // When on Home tab, show the horizontal PageView (Index 2)
-            Scaffold(
-              body: PageView(
-                controller: horizontalPageController,
-                onPageChanged: (index) {
-                  ref.read(horizontalPageProvider.notifier).state = index;
-                },
-                children: [
-                  UploadPostPage(),
-                  HomeWidget(
-                    onCameraPressed: () => _changeHorizontalPage(0),
-                    onMessagePressed: () => _changeHorizontalPage(2),
-                    onExplorePressed: () => _changeMainPage(0),
-                  ),
-                  DMsPage(),
-                ],
-              ),
-            ),
-            NotificationsPage(), // Index 3: Notifications
-            ProfilePage(
-              profileUserId: FirebaseAuth.instance.currentUser!.uid,
-            ), // Index 4: Profile
-          ],
-        ),
-        bottomNavigationBar: BottomNav(
-          currentIndex: currentIndex,
-          onTap: _changeMainPage,
-          ref: ref,
-        ),
+    return Scaffold(
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          ref.read(horizontalPageProvider.notifier).state = index;
+        },
+        children: [
+          HomeWidget(
+            onMessagePressed: () => _changeHorizontalPage(1),
+            onExplorePressed: () => widget.onChangeMainPage(0),
+          ),
+          DMsPage(),
+        ],
       ),
     );
   }
@@ -392,7 +329,7 @@ class BottomNav extends StatelessWidget {
           _buildIconWithLabel(Icons.explore_outlined, 'Explore', currentIndex == 0),
           _buildIconWithLabel(Icons.flight_takeoff, 'Plan', currentIndex == 1),
           _buildIconWithLabel(Icons.home_outlined, 'Home', currentIndex == 2),
-          _buildNotificationIconWithLabel(unreadCount, 'Alerts', currentIndex == 3),
+          _buildNotificationIcon(unreadCount, 'Alerts', currentIndex == 3),
           _buildIconWithLabel(Icons.person_outline, 'Profile', currentIndex == 4),
         ],
       ),
@@ -422,7 +359,7 @@ class BottomNav extends StatelessWidget {
     );
   }
 
-  Widget _buildNotificationIconWithLabel(int unreadCount, String label, bool isSelected) {
+  Widget _buildNotificationIcon(int unreadCount, String label, bool isSelected) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -481,12 +418,10 @@ class BottomNav extends StatelessWidget {
 }
 
 class HomeWidget extends ConsumerWidget {
-  final VoidCallback onCameraPressed;
   final VoidCallback onMessagePressed;
   final VoidCallback onExplorePressed;
 
   const HomeWidget({
-    required this.onCameraPressed,
     required this.onMessagePressed,
     required this.onExplorePressed,
     Key? key,
@@ -505,14 +440,10 @@ class HomeWidget extends ConsumerWidget {
 
     // Create custom swipe gesture handlers for the Home screen
     return GestureDetector(
-      // Swipe right to go to Upload Post
+      // SWIPE LEFT TO GO TO MESSAGES
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity != null) {
-          if (details.primaryVelocity! > 0) {
-            // Swipe right
-            onCameraPressed();
-          } else if (details.primaryVelocity! < 0) {
-            // Swipe left
+          if (details.primaryVelocity! < 0) {
             onMessagePressed();
           }
         }
@@ -523,15 +454,6 @@ class HomeWidget extends ConsumerWidget {
           forceMaterialTransparency: true,
           backgroundColor: Colors.white,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              CupertinoIcons.add_circled_solid,
-              color: kDeepPinkLight,
-              size: 25,
-            ),
-            onPressed: onCameraPressed,
-            tooltip: 'Camera',
-          ),
           actions: [
             Stack(
               clipBehavior: Clip.none,
@@ -540,7 +462,7 @@ class HomeWidget extends ConsumerWidget {
                   icon: Icon(
                     Icons.send_rounded,
                     color: kDeepPinkLight,
-                    size: 23,
+                    size: 28,
                   ),
                   onPressed: onMessagePressed,
                   tooltip: 'Messages',
@@ -550,8 +472,8 @@ class HomeWidget extends ConsumerWidget {
                     right: 8,
                     top: 8,
                     child: Container(
-                      width: 18,
-                      height: 18,
+                      width: 20,
+                      height: 20,
                       decoration: BoxDecoration(
                         color: kDeepPink.withOpacity(0.8),
                         shape: BoxShape.circle,
@@ -581,11 +503,11 @@ class HomeWidget extends ConsumerWidget {
             children: [
               Image.asset(
                 "assets/TraviaLogo.png",
-                height: 70,
-                width: 70,
+                height: 90,
+                width: 90,
               ),
               Container(
-                height: 24,
+                height: 26,
                 width: 2,
                 color: Colors.grey,
                 margin: EdgeInsets.symmetric(horizontal: 8),
@@ -594,7 +516,7 @@ class HomeWidget extends ConsumerWidget {
                 child: TypewriterAnimatedText(
                   text: "Plan Smart. Travel Far.",
                   style: GoogleFonts.ibmPlexSans(
-                    fontSize: 12.6,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -608,7 +530,7 @@ class HomeWidget extends ConsumerWidget {
                 ),
             ],
           ),
-        ),
+        ), // rest of code
         body: Column(
           children: [
             StoryBar(),

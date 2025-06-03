@@ -57,12 +57,12 @@ final deletingConversationProvider = StateProvider<Set<String>>((ref) => {});
 final userSearchProvider = FutureProvider.family<List<UserModel>, String>((ref, query) async {
   if (query.isEmpty) return [];
 
-  // debounce baby
+  // debounce
   await Future.delayed(const Duration(milliseconds: 400));
 
   final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
-  final response = await supabase.from('users').select().ilike('username', '%$query%').neq('id', currentUserId!).limit(10);
+  final response = await supabase.from('users').select().or('username.ilike.%$query%,display_name.ilike.%$query%').neq('id', currentUserId!).limit(10);
 
   return (response as List).map((user) => UserModel.fromMap(user)).toList();
 });

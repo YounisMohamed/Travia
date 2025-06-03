@@ -24,7 +24,7 @@ class MediaCompressor {
       final result = await FlutterImageCompress.compressAndGetFile(
         file.absolute.path,
         targetPath,
-        quality: 25,
+        quality: 20,
         minWidth: 720,
         minHeight: 720,
         format: CompressFormat.jpeg,
@@ -79,10 +79,21 @@ class MediaUploadService {
     required String userId,
     required String bucketName,
     required String folderPath,
+    required BuildContext context,
     bool compress = true,
   }) async {
     try {
       File fileToUpload = mediaFile;
+
+      const int maxFileSizeInBytes = 8 * 1024 * 1024; // 8MB
+
+      final fileSize = fileToUpload.lengthSync();
+      if (fileSize > maxFileSizeInBytes) {
+        final fileSizeToInt = (fileSize / (1024 * 1024)).round();
+        print('File too large: ${fileSizeToInt} MB. Max allowed is 8 MB.');
+        Popup.showWarning(text: "File too large. Max allowed is 8 MB.", context: context);
+        return null;
+      }
 
       // Determine if this is a video file
       final extension = p.extension(mediaFile.path).toLowerCase();
@@ -104,11 +115,8 @@ class MediaUploadService {
       // Determine final extension to use
       String fileExt;
       if (isVideo) {
-        // For videos, keep the original extension (usually mp4 after compression)
-        // or extract from compressed file path if available
         fileExt = compress && fileToUpload != mediaFile ? p.extension(fileToUpload.path).replaceFirst('.', '') : extension.replaceFirst('.', '');
       } else {
-        // For images, compressed ones will be jpg
         fileExt = compress ? 'jpg' : extension.replaceFirst('.', '');
       }
 
@@ -118,14 +126,14 @@ class MediaUploadService {
             fileName,
             fileToUpload,
             fileOptions: FileOptions(
-              cacheControl: '3600', // Cache for 1 hour to save bandwidth
+              cacheControl: '3600',
               contentType: _getContentType(fileExt),
             ),
           );
 
       return supabase.storage.from(bucketName).getPublicUrl(fileName);
     } catch (e) {
-      print('Error uploading media: $e');
+      Popup.showWarning(text: "Error uploading media.", context: context);
       return null;
     }
   }
@@ -225,13 +233,7 @@ class PostUploadNotifier extends MediaUploadNotifier {
     setLoading(true);
 
     try {
-      final mediaUrl = await MediaUploadService.uploadMedia(
-        mediaFile: mediaFile,
-        userId: userId,
-        bucketName: 'posts',
-        folderPath: 'posts',
-        compress: true,
-      );
+      final mediaUrl = await MediaUploadService.uploadMedia(mediaFile: mediaFile, userId: userId, bucketName: 'posts', folderPath: 'posts', compress: true, context: context);
 
       if (mediaUrl == null) throw Exception("Failed to upload media");
 
@@ -268,7 +270,6 @@ class PostUploadNotifier extends MediaUploadNotifier {
       Popup.showSuccess(text: "Post uploaded successfully!", context: context);
     } catch (e) {
       print("Post Upload Error: $e");
-      Popup.showError(text: "Post upload failed!", context: context);
     } finally {
       setLoading(false);
     }
@@ -286,17 +287,12 @@ class ChatMediaUploadNotifier extends MediaUploadNotifier {
   Future<String?> uploadChatMedia({
     required String userId,
     required File mediaFile,
+    required BuildContext context,
   }) async {
     setLoading(true);
 
     try {
-      final url = await MediaUploadService.uploadMedia(
-        mediaFile: mediaFile,
-        userId: userId,
-        bucketName: 'chatmedia',
-        folderPath: 'TraviaChat',
-        compress: true, // Enable compression
-      );
+      final url = await MediaUploadService.uploadMedia(mediaFile: mediaFile, userId: userId, bucketName: 'chatmedia', folderPath: 'TraviaChat', compress: true, context: context);
       return url;
     } finally {
       setLoading(false);
@@ -314,17 +310,12 @@ class ChangePictureNotifier extends MediaUploadNotifier {
   Future<String?> uploadChatMedia({
     required String userId,
     required File mediaFile,
+    required BuildContext context,
   }) async {
     setLoading(true);
 
     try {
-      final url = await MediaUploadService.uploadMedia(
-        mediaFile: mediaFile,
-        userId: userId,
-        bucketName: 'chatmedia',
-        folderPath: 'ProfilePics',
-        compress: true,
-      );
+      final url = await MediaUploadService.uploadMedia(mediaFile: mediaFile, userId: userId, bucketName: 'chatmedia', folderPath: 'ProfilePics', compress: true, context: context);
       return url;
     } finally {
       setLoading(false);
@@ -343,17 +334,12 @@ class StoryMediaUploadNotifier extends MediaUploadNotifier {
   Future<String?> uploadStory({
     required String userId,
     required File mediaFile,
+    required BuildContext context,
   }) async {
     setLoading(true);
 
     try {
-      final url = await MediaUploadService.uploadMedia(
-        mediaFile: mediaFile,
-        userId: userId,
-        bucketName: 'stories',
-        folderPath: 'TraviaStories',
-        compress: true,
-      );
+      final url = await MediaUploadService.uploadMedia(mediaFile: mediaFile, userId: userId, bucketName: 'stories', folderPath: 'TraviaStories', compress: true, context: context);
       return url;
     } finally {
       setLoading(false);

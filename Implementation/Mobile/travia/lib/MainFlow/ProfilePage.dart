@@ -11,6 +11,7 @@ import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/GoogleTexts.dart';
 import 'package:travia/MainFlow/EditProfile.dart';
 import 'package:travia/MainFlow/FriendsPage.dart';
+import 'package:travia/MainFlow/UploadPostPage.dart';
 
 import '../Classes/Post.dart';
 import '../Helpers/AppColors.dart';
@@ -46,6 +47,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(followStateProvider.notifier).loadFollowStatus(widget.profileUserId);
+    });
     _pageController.addListener(() {
       if (_pageController.page!.round() != ref.read(selectedPostTabProvider)) {
         ref.read(selectedPostTabProvider.notifier).state = _pageController.page!.round();
@@ -59,118 +63,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     super.dispose();
   }
 
-  Future<void> _handleBlockUser() async {
-    // Show confirmation dialog
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'Block User',
-            style: TextStyle(
-              color: kDeepPink,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to block this user? They won\'t be able to see your posts, comment on your content, or message you.',
-            style: TextStyle(
-              fontSize: 16,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kDeepPink,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Block',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed == true) {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Center(
-          child: CircularProgressIndicator(color: kDeepPink),
-        ),
-      );
-
-      try {
-        final targetUserId = widget.profileUserId;
-
-        if (currentUserId != null) {
-          final success = await BlockService.blockUser(currentUserId, targetUserId);
-
-          Navigator.of(context).pop();
-
-          if (success) {
-            // Show success message
-            Popup.showSuccess(text: "User blocked successfully", context: context);
-
-            // Navigate back or refresh the page
-            Navigator.of(context).pop();
-          } else {
-            // Show error message
-            Popup.showError(text: "Error while blocking user", context: context);
-          }
-        }
-      } catch (e) {
-        Navigator.of(context).pop(); // Close loading dialog
-        Popup.showError(text: "Error while blocking user", context: context);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     Future<void> refresh() async {
       await Future.delayed(Duration(milliseconds: 300));
       Phoenix.rebirth(context);
     }
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isOwnProfile = widget.profileUserId == currentUserId;
-    final tabLabels = isOwnProfile ? ['Posts', 'Liked', 'Viewed', 'Saved'] : ['Posts', 'Liked'];
-    final selectedTab = ref.watch(selectedPostTabProvider);
-    final isLoading = ref.watch(profileLoadingProvider);
-    final userAsync = ref.watch(userStreamProvider(widget.profileUserId));
-    final blockStatus = ref.watch(blockStatusProvider(widget.profileUserId));
-    final followController = ref.watch(followControllerProvider);
-    final isFollowLoading = ref.watch(isFollowActionLoadingProvider(widget.profileUserId));
-    final isFollowing = ref.watch(followStatusProvider(widget.profileUserId));
-
-    // Load follow status when page loads
-    ref.listen(followControllerProvider, (_, controller) {
-      controller.loadFollowStatus(widget.profileUserId);
-    });
 
     Future<void> _handleBlockUser(BuildContext context, WidgetRef ref) async {
       // Show confirmation dialog
@@ -216,6 +114,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             if (success) {
               // Show success message
               Popup.showSuccess(text: "User unblocked successfully", context: context);
+              Phoenix.rebirth(context);
             } else {
               // Show error message
               Popup.showError(text: "Error while unblocking user", context: context);
@@ -228,12 +127,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       );
     }
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isOwnProfile = widget.profileUserId == currentUserId;
+    final tabLabels = isOwnProfile ? ['Posts', 'Liked', 'Saved'] : ['Posts', 'Liked'];
+    final selectedTab = ref.watch(selectedPostTabProvider);
+    final isLoading = ref.watch(profileLoadingProvider);
+    final userAsync = ref.watch(userStreamProvider(widget.profileUserId));
+    final blockStatus = ref.watch(blockStatusProvider(widget.profileUserId));
+    final followController = ref.read(followControllerProvider);
+    final isFollowing = ref.watch(isFollowingProvider(widget.profileUserId));
+
     return userAsync.when(
         data: (user) {
           final List<AsyncValue<List<Post>>> postLists = [
             ref.watch(filteredPostsProvider(user.uploadedPosts)),
             ref.watch(filteredPostsProvider(user.likedPosts)),
-            if (isOwnProfile) ref.watch(filteredPostsProvider(user.viewedPosts)),
             if (isOwnProfile) ref.watch(filteredPostsProvider(user.savedPosts)),
           ];
 
@@ -264,8 +173,27 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.02),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              if (isOwnProfile)
+                                Container(
+                                  height: screenWidth * 0.12,
+                                  width: screenWidth * 0.12,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(screenWidth * 0.06),
+                                  ),
+                                  child: IconButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => UploadPostPage()),
+                                      );
+                                    },
+                                    icon: Icon(Icons.add),
+                                    color: kDeepPink,
+                                  ),
+                                ),
                               Container(
                                   height: screenWidth * 0.12,
                                   width: screenWidth * 0.12,
@@ -413,8 +341,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           ),
                         ),
 
-                        SizedBox(height: screenHeight * 0.02),
-
                         // Main content
                         Expanded(
                           child: Stack(
@@ -446,20 +372,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                                 onTap: () {
                                                   Navigator.of(context).push(MaterialPageRoute(
                                                       builder: (_) => FriendsScreen(
-                                                            initialIndex: 1,
-                                                            userIdOfCurrentFriendsList: widget.profileUserId,
-                                                          )));
-                                                },
-                                                child: _buildStatColumn(user.friendIds.length, 'Followers')),
-                                            GestureDetector(
-                                                onTap: () {
-                                                  Navigator.of(context).push(MaterialPageRoute(
-                                                      builder: (_) => FriendsScreen(
                                                             initialIndex: 0,
                                                             userIdOfCurrentFriendsList: widget.profileUserId,
                                                           )));
                                                 },
                                                 child: _buildStatColumn(user.followingIds.length, 'Following')),
+                                            GestureDetector(
+                                                onTap: () {
+                                                  Navigator.of(context).push(MaterialPageRoute(
+                                                      builder: (_) => FriendsScreen(
+                                                            initialIndex: 1,
+                                                            userIdOfCurrentFriendsList: widget.profileUserId,
+                                                          )));
+                                                },
+                                                child: _buildStatColumn(user.friendIds.length, 'Followers')),
                                           ],
                                         ),
                                       ),
@@ -568,339 +494,374 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
                                       SizedBox(height: screenHeight * 0.02),
 
-                                      // Follow - Message
-                                      if (currentUserId != widget.profileUserId)
-                                        Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
-                                          child: Row(
+                                      // Check if the user is blocked
+                                      blockStatus.when(
+                                        data: (isBlocked) {
+                                          if (isBlocked && !isOwnProfile) {
+                                            // Show blocked message instead of profile content
+                                            return Container(
+                                              width: double.infinity,
+                                              margin: EdgeInsets.only(top: screenHeight * 0.02),
+                                              padding: EdgeInsets.all(screenWidth * 0.1),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.only(
+                                                  topLeft: Radius.circular(30),
+                                                  topRight: Radius.circular(30),
+                                                ),
+                                              ),
+                                              child: Column(
+                                                children: [
+                                                  Icon(
+                                                    Icons.block,
+                                                    size: 60,
+                                                    color: kDeepPink,
+                                                  ),
+                                                  SizedBox(height: screenHeight * 0.02),
+                                                  Text(
+                                                    'You have blocked this user',
+                                                    style: TextStyle(
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.grey[700],
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: screenHeight * 0.01),
+                                                  Text(
+                                                    'Unblock to see their profile content',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: screenHeight * 0.04),
+                                                ],
+                                              ),
+                                            );
+                                          }
+
+                                          // If not blocked, show the rest of the profile
+                                          return Column(
                                             children: [
-                                              Consumer(
-                                                builder: (context, ref, _) {
-                                                  return Expanded(
-                                                    child: GestureDetector(
-                                                      onTap: isLoading
-                                                          ? null
-                                                          : () async {
-                                                              final result = await followController.toggleFollow(widget.profileUserId);
-                                                              if (!result.isSuccess && context.mounted) {
-                                                                if (result.isBlocked) {
-                                                                  Popup.showError(text: "Cannot follow @${user.username}: You have a blocked relationship with this user", context: context);
-                                                                } else {
-                                                                  Popup.showError(text: result.errorMessage ?? "Failed to follow user", context: context);
-                                                                }
-                                                              }
-                                                            },
-                                                      child: Container(
-                                                        height: screenHeight * 0.06,
-                                                        margin: const EdgeInsets.only(right: 10),
-                                                        decoration: BoxDecoration(
-                                                          color: isFollowing ? kDeepPinkLight.withValues(alpha: 0.9) : kDeepPink,
-                                                          borderRadius: BorderRadius.circular(25),
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: kDeepPink.withOpacity(0.3),
-                                                              blurRadius: 10,
-                                                              offset: const Offset(0, 5),
+                                              // Follow - Message
+                                              if (currentUserId != widget.profileUserId)
+                                                Padding(
+                                                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
+                                                  child: Row(
+                                                    children: [
+                                                      Consumer(
+                                                        builder: (context, ref, _) {
+                                                          return Expanded(
+                                                            child: GestureDetector(
+                                                              onTap: isLoading
+                                                                  ? null
+                                                                  : () async {
+                                                                      final result = await followController.toggleFollow(widget.profileUserId);
+
+                                                                      if (!result.isSuccess && context.mounted) {
+                                                                        if (result.isBlocked) {
+                                                                          Popup.showError(
+                                                                            text: "Cannot follow @${user.username}: You have a blocked relationship with this user",
+                                                                            context: context,
+                                                                          );
+                                                                        } else {
+                                                                          Popup.showError(
+                                                                            text: result.errorMessage ?? "Failed to follow user",
+                                                                            context: context,
+                                                                          );
+                                                                        }
+                                                                      }
+                                                                    },
+                                                              child: AnimatedContainer(
+                                                                duration: const Duration(milliseconds: 200),
+                                                                height: screenHeight * 0.06,
+                                                                margin: const EdgeInsets.only(right: 10),
+                                                                decoration: BoxDecoration(
+                                                                  color: isFollowing ? kDeepPinkLight.withValues(alpha: 0.9) : kDeepPink,
+                                                                  borderRadius: BorderRadius.circular(25),
+                                                                  boxShadow: [
+                                                                    BoxShadow(
+                                                                      color: kDeepPink.withOpacity(0.3),
+                                                                      blurRadius: 10,
+                                                                      offset: const Offset(0, 5),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                child: Center(
+                                                                  child: isLoading
+                                                                      ? const SizedBox(
+                                                                          width: 20,
+                                                                          height: 20,
+                                                                          child: CircularProgressIndicator(
+                                                                            strokeWidth: 2,
+                                                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                                          ),
+                                                                        )
+                                                                      : Text(
+                                                                          isFollowing ? 'Unfollow' : 'Follow',
+                                                                          style: const TextStyle(
+                                                                            color: Colors.white,
+                                                                            fontWeight: FontWeight.bold,
+                                                                            fontSize: 16,
+                                                                          ),
+                                                                        ),
+                                                                ),
+                                                              ),
                                                             ),
-                                                          ],
-                                                        ),
-                                                        child: Center(
-                                                          child: Text(
-                                                            isFollowing ? 'Following' : 'Follow',
-                                                            style: const TextStyle(
+                                                          );
+                                                        },
+                                                      ),
+                                                      Expanded(
+                                                        child: GestureDetector(
+                                                          onTap: () async {
+                                                            final conversationId = await ref.read(createConversationProvider(widget.profileUserId).future);
+                                                            context.push("/messages/$conversationId");
+                                                          },
+                                                          child: Container(
+                                                            height: screenHeight * 0.06,
+                                                            margin: const EdgeInsets.only(left: 10),
+                                                            decoration: BoxDecoration(
                                                               color: Colors.white,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 16,
+                                                              borderRadius: BorderRadius.circular(25),
+                                                              boxShadow: [
+                                                                BoxShadow(
+                                                                  color: Colors.black.withOpacity(0.1),
+                                                                  blurRadius: 10,
+                                                                  offset: const Offset(0, 5),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            child: const Center(
+                                                              child: Text(
+                                                                'Message',
+                                                                style: TextStyle(
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 16,
+                                                                ),
+                                                              ),
                                                             ),
                                                           ),
                                                         ),
                                                       ),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              Expanded(
-                                                child: GestureDetector(
-                                                  onTap: () async {
-                                                    final conversationId = await ref.read(createConversationProvider(widget.profileUserId).future);
-                                                    context.push("/messages/$conversationId");
-                                                  },
-                                                  child: Container(
-                                                    height: screenHeight * 0.06,
-                                                    margin: const EdgeInsets.only(left: 10),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white,
-                                                      borderRadius: BorderRadius.circular(25),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: Colors.black.withOpacity(0.1),
-                                                          blurRadius: 10,
-                                                          offset: const Offset(0, 5),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    child: const Center(
-                                                      child: Text(
-                                                        'Message',
-                                                        style: TextStyle(
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 16,
-                                                        ),
-                                                      ),
-                                                    ),
+                                                    ],
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      // Edit Profile if you look at your own profile
-                                      if (currentUserId == widget.profileUserId)
-                                        Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.2),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: GestureDetector(
-                                                  onTap: () {
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(builder: (_) => EditProfilePage(user: user)),
-                                                    );
-                                                  },
-                                                  child: Container(
-                                                    height: screenHeight * 0.06,
-                                                    margin: const EdgeInsets.only(left: 10),
-                                                    decoration: BoxDecoration(
-                                                      color: kDeepPink,
-                                                      borderRadius: BorderRadius.circular(25),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: Colors.black.withOpacity(0.1),
-                                                          blurRadius: 10,
-                                                          offset: const Offset(0, 5),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    child: const Center(
-                                                      child: Text(
-                                                        'Edit Profile',
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 16,
+                                              // Edit Profile if you look at your own profile
+                                              if (currentUserId == widget.profileUserId)
+                                                Padding(
+                                                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.2),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: GestureDetector(
+                                                          onTap: () {
+                                                            Navigator.push(
+                                                              context,
+                                                              MaterialPageRoute(builder: (_) => EditProfilePage(user: user)),
+                                                            );
+                                                          },
+                                                          child: Container(
+                                                            height: screenHeight * 0.06,
+                                                            margin: const EdgeInsets.only(left: 10),
+                                                            decoration: BoxDecoration(
+                                                              color: kDeepPink,
+                                                              borderRadius: BorderRadius.circular(25),
+                                                              boxShadow: [
+                                                                BoxShadow(
+                                                                  color: Colors.black.withOpacity(0.1),
+                                                                  blurRadius: 10,
+                                                                  offset: const Offset(0, 5),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            child: const Center(
+                                                              child: Text(
+                                                                'Edit Profile',
+                                                                style: TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 16,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
+                                                    ],
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      SizedBox(height: screenHeight * 0.02),
+                                              SizedBox(height: screenHeight * 0.02),
 
-                                      // Posts section
-                                      Container(
-                                        width: double.infinity,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.only(
-                                            topLeft: Radius.circular(30),
-                                            topRight: Radius.circular(30),
-                                          ),
-                                        ),
-                                        child: !isOwnProfile
-                                            ? // Private account indicator
-                                            Container(
-                                                height: screenHeight * 0.45,
+                                              // Posts section with tab
+                                              Container(
+                                                width: double.infinity,
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.only(
+                                                    topLeft: Radius.circular(30),
+                                                    topRight: Radius.circular(30),
+                                                  ),
+                                                ),
                                                 child: Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Container(
-                                                      padding: const EdgeInsets.all(20),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.grey.shade100,
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: Icon(
-                                                        Icons.lock_outline,
-                                                        size: 60,
-                                                        color: kDeepPink,
+                                                    // Tab section
+                                                    Padding(
+                                                      padding: EdgeInsets.only(top: screenHeight * 0.02, bottom: screenHeight * 0.01),
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                        children: List.generate((isOwnProfile || user.showLikedPosts) ? tabLabels.length : 1, (index) {
+                                                          final isSelected = selectedTab == index;
+                                                          final currentTabLabel = tabLabels[index];
+
+                                                          return GestureDetector(
+                                                            onTap: () {
+                                                              ref.read(selectedPostTabProvider.notifier).state = index;
+                                                            },
+                                                            child: Column(
+                                                              children: [
+                                                                Text(
+                                                                  currentTabLabel,
+                                                                  style: TextStyle(
+                                                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                                    color: isSelected ? Colors.black : Colors.grey,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(height: 5),
+                                                                if (isSelected)
+                                                                  Container(
+                                                                    height: 2,
+                                                                    width: 40,
+                                                                    color: kDeepPink,
+                                                                  )
+                                                                else
+                                                                  const SizedBox(height: 2),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        }),
                                                       ),
                                                     ),
+
+                                                    // Posts Grid - Remove PageView and fixed height
+                                                    Padding(
+                                                      padding: const EdgeInsets.all(10),
+                                                      child: postLists[selectedTab].when(
+                                                        loading: () => GridView.count(
+                                                          shrinkWrap: true,
+                                                          physics: const NeverScrollableScrollPhysics(),
+                                                          crossAxisCount: 2,
+                                                          crossAxisSpacing: 10,
+                                                          mainAxisSpacing: 10,
+                                                          children: List.generate(4, (index) {
+                                                            return Skeletonizer(
+                                                              containersColor: Colors.grey.shade300,
+                                                              child: Container(
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.white,
+                                                                  borderRadius: BorderRadius.circular(15),
+                                                                ),
+                                                              ),
+                                                            );
+                                                          }),
+                                                        ),
+                                                        error: (e, _) => Center(
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(20),
+                                                            child: IBMPlexSansText(
+                                                              text: "Error loading posts",
+                                                              size: 25,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        data: (currentPosts) {
+                                                          final isTabEqualPosts = tabLabels[selectedTab].toLowerCase() == "posts";
+                                                          currentPosts = currentPosts.reversed.toList();
+                                                          if (currentPosts.isEmpty) {
+                                                            return Padding(
+                                                              padding: const EdgeInsets.all(40),
+                                                              child: Column(
+                                                                children: [
+                                                                  Icon(Icons.inbox, size: 60, color: kDeepPinkLight),
+                                                                  const SizedBox(height: 10),
+                                                                  Text(
+                                                                    'No${isTabEqualPosts ? "" : " ${tabLabels[selectedTab].toLowerCase()}"} posts yet.\n If this was an error, try refreshing.',
+                                                                    textAlign: TextAlign.center,
+                                                                    style: TextStyle(
+                                                                      fontSize: 16,
+                                                                      color: Colors.black.withOpacity(0.7),
+                                                                      fontWeight: FontWeight.bold,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            );
+                                                          }
+
+                                                          return GridView.count(
+                                                            shrinkWrap: true,
+                                                            physics: const NeverScrollableScrollPhysics(),
+                                                            crossAxisCount: 2,
+                                                            crossAxisSpacing: 10,
+                                                            mainAxisSpacing: 5,
+                                                            children: currentPosts.map((post) {
+                                                              final isVideo = post.mediaUrl.endsWith(".mp4") || post.mediaUrl.endsWith(".mov");
+                                                              final displayUrl = isVideo ? post.videoThumbnail ?? post.mediaUrl : post.mediaUrl;
+
+                                                              return GestureDetector(
+                                                                onTap: () {
+                                                                  context.push("/post/${post.postId}");
+                                                                },
+                                                                child: Stack(
+                                                                  children: [
+                                                                    Container(
+                                                                      decoration: BoxDecoration(
+                                                                        borderRadius: BorderRadius.circular(15),
+                                                                        image: DecorationImage(
+                                                                          image: CachedNetworkImageProvider(displayUrl),
+                                                                          fit: BoxFit.cover,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    if (isVideo)
+                                                                      const Center(
+                                                                        child: Icon(
+                                                                          Icons.play_circle_fill_rounded,
+                                                                          color: Colors.white,
+                                                                          size: 48,
+                                                                        ),
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                              )
+                                                                  .animate()
+                                                                  .fade(duration: 500.ms, curve: Curves.easeOut)
+                                                                  .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1), duration: 400.ms)
+                                                                  .shimmer(duration: 1200.ms, color: Colors.white.withOpacity(0.3));
+                                                            }).toList(),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+
+                                                    // Add some bottom padding
                                                     const SizedBox(height: 20),
-                                                    Text(
-                                                      'This account is private',
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: Colors.grey.shade700,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      'Follow this account to see their posts',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: Colors.grey.shade600,
-                                                      ),
-                                                    ),
                                                   ],
                                                 ),
                                               )
-                                            : // Show posts section for public profiles or own profile
-                                            Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  // Tab section - dynamically filter tabs based on conditions
-                                                  Padding(
-                                                    padding: EdgeInsets.only(top: screenHeight * 0.02, bottom: screenHeight * 0.01),
-                                                    child: Row(
-                                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                      children: List.generate(
-                                                          // Filter tabs based on conditions
-                                                          (isOwnProfile || user.showLikedPosts) ? tabLabels.length : 1, // Only show first tab (posts) if liked posts are hidden
-                                                          (index) {
-                                                        final isSelected = selectedTab == index;
-                                                        final currentTabLabel = tabLabels[index];
-
-                                                        return GestureDetector(
-                                                          onTap: () {
-                                                            ref.read(selectedPostTabProvider.notifier).state = index;
-                                                            _pageController.jumpToPage(index);
-                                                          },
-                                                          child: Column(
-                                                            children: [
-                                                              Text(
-                                                                currentTabLabel,
-                                                                style: TextStyle(
-                                                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                                  color: isSelected ? Colors.black : Colors.grey,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(height: 5),
-                                                              if (isSelected)
-                                                                Container(
-                                                                  height: 2,
-                                                                  width: 40,
-                                                                  color: kDeepPink,
-                                                                )
-                                                              else
-                                                                const SizedBox(height: 2),
-                                                            ],
-                                                          ),
-                                                        );
-                                                      }),
-                                                    ),
-                                                  ),
-                                                  // Posts section
-                                                  Container(
-                                                    height: screenHeight * 0.45,
-                                                    child: PageView.builder(
-                                                      controller: _pageController,
-                                                      onPageChanged: (index) {
-                                                        ref.read(selectedPostTabProvider.notifier).state = index;
-                                                      },
-                                                      itemCount: (isOwnProfile || user.showLikedPosts) ? tabLabels.length : 1, // Only show posts page if liked posts are hidden
-                                                      itemBuilder: (context, index) {
-                                                        final currentPostsAsync = postLists[index];
-                                                        return Padding(
-                                                          padding: const EdgeInsets.all(10),
-                                                          child: currentPostsAsync.when(
-                                                            loading: () => GridView.count(
-                                                              shrinkWrap: true,
-                                                              physics: const NeverScrollableScrollPhysics(),
-                                                              crossAxisCount: 2,
-                                                              crossAxisSpacing: 10,
-                                                              mainAxisSpacing: 10,
-                                                              children: List.generate(6, (index) {
-                                                                return Skeletonizer(
-                                                                  containersColor: Colors.grey.shade300,
-                                                                  child: Container(
-                                                                    decoration: BoxDecoration(
-                                                                      color: Colors.white,
-                                                                      borderRadius: BorderRadius.circular(15),
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              }),
-                                                            ),
-                                                            error: (e, _) => Center(
-                                                              child: IBMPlexSansText(
-                                                                text: "Error loading posts",
-                                                                size: 25,
-                                                              ),
-                                                            ),
-                                                            data: (currentPosts) {
-                                                              if (currentPosts.isEmpty) {
-                                                                return Column(
-                                                                  children: [
-                                                                    const SizedBox(height: 50),
-                                                                    Icon(Icons.inbox, size: 60, color: kDeepPinkLight),
-                                                                    const SizedBox(height: 10),
-                                                                    Text(
-                                                                      'No ${tabLabels[index].toLowerCase()} posts yet.',
-                                                                      style: TextStyle(
-                                                                        fontSize: 16,
-                                                                        color: Colors.black.withOpacity(0.7),
-                                                                        fontWeight: FontWeight.w500,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                );
-                                                              }
-                                                              return GridView.count(
-                                                                shrinkWrap: true,
-                                                                crossAxisCount: 2,
-                                                                crossAxisSpacing: 10,
-                                                                mainAxisSpacing: 5,
-                                                                children: currentPosts.map((post) {
-                                                                  print(post.mediaUrl);
-                                                                  final isVideo = post.mediaUrl.endsWith(".mp4") || post.mediaUrl.endsWith(".mov");
-                                                                  final displayUrl = isVideo ? post.videoThumbnail ?? post.mediaUrl : post.mediaUrl;
-
-                                                                  return GestureDetector(
-                                                                    onTap: () {
-                                                                      context.push("/post/${post.postId}");
-                                                                    },
-                                                                    child: Stack(
-                                                                      children: [
-                                                                        Container(
-                                                                          decoration: BoxDecoration(
-                                                                            borderRadius: BorderRadius.circular(15),
-                                                                            image: DecorationImage(
-                                                                              image: CachedNetworkImageProvider(displayUrl),
-                                                                              fit: BoxFit.cover,
-                                                                            ),
-                                                                          ),
-                                                                        ),
-                                                                        if (isVideo)
-                                                                          const Center(
-                                                                            child: Icon(
-                                                                              Icons.play_circle_fill_rounded,
-                                                                              color: Colors.white,
-                                                                              size: 48,
-                                                                            ),
-                                                                          ),
-                                                                      ],
-                                                                    ),
-                                                                  )
-                                                                      .animate()
-                                                                      .fade(duration: 500.ms, curve: Curves.easeOut)
-                                                                      .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1), duration: 400.ms)
-                                                                      .shimmer(duration: 1200.ms, color: Colors.white.withOpacity(0.3));
-                                                                }).toList(),
-                                                              );
-                                                            },
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                      )
+                                            ],
+                                          );
+                                        },
+                                        loading: () => const Center(
+                                          child: Padding(
+                                            padding: EdgeInsets.all(20),
+                                            child: CircularProgressIndicator(
+                                              color: kDeepPink,
+                                            ),
+                                          ),
+                                        ),
+                                        error: (_, __) => Container(), // Handle error case
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -987,7 +948,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ),
           );
         },
-        error: (e, st) => Center(child: Text('Error: $e')),
+        error: (e, st) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              context.go("/error-page/${Uri.encodeComponent(e.toString())}/${Uri.encodeComponent("/profile/$currentUserId")}");
+            }
+          });
+          return const Center(child: Text("An error occurred."));
+        },
         loading: () => const Skeletonizer(
               enabled: true,
               child: ProfilePageSkeleton(),
@@ -1036,6 +1004,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       final mediaUrl = await ref.read(changePictureProvider.notifier).uploadChatMedia(
             userId: currentUserId,
             mediaFile: mediaFile,
+            context: context,
           );
 
       if (mediaUrl == null) {

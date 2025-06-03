@@ -4,6 +4,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
+import '../Helpers/HelperMethods.dart';
+
 class MediaState {
   final bool isDownloaded;
   final bool isDownloading;
@@ -101,18 +103,26 @@ class MediaStateNotifier extends StateNotifier<MediaState> {
 
 final mediaStateProvider = StateNotifierProvider.family<MediaStateNotifier, MediaState, String>(
   (ref, mediaUrl) {
-    final isVideo = mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov');
+    final isVideo = isPathVideo(mediaUrl);
     return MediaStateNotifier(mediaUrl: mediaUrl, isVideo: isVideo);
   },
 );
 
-final videoPlayerControllerProvider = StateNotifierProvider.family<VideoControllerNotifier, AsyncValue<VideoPlayerController>, String>((ref, url) {
-  return VideoControllerNotifier(url);
+final videoPlayerControllerProvider = StateNotifierProvider.autoDispose.family<VideoControllerNotifier, AsyncValue<VideoPlayerController>, String>((ref, url) {
+  final notifier = VideoControllerNotifier(url);
+
+  // Ensure disposal when provider is disposed
+  ref.onDispose(() {
+    notifier.dispose();
+  });
+
+  return notifier;
 });
 
 class VideoControllerNotifier extends StateNotifier<AsyncValue<VideoPlayerController>> {
   final String mediaUrl;
-  late final VideoPlayerController _controller;
+  VideoPlayerController? _controller;
+  bool _isDisposed = false;
 
   VideoControllerNotifier(this.mediaUrl) : super(const AsyncLoading()) {
     _initialize();
@@ -121,25 +131,33 @@ class VideoControllerNotifier extends StateNotifier<AsyncValue<VideoPlayerContro
   Future<void> _initialize() async {
     try {
       _controller = VideoPlayerController.networkUrl(Uri.parse(mediaUrl));
-      await _controller.initialize();
-      _controller.setLooping(true);
+      await _controller!.initialize();
+      _controller!.setLooping(true);
 
-      _controller.addListener(() {
-        state = AsyncData(_controller);
+      _controller!.addListener(() {
+        if (!_isDisposed) {
+          state = AsyncData(_controller!);
+        }
       });
 
-      state = AsyncData(_controller);
+      if (!_isDisposed) {
+        state = AsyncData(_controller!);
+      }
     } catch (e, st) {
-      state = AsyncError(e, st);
+      if (!_isDisposed) {
+        state = AsyncError(e, st);
+      }
     }
   }
 
-  void play() => _controller.play();
-  void pause() => _controller.pause();
+  void play() => _controller?.play();
+  void pause() => _controller?.pause();
 
   @override
   void dispose() {
-    _controller.dispose();
+    _isDisposed = true;
+    _controller?.pause();
+    _controller?.dispose();
     super.dispose();
   }
 }

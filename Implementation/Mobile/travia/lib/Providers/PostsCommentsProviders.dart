@@ -1,29 +1,14 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../Auth/AuthMethods.dart';
 import '../Classes/Comment.dart';
 import '../Classes/Post.dart';
 import '../main.dart';
 
 final postsProvider = StreamProvider<List<Post>>((ref) async* {
-  // Watch the Firebase auth state
-  final authStateAsync = ref.watch(firebaseAuthProvider);
-
-  // Return an empty list while loading auth state
-  if (authStateAsync.isLoading) {
-    yield [];
-    return;
-  }
-
-  // If there's an error or user is null (logged out), yield empty list
-  if (authStateAsync.hasError || authStateAsync.value == null) {
-    yield [];
-    return;
-  }
-
-  final currentUserId = authStateAsync.value!.uid;
+  final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
   try {
     // Create a stream that can be cancelled
@@ -97,22 +82,7 @@ final postsProvider = StreamProvider<List<Post>>((ref) async* {
 });
 
 final commentsProvider = StreamProvider.family<List<Comment>, String>((ref, postId) async* {
-  // Watch the Firebase auth state
-  final authStateAsync = ref.watch(firebaseAuthProvider);
-
-  // Return an empty list while loading auth state
-  if (authStateAsync.isLoading) {
-    yield [];
-    return;
-  }
-
-  // If there's an error or user is null (logged out), yield empty list
-  if (authStateAsync.hasError || authStateAsync.value == null) {
-    yield [];
-    return;
-  }
-
-  final currentUserId = authStateAsync.value!.uid;
+  final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
   try {
     // Create a stream that can be cancelled

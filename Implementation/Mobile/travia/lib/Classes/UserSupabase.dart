@@ -83,6 +83,36 @@ class UserModel {
     );
   }
 
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      id: json['id'] ?? '',
+      email: json['email'] ?? '',
+      displayName: json['display_name'] ?? '',
+      username: json['username'] ?? '',
+      photoUrl: json['photo_url'] ?? '',
+      bio: json['bio'],
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      relationshipStatus: json['relationship_status'] ?? 'Single',
+      gender: json['gender'] ?? 'Male',
+      age: json['age'] != null ? DateTime.parse(json['age']) : DateTime(2000),
+      viewedPosts: json['viewed_posts'] != null ? List<String>.from(json['viewed_posts']) : [],
+      savedPosts: json['saved_posts'] != null ? List<String>.from(json['saved_posts']) : [],
+      likedPosts: json['liked_posts'] != null ? List<String>.from(json['liked_posts']) : [],
+      uploadedPosts: json['uploaded_posts'] != null ? List<String>.from(json['uploaded_posts']) : [],
+      isYounis: json['is_younis'] ?? false,
+      fcmToken: json['fcm_token'] != null ? List<String>.from(json['fcm_token']) : null,
+      followingIds: json['following_ids'] != null ? List<String>.from(json['following_ids']) : [],
+      friendIds: json['friend_ids'] != null ? List<String>.from(json['friend_ids']) : [],
+      visitedCountries: json['visited_countries'] != null ? List<String>.from(json['visited_countries']) : [],
+      showLikedPosts: json['showLikedPosts'] ?? true,
+      blockedUserIds: json['blocked_user_ids'] != null ? List<String>.from(json['blocked_user_ids']) : [],
+      blockedByUserIds: json['blocked_by_user_ids'] != null ? List<String>.from(json['blocked_by_user_ids']) : [],
+      isBanned: json['is_banned'] ?? false,
+      badges: json['badges'] != null ? List<String>.from(json['badges']) : [],
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

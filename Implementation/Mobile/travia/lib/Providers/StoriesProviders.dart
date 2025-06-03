@@ -65,9 +65,17 @@ final storiesProvider = StreamProvider<List<story_model>>((ref) async* {
         stories.add(story);
       }
 
+      // Sort stories by latest story item creation time initially (will be reordered by seen status in UI)
+      stories.sort((a, b) {
+        final aLatest = (a.items?.isNotEmpty == true) ? a.items!.map((item) => item.createdAt).reduce((a, b) => a.isAfter(b) ? a : b) : DateTime.now();
+        final bLatest = (b.items?.isNotEmpty == true) ? b.items!.map((item) => item.createdAt).reduce((a, b) => a.isAfter(b) ? a : b) : DateTime.now();
+        return bLatest.compareTo(aLatest);
+      });
+
       yield stories;
     }
   } catch (e, stackTrace) {
+    print('Error in storiesProvider: $e');
     print(stackTrace);
     yield [];
   }

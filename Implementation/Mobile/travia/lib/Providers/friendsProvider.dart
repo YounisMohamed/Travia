@@ -100,3 +100,22 @@ final friendsDataProvider = StreamProvider.family<FriendsData, String>((ref, cur
     rethrow;
   }
 });
+
+final searchQueryProvider = StateProvider<String>((ref) => '');
+
+// Filtered users provider that combines search query with users list
+List<UserModel> filterUsers(List<UserModel> users, String searchQuery) {
+  if (searchQuery.isEmpty) {
+    return users;
+  }
+
+  final query = searchQuery.toLowerCase().trim();
+
+  return users.where((user) {
+    final displayNameMatch = user.displayName.toLowerCase().contains(query);
+    final usernameMatch = user.username.toLowerCase().contains(query);
+    final emailMatch = user.email.toLowerCase().contains(query);
+
+    return displayNameMatch || usernameMatch || emailMatch;
+  }).toList();
+}

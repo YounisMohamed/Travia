@@ -3,19 +3,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_min_gpl/ffprobe_kit.dart';
-import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:pro_image_editor/pro_image_editor.dart' as pe;
 import 'package:uuid/uuid.dart';
 
 import '../Classes/Media.dart';
 import '../MainFlow/PickerScreen.dart';
-import 'VideoCropProvider.dart';
 
 final singleMediaPickerProvider = StateNotifierProvider<SingleMediaPickerNotifier, File?>((ref) {
   return SingleMediaPickerNotifier();
@@ -81,16 +76,7 @@ class SingleMediaPickerNotifier extends StateNotifier<File?> {
         debugPrint("New image picked and cropped: ${editedImage.path}");
       }
     } else if (selectedMedia.assetEntity.type == AssetType.video) {
-      final confirmedVideo = await Navigator.push<File?>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoCropPreviewPage(originalVideo: file),
-        ),
-      );
-      if (confirmedVideo != null) {
-        state = confirmedVideo;
-        debugPrint("New video picked and cropped: ${confirmedVideo.path}");
-      }
+      state = file;
     }
   }
 }
@@ -209,85 +195,6 @@ class MultiMediaPickerNotifier extends StateNotifier<List<File>> {
 
   void clearFiles() {
     state = [];
-  }
-}
-
-Future<File> cropToAspectRatioOrReturnOriginal(File videoFile, double targetAspectRatio) async {
-  final inputPath = videoFile.path;
-  final dir = p.dirname(inputPath);
-  final outputPath = '$dir/cropped_${DateTime.now().millisecondsSinceEpoch}.mp4';
-
-  // Step 1: Get video metadata
-  final probeResult = await FFprobeKit.getMediaInformation(inputPath);
-  final info = probeResult.getMediaInformation();
-  if (info == null) return videoFile;
-
-  final stream = info.getStreams().firstWhere((s) => s.getType() == 'video');
-  int? width = stream.getWidth();
-  int? height = stream.getHeight();
-  String? rotationStr = stream.getAllProperties()?['rotation']?.toString();
-
-  if (width == null || height == null) return videoFile;
-
-  // Step 2: Adjust for rotation
-  if (rotationStr == '90' || rotationStr == '270' || rotationStr == '-90') {
-    final temp = width;
-    width = height;
-    height = temp;
-  }
-
-  // Step 3: Compute crop dimensions
-  double currentRatio = width / height;
-  if ((currentRatio - targetAspectRatio).abs() < 0.01) {
-    // Close enough — no need to crop
-    return videoFile;
-  }
-
-  int cropWidth = width;
-  int cropHeight = (width / targetAspectRatio).round();
-
-  if (cropHeight > height) {
-    cropHeight = height;
-    cropWidth = (height * targetAspectRatio).round();
-  }
-
-  if (cropWidth <= 0 || cropHeight <= 0 || cropWidth > width || cropHeight > height) {
-    return videoFile; // Safety: dimensions invalid
-  }
-
-  int x = ((width - cropWidth) / 2).round();
-  int y = ((height - cropHeight) / 2).round();
-
-  final filter = 'crop=$cropWidth:$cropHeight:$x:$y';
-  final cmd = '-y -i "$inputPath" -vf "$filter" -c:v libx264 -preset ultrafast -crf 23 -c:a copy "$outputPath"';
-
-  final session = await FFmpegKit.execute(cmd);
-  final returnCode = await session.getReturnCode();
-
-  if (ReturnCode.isSuccess(returnCode)) {
-    return File(outputPath);
-  } else {
-    // Cropping failed — fallback to original
-    return videoFile;
-  }
-}
-
-class VideoCropPreviewPage extends ConsumerWidget {
-  final File originalVideo;
-  final double aspectRatio;
-
-  const VideoCropPreviewPage({
-    super.key,
-    required this.originalVideo,
-    this.aspectRatio = 1,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return VideoCropScreen(
-      videoFile: originalVideo,
-      aspectRatio: aspectRatio,
-    );
   }
 }
 

@@ -62,7 +62,6 @@ class PostCard extends StatelessWidget {
         )));
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
         final savedState = ref.watch(savedPostsProvider);
-        final isSaved = savedState[postId] ?? false;
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 5),
@@ -280,7 +279,7 @@ class PostCard extends StatelessWidget {
                     child: ClipRRect(
                       child: MediaPostPreview(
                         mediaUrl: postImageUrl,
-                        isVideo: postImageUrl.endsWith('.mp4') || postImageUrl.endsWith('.mov'),
+                        isVideo: isPathVideo(postImageUrl),
                       ),
                     ),
                   ),
@@ -317,7 +316,7 @@ class PostCard extends StatelessWidget {
                             ),
                           ),
 
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 22),
 
                           // Like count
                           Container(

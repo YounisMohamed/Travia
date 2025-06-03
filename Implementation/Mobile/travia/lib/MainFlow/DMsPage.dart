@@ -12,7 +12,6 @@ import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Providers/ConversationNotificationsProvider.dart';
 
-import '../Classes/UserSupabase.dart';
 import '../Helpers/DeleteConfirmation.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
@@ -48,16 +47,8 @@ class _DMsPageState extends ConsumerState<DMsPage> {
 
   Future<void> _createNewConversation() async {
     try {
-      final conversationId = await showDialog<String>(
-        context: context,
-        builder: (context) => const NewConversationDialog(),
-      );
-
-      if (conversationId != null) {
-        if (context.mounted) {
-          context.push("/messages/$conversationId");
-        }
-      }
+      // Navigate to the new conversation page
+      context.push("/dms-page/new");
     } catch (e) {
       log(e.toString());
       Popup.showError(text: "Something went wrong", context: context);
@@ -72,6 +63,7 @@ class _DMsPageState extends ConsumerState<DMsPage> {
     return Scaffold(
       backgroundColor: kDeepGrey,
       appBar: AppBar(
+        forceMaterialTransparency: true,
         title: Row(
           children: [
             Text(
@@ -302,7 +294,7 @@ class ConversationTile extends ConsumerWidget {
     String time = lastMessageAt != null ? timeAgo(lastMessageAt!) : "";
 
     return GestureDetector(
-      onLongPress: isDirect ? () => _showDeleteDialog(context, ref, conversationId) : null,
+      onLongPress: isDirect ? () => _showDeleteDialog(context, ref, conversationId) : () => _showLeaveGroupDialog(context, ref, conversationId, FirebaseAuth.instance.currentUser!.uid),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         horizontalTitleGap: 12,
@@ -424,7 +416,7 @@ class ConversationTile extends ConsumerWidget {
     showCustomDialog(
       context: context,
       title: "Delete",
-      message: "Are you sure? you can't undo this",
+      message: "Are you sure? This will delete the whole conversation for both users.",
       actionText: "Delete",
       actionIcon: Icons.delete,
       onActionPressed: () async {
@@ -444,497 +436,30 @@ class ConversationTile extends ConsumerWidget {
       actionColor: Colors.red,
     );
   }
-}
 
-class NewConversationDialog extends ConsumerStatefulWidget {
-  const NewConversationDialog({Key? key}) : super(key: key);
-
-  @override
-  ConsumerState<NewConversationDialog> createState() => _NewConversationDialogState();
-}
-
-final searchQueryProvider = StateProvider<String>((ref) => '');
-final isCreatingGroupProvider = StateProvider<bool>((ref) => false);
-final selectedUsersProvider = StateProvider<List<UserModel>>((ref) => []);
-
-class _NewConversationDialogState extends ConsumerState<NewConversationDialog> with SingleTickerProviderStateMixin {
-  final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _groupNameController = TextEditingController();
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _groupNameController.dispose();
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _toggleUserSelection(UserModel user) {
-    final selectedUsers = ref.read(selectedUsersProvider);
-    final updatedList = [...selectedUsers];
-
-    if (updatedList.any((u) => u.id == user.id)) {
-      updatedList.removeWhere((u) => u.id == user.id);
-    } else {
-      updatedList.add(user);
-    }
-
-    ref.read(selectedUsersProvider.notifier).state = updatedList;
-  }
-
-  Future<void> _createDirectConversation(UserModel user) async {
-    try {
-      final conversationId = await ref.read(createConversationProvider(user.id).future);
-      if (mounted) {
-        Navigator.of(context).pop(conversationId);
-      }
-    } catch (e) {
-      log(e.toString());
-      if (mounted) {
-        Navigator.of(context).pop(null);
-        Popup.showError(text: 'Failed to create conversation: $e', context: context);
-      }
-    }
-  }
-
-  Future<void> _createGroupConversation() async {
-    final selectedUsers = ref.read(selectedUsersProvider);
-    final isCreatingGroup = ref.read(isCreatingGroupProvider);
-
-    if (selectedUsers.isEmpty) {
-      Popup.showWarning(text: 'Please select at least one traveler', context: context);
-      return;
-    }
-
-    String groupName = _groupNameController.text.trim();
-    if (groupName.isEmpty) {
-      Popup.showWarning(text: 'Please enter a group name for your travel squad', context: context);
-      return;
-    }
-
-    ref.read(isCreatingGroupProvider.notifier).state = true;
-
-    try {
-      final userIds = selectedUsers.map((u) => u.id).toList();
-      final conversationId = await ref.read(createGroupConversationProvider(
-        GroupChatParams(userIds: userIds, groupName: groupName),
-      ).future);
-
-      if (mounted) {
-        Navigator.of(context).pop(conversationId);
-      }
-    } catch (e) {
-      log(e.toString());
-      if (mounted) {
-        Popup.showError(text: 'Failed to create travel group: $e', context: context);
-      }
-    } finally {
-      if (mounted) {
-        ref.read(isCreatingGroupProvider.notifier).state = false;
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final searchQuery = ref.watch(searchQueryProvider);
-    final userSearchResult = ref.watch(userSearchProvider(searchQuery));
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 8,
-      backgroundColor: Colors.white,
-      child: Container(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [kDeepPink, kDeepPinkLight],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.explore, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Connect',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                Spacer(),
-                IconButton(
-                  icon: Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: kDeepGrey,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: EdgeInsets.all(4),
-              child: TabBar(
-                controller: _tabController,
-                labelColor: Colors.white,
-                unselectedLabelColor: kDeepPink,
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  gradient: LinearGradient(
-                    colors: [kDeepPinkLight, kDeepPink],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                tabs: [
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.person, size: 20),
-                        SizedBox(width: 8),
-                        Text('Direct'),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.groups, size: 20),
-                        SizedBox(width: 8),
-                        Text('Squad'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildDirectMessageTab(userSearchResult),
-                  _buildGroupChatTab(userSearchResult),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDirectMessageTab(AsyncValue<List<UserModel>> userSearchResult) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kDeepGrey,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Find travelers..',
-              hintStyle: TextStyle(color: Colors.grey.shade600),
-              suffixIcon: Icon(Icons.travel_explore, color: kDeepPinkLight),
-              filled: true,
-              fillColor: Colors.white,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: kDeepPink.withOpacity(0.3)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: kDeepPink, width: 2),
-              ),
-            ),
-            onChanged: (value) {
-              ref.read(searchQueryProvider.notifier).state = value;
-            },
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: userSearchResult.when(
-              loading: () => Center(child: CircularProgressIndicator(color: kDeepPink)),
-              error: (err, stack) => _buildErrorWidget(err.toString()),
-              data: (users) {
-                final searchQuery = ref.read(searchQueryProvider);
-                if (searchQuery.isEmpty) {
-                  return _buildEmptySearchPrompt('Search for travelers to connect with!');
-                }
-                if (users.isEmpty) {
-                  return _buildNotFoundWidget('No travelers found');
-                }
-
-                return ListView.separated(
-                  itemCount: users.length,
-                  separatorBuilder: (_, __) => Divider(height: 1, color: kDeepPink.withOpacity(0.1)),
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: Offset(0, 2)),
-                        ],
-                      ),
-                      child: ListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        leading: CircleAvatar(
-                          radius: 20,
-                          backgroundColor: kDeepPink,
-                          backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                          child: user.photoUrl == null ? Text(user.displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
-                        ),
-                        title: Text(
-                          user.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          '@${user.username}',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: IconButton(
-                            icon: Icon(Icons.chat_bubble_outline, size: 20, color: Colors.white),
-                            onPressed: () => _createDirectConversation(user),
-                            tooltip: 'Start Chat',
-                            constraints: BoxConstraints.tightFor(width: 40, height: 40),
-                          ),
-                        ),
-                        onTap: () => _createDirectConversation(user),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupChatTab(AsyncValue<List<UserModel>> userSearchResult) {
-    final selectedUsers = ref.watch(selectedUsersProvider);
-    final isCreatingGroup = ref.watch(isCreatingGroupProvider);
-
-    return Container(
-      decoration: BoxDecoration(color: kDeepGrey, borderRadius: BorderRadius.circular(12)),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          TextField(
-            controller: _groupNameController,
-            decoration: InputDecoration(
-              hintText: 'Name your squad..',
-              hintStyle: TextStyle(color: Colors.grey.shade600),
-              prefixIcon: Icon(Icons.tour, color: kDeepPink),
-              filled: true,
-              fillColor: Colors.white,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: kDeepPink.withOpacity(0.3)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: kDeepPink, width: 2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (selectedUsers.isNotEmpty)
-            Container(
-              height: 70,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kDeepPink.withOpacity(0.2)),
-              ),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: selectedUsers.length,
-                itemBuilder: (context, index) {
-                  final user = selectedUsers[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Chip(
-                      avatar: CircleAvatar(
-                        backgroundColor: kDeepPink,
-                        backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                        child: user.photoUrl == null ? Text(user.displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)) : null,
-                      ),
-                      label: Text(user.displayName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      backgroundColor: kDeepPink.withOpacity(0.1),
-                      deleteIcon: Icon(Icons.close, size: 18, color: kDeepPink),
-                      onDeleted: () => _toggleUserSelection(user),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                    ),
-                  );
-                },
-              ),
-            ),
-          if (selectedUsers.isNotEmpty) const SizedBox(height: 12),
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search travelers..',
-              hintStyle: TextStyle(color: Colors.grey.shade600),
-              prefixIcon: Icon(Icons.person_add, color: kDeepPink),
-              filled: true,
-              fillColor: Colors.white,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: kDeepPink.withOpacity(0.3)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: kDeepPink, width: 2),
-              ),
-            ),
-            onChanged: (value) {
-              ref.read(searchQueryProvider.notifier).state = value;
-            },
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: userSearchResult.when(
-              loading: () => Center(child: CircularProgressIndicator(color: kDeepPink)),
-              error: (err, stack) => _buildErrorWidget(err.toString()),
-              data: (users) {
-                final query = ref.read(searchQueryProvider);
-                if (query.isEmpty && selectedUsers.isEmpty) {
-                  return _buildEmptySearchPrompt('Search travelers for your squad!');
-                }
-                if (users.isEmpty && query.isNotEmpty) {
-                  return _buildNotFoundWidget('No travelers found');
-                }
-
-                return ListView.separated(
-                  itemCount: users.length,
-                  separatorBuilder: (_, __) => Divider(height: 1, color: kDeepPink.withOpacity(0.1)),
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        backgroundColor: kDeepPink,
-                        backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                        child: user.photoUrl == null ? Text(user.displayName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
-                      ),
-                      title: Text(user.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('@${user.username}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade600)),
-                      trailing: Checkbox(
-                        value: selectedUsers.contains(user),
-                        onChanged: (_) => _toggleUserSelection(user),
-                        activeColor: kDeepPink,
-                      ),
-                      onTap: () => _toggleUserSelection(user),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      tileColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget(String errorText) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
-            child: Icon(Icons.error_outline, color: Colors.red, size: 48),
-          ),
-          const SizedBox(height: 16),
-          Text('Oops! Something went wrong', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(errorText, style: TextStyle(color: Colors.grey.shade600), textAlign: TextAlign.center),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptySearchPrompt(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [kDeepPink.withOpacity(0.1), kDeepPinkLight.withOpacity(0.1)]),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.search, color: kDeepPink, size: 48),
-          ),
-          const SizedBox(height: 16),
-          Text(message, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotFoundWidget(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.person_search, color: Colors.grey.shade400, size: 64),
-          const SizedBox(height: 16),
-          Text(message, style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
-        ],
-      ),
+  void _showLeaveGroupDialog(BuildContext context, WidgetRef ref, String conversationId, String currentUserId) {
+    showCustomDialog(
+      context: context,
+      title: "Leave",
+      message: "Are you sure? you can't undo this",
+      actionText: "Leave",
+      actionIcon: Icons.arrow_back,
+      onActionPressed: () async {
+        ref.read(conversationIsLoadingProvider.notifier).state = true;
+        try {
+          await supabase.from('conversation_participants').delete().eq('conversation_id', conversationId).eq('user_id', currentUserId);
+          ref.invalidate(conversationDetailsProvider);
+          print('Leave conversation requested: $conversationId');
+        } catch (e) {
+          log(e.toString());
+          if (context.mounted) {
+            Popup.showError(text: "Error happened while leaving the conversation", context: context);
+          }
+        } finally {
+          ref.read(conversationIsLoadingProvider.notifier).state = false;
+        }
+      },
+      actionColor: Colors.red,
     );
   }
 }

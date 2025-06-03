@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:travia/Helpers/AppColors.dart';
 import 'package:travia/Helpers/PopUp.dart';
 
@@ -70,11 +71,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               child: Row(
                 mainAxisAlignment: currentUserId == widget.userIdOfCurrentFriendsList ? MainAxisAlignment.center : MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildTabButton("Following", 0),
+                  _buildTabButton("Following", 0, Icons.add),
                   const SizedBox(width: 12),
-                  _buildTabButton("Followers", 1),
+                  _buildTabButton("Followers", 1, Icons.people),
                   if (currentUserId == widget.userIdOfCurrentFriendsList) const SizedBox(width: 12),
-                  if (currentUserId == widget.userIdOfCurrentFriendsList) _buildTabButton("Discover", 2),
+                  if (currentUserId == widget.userIdOfCurrentFriendsList) _buildTabButton("Discover", 2, Icons.explore),
                 ],
               ),
             ),
@@ -85,11 +86,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 controller: _pageController,
                 onPageChanged: (index) => setState(() => _currentIndex = index),
                 children: [
-                  // Following Tab
                   _buildFollowingTab(following: friendsData.following),
-                  // Followers Tab
                   _buildFollowersTab(followers: friendsData.followers),
-                  // Discover Tab
                   if (currentUserId == widget.userIdOfCurrentFriendsList) _buildDiscoverTab(users: friendsData.discoverUsers),
                 ],
               ),
@@ -128,23 +126,42 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     );
   }
 
-  Widget _buildTabButton(String title, int index) {
+  Widget _buildTabButton(String title, int index, IconData icon) {
     final isActive = _currentIndex == index;
     return GestureDetector(
       onTap: () => _onTabTap(index),
       child: Container(
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFE91E63) : Colors.grey[200],
-          borderRadius: BorderRadius.circular(25),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.black87,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+          gradient: LinearGradient(
+            colors: isActive ? [kDeepPink.withOpacity(0.8), kDeepPinkLight] : [Colors.white, Colors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: kDeepPink.withOpacity(0.25),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Row(
+          children: [
+            Icon(icon),
+            SizedBox(
+              width: 4,
+            ),
+            Text(
+              title,
+              style: TextStyle(
+                color: isActive ? Colors.white : Colors.black87,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -161,10 +178,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   }) {
     return Consumer(
       builder: (context, ref, child) {
-        // Watch if this user's action is in progress using the centralized service
-        final isActionLoading = ref.watch(isFollowActionLoadingProvider(userId));
+        // Watch loading state
+        final isActionLoading = ref.watch(isFollowLoadingProvider(userId));
 
-        // Get the centralized follow controller
+        // Get the follow controller
         final followController = ref.read(followControllerProvider);
 
         final currentUserId = FirebaseAuth.instance.currentUser!.uid;
@@ -188,9 +205,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             children: [
               // Avatar
               GestureDetector(
-                onTap: () {
-                  context.push('/profile/$userId');
-                },
+                onTap: () => context.push('/profile/$userId'),
                 child: CircleAvatar(
                   radius: 24,
                   backgroundColor: const Color(0xFFBBDEFB),
@@ -198,12 +213,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 ),
               ),
               const SizedBox(width: 16),
+
               // Friend info
               Expanded(
                 child: GestureDetector(
-                  onTap: () {
-                    context.push('/profile/$userId');
-                  },
+                  onTap: () => context.push('/profile/$userId'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -234,72 +248,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ),
                 ),
               ),
-              // Action button (Follow/Delete)
+
+              // Action button
               if (isOwnProfile)
-                ElevatedButton(
-                  onPressed: isActionLoading
-                      ? null
-                      : () async {
-                          try {
-                            switch (cardType) {
-                              case FriendCardType.discover:
-                                // Use centralized follow service directly with error handling
-                                final result = await followController.toggleFollow(userId);
-
-                                if (!result.isSuccess && context.mounted) {
-                                  if (result.isBlocked) {
-                                    Popup.showError(text: "Cannot follow @$userName: You have a blocked relationship with this user", context: context);
-                                  } else {
-                                    Popup.showError(text: result.errorMessage ?? "Failed to follow user", context: context);
-                                  }
-                                } else if (result.isSuccess && context.mounted) {
-                                  // Optional: Show success message for follow
-                                  // Popup.showSuccess(text: "Now following @$userName", context: context);
-                                }
-                                break;
-
-                              case FriendCardType.following:
-                                // Show unfollow confirmation dialog
-                                await _showUnfollowDialog(context, userName, followController, userId);
-                                break;
-
-                              case FriendCardType.follower:
-                                // Show remove follower confirmation dialog
-                                await _showRemoveFollowerDialog(context, userName, followController, userId);
-                                break;
-                            }
-                          } catch (e) {
-                            print('Button action error: $e');
-                            if (context.mounted) {
-                              Popup.showError(text: "Error happened while performing action", context: context);
-                            }
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kDeepPink,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: isActionLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : Text(
-                          _getButtonText(cardType),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                _buildActionButton(
+                  context: context,
+                  isLoading: isActionLoading,
+                  followController: followController,
+                  userId: userId,
+                  userName: userName,
+                  cardType: cardType,
                 ),
             ],
           ),
@@ -308,56 +266,276 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     );
   }
 
-  Widget _buildDiscoverTab({required List<UserModel> users}) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Search users...',
-              prefixIcon: const Icon(Icons.search, color: Colors.white),
-              filled: true,
-              fillColor: kDeepPink,
-              hintStyle: const TextStyle(color: Colors.white70),
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            style: const TextStyle(color: Colors.white),
-            onChanged: (query) {
-              // TODO: Implement search logic
-            },
+  Widget _buildActionButton({
+    required BuildContext context,
+    required bool isLoading,
+    required FollowController followController,
+    required String userId,
+    required String userName,
+    required FriendCardType cardType,
+  }) {
+    String buttonText;
+
+    switch (cardType) {
+      case FriendCardType.discover:
+        buttonText = 'Follow';
+        break;
+      case FriendCardType.following:
+        buttonText = 'Unfollow';
+        break;
+      case FriendCardType.follower:
+        buttonText = 'Remove';
+        break;
+    }
+
+    return SizedBox(
+      width: 100,
+      height: 36,
+      child: ElevatedButton(
+        onPressed: isLoading ? null : () => _handleButtonPress(context: context, followController: followController, userId: userId, userName: userName, cardType: cardType, ref: ref),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kDeepPink,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
-        Expanded(
-          child: users.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No results found',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return _buildFriendCard(
-                      userId: user.id,
-                      displayName: user.displayName,
-                      userName: user.username,
-                      birthDate: "${user.age.day}/${user.age.month}/${user.age.year}",
-                      photoUrl: user.photoUrl,
-                      isDiscoverCard: true,
-                      cardType: FriendCardType.discover,
-                    );
-                  },
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
-        ),
-      ],
+              )
+            : Text(
+                buttonText,
+                style: GoogleFonts.lexendDeca(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+      ),
+    );
+  }
+
+// Handle button press
+  Future<void> _handleButtonPress({
+    required BuildContext context,
+    required FollowController followController,
+    required String userId,
+    required String userName,
+    required FriendCardType cardType,
+    required WidgetRef ref,
+  }) async {
+    try {
+      switch (cardType) {
+        case FriendCardType.discover:
+          final result = await followController.toggleFollow(userId);
+          ref.invalidate(friendsDataProvider);
+
+          if (!result.isSuccess && context.mounted) {
+            if (result.isBlocked) {
+              Popup.showError(
+                text: "Cannot follow @$userName: Blocked relationship exists",
+                context: context,
+              );
+            } else {
+              Popup.showError(
+                text: result.errorMessage ?? "Failed to follow user",
+                context: context,
+              );
+            }
+          }
+          break;
+
+        case FriendCardType.following:
+          final shouldUnfollow = await _showUnfollowDialog(context, userName);
+          if (shouldUnfollow) {
+            final result = await followController.toggleFollow(userId);
+            ref.invalidate(friendsDataProvider);
+            if (!result.isSuccess && context.mounted) {
+              Popup.showError(
+                text: "Failed to unfollow @$userName",
+                context: context,
+              );
+            }
+          }
+          break;
+
+        case FriendCardType.follower:
+          final shouldRemove = await _showRemoveFollowerDialog(context, userName);
+          if (shouldRemove) {
+            final result = await followController.removeFollower(userId);
+            ref.invalidate(friendsDataProvider);
+            if (!result.isSuccess && context.mounted) {
+              Popup.showError(
+                text: "Failed to remove @$userName",
+                context: context,
+              );
+            }
+          }
+          break;
+      }
+    } catch (e) {
+      print('Button action error: $e');
+      if (context.mounted) {
+        Popup.showError(
+          text: "An error occurred",
+          context: context,
+        );
+      }
+    }
+  }
+
+// Simplified dialog methods using custom dialog
+  Future<bool> _showUnfollowDialog(BuildContext context, String userName) async {
+    bool result = false;
+
+    await showCustomDialog(
+      context: context,
+      title: "Unfollow @$userName?",
+      message: "Are you sure you want to unfollow this user? You can follow them again anytime.",
+      actionText: "Unfollow",
+      actionIcon: Icons.person_remove,
+      onActionPressed: () async {
+        result = true;
+      },
+    );
+
+    return result;
+  }
+
+  Future<bool> _showRemoveFollowerDialog(BuildContext context, String userName) async {
+    bool result = false;
+
+    await showCustomDialog(
+      context: context,
+      title: "Remove @$userName?",
+      message: "This will remove them from your followers. They won't be notified about this action.",
+      actionText: "Remove",
+      actionIcon: Icons.block,
+      onActionPressed: () async {
+        result = true;
+      },
+    );
+
+    return result;
+  }
+
+  Widget _buildDiscoverTab({required List<UserModel> users}) {
+    return Consumer(
+      builder: (context, ref, _) {
+        // Watch the filtered users instead of the raw users list
+        final searchQuery = ref.watch(searchQueryProvider);
+        final filteredUsers = filterUsers(users, searchQuery);
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search users...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.white),
+                  suffixIcon: searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.white),
+                          onPressed: () {
+                            // Clear search query
+                            ref.read(searchQueryProvider.notifier).state = '';
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: kDeepPink,
+                  hintStyle: const TextStyle(color: Colors.white70),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                style: const TextStyle(color: Colors.white),
+                onChanged: (query) {
+                  // Update search query using Riverpod
+                  ref.read(searchQueryProvider.notifier).state = query;
+                },
+              ),
+            ),
+
+            // Search results info
+            if (searchQuery.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.search, color: Colors.grey[600], size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Found ${filteredUsers.length} result${filteredUsers.length == 1 ? '' : 's'} for "$searchQuery"',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            Expanded(
+              child: filteredUsers.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            searchQuery.isNotEmpty ? Icons.search_off : Icons.people_outline,
+                            size: 64,
+                            color: kDeepPink,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            searchQuery.isNotEmpty ? 'No users found for "$searchQuery"' : 'You followed everyone!',
+                            style: GoogleFonts.lexendDeca(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          if (searchQuery.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Try searching with different keywords',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: filteredUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        return _buildFriendCard(
+                          userId: user.id,
+                          displayName: user.displayName,
+                          userName: user.username,
+                          birthDate: "${user.age.day}/${user.age.month}/${user.age.year}",
+                          photoUrl: user.photoUrl,
+                          isDiscoverCard: true,
+                          cardType: FriendCardType.discover,
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -454,84 +632,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       },
     );
   }
-}
-
-// Helper method to get button text based on card type
-String _getButtonText(FriendCardType cardType) {
-  switch (cardType) {
-    case FriendCardType.discover:
-      return "Follow";
-    case FriendCardType.following:
-      return "Unfollow";
-    case FriendCardType.follower:
-      return "Remove";
-  }
-}
-
-Future<void> _showUnfollowDialog(BuildContext context, String userName, FollowController followController, String userId) async {
-  await showCustomDialog(
-    context: context,
-    title: 'Unfollow User',
-    message: 'Are you sure you want to unfollow @$userName?',
-    actionText: 'Unfollow',
-    actionIcon: Icons.person_remove_alt_1_outlined,
-    onActionPressed: () async {
-      try {
-        final result = await followController.toggleFollow(userId);
-
-        if (!result.isSuccess) {
-          // Show error after dialog closes
-          Future.delayed(Duration(milliseconds: 100), () {
-            if (context.mounted) {
-              if (result.isBlocked) {
-                Popup.showError(text: "Cannot unfollow: You have a blocked relationship with this user", context: context);
-              } else {
-                Popup.showError(text: result.errorMessage ?? "Failed to unfollow user", context: context);
-              }
-            }
-          });
-        }
-      } catch (e) {
-        // Show error after dialog closes
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            Popup.showError(text: "Error while unfollowing user", context: context);
-          }
-        });
-      }
-    },
-  );
-}
-
-Future<void> _showRemoveFollowerDialog(BuildContext context, String userName, FollowController followController, String userId) async {
-  await showCustomDialog(
-    context: context,
-    title: 'Remove Follower',
-    message: 'Are you sure you want to remove @$userName from your followers?',
-    actionText: 'Remove',
-    actionIcon: Icons.person_remove_outlined,
-    onActionPressed: () async {
-      try {
-        final result = await followController.removeFollower(userId);
-
-        if (!result.isSuccess) {
-          // Show error after dialog closes
-          Future.delayed(Duration(milliseconds: 100), () {
-            if (context.mounted) {
-              Popup.showError(text: result.errorMessage ?? "Failed to remove follower", context: context);
-            }
-          });
-        }
-      } catch (e) {
-        // Show error after dialog closes
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            Popup.showError(text: "Error while removing follower", context: context);
-          }
-        });
-      }
-    },
-  );
 }
 
 // Enum to specify the type of friend card

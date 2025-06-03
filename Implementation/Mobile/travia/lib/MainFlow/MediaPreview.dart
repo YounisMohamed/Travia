@@ -29,6 +29,112 @@ class MediaPreview extends ConsumerStatefulWidget {
   ConsumerState<MediaPreview> createState() => _MediaPreviewState();
 }
 
+class VideoPreview extends ConsumerStatefulWidget {
+  final String mediaUrl;
+
+  const VideoPreview({
+    Key? key,
+    required this.mediaUrl,
+  }) : super(key: key);
+
+  @override
+  ConsumerState<VideoPreview> createState() => _VideoPreviewState();
+}
+
+class _VideoPreviewState extends ConsumerState<VideoPreview> {
+  @override
+  void deactivate() {
+    // Pause video when navigating away
+    final controller = ref.read(videoPlayerControllerProvider(widget.mediaUrl));
+    controller.whenData((controller) {
+      controller.pause();
+    });
+    super.deactivate();
+  }
+
+  @override
+  void dispose() {
+    // Invalidate the provider to trigger disposal
+    ref.invalidate(videoPlayerControllerProvider(widget.mediaUrl));
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final videoState = ref.watch(videoPlayerControllerProvider(widget.mediaUrl));
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      height: 300,
+      width: double.infinity,
+      decoration: BoxDecoration(gradient: LinearGradient(colors: [kDeepGrey, Colors.white])),
+      child: videoState.when(
+        data: (controller) {
+          final isPlaying = controller.value.isPlaying;
+
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              AspectRatio(
+                aspectRatio: controller.value.aspectRatio,
+                child: VideoPlayer(controller),
+              ),
+              // Animated play/pause button
+              AnimatedOpacity(
+                opacity: isPlaying ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: GestureDetector(
+                  onTap: () {
+                    final notifier = ref.read(videoPlayerControllerProvider(widget.mediaUrl).notifier);
+                    isPlaying ? notifier.pause() : notifier.play();
+                  },
+                  child: Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: kDeepPink,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+              // Video duration indicator
+              if (controller.value.isInitialized)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: ValueListenableBuilder(
+                    valueListenable: controller,
+                    builder: (context, value, child) {
+                      final position = value.position;
+                      final duration = value.duration;
+                      final progress = position.inMilliseconds / (duration.inMilliseconds == 0 ? 1 : duration.inMilliseconds);
+
+                      return LinearProgressIndicator(
+                        value: progress,
+                        color: kDeepPink,
+                        backgroundColor: kDeepPink.withOpacity(0.3),
+                        minHeight: 3,
+                      );
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
+        loading: () => const FancyLoadingIndicator(),
+        error: (e, _) => ErrorDisplay(error: e.toString()),
+      ),
+    );
+  }
+}
+
 class _MediaPreviewState extends ConsumerState<MediaPreview> {
   VideoPlayerController? _controller;
   Uint8List? _thumbnail;
@@ -423,76 +529,7 @@ class MediaPostPreview extends ConsumerWidget {
         ),
       );
     }
-    final videoState = ref.watch(videoPlayerControllerProvider(mediaUrl));
-
-    return Container(
-      height: 300,
-      width: double.infinity,
-      color: colorScheme.surfaceContainerHighest,
-      child: videoState.when(
-        data: (controller) {
-          final isPlaying = controller.value.isPlaying;
-
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: controller.value.aspectRatio,
-                child: VideoPlayer(controller),
-              ),
-              // Animated play/pause button
-              AnimatedOpacity(
-                opacity: isPlaying ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: GestureDetector(
-                  onTap: () {
-                    final notifier = ref.read(videoPlayerControllerProvider(mediaUrl).notifier);
-                    isPlaying ? notifier.pause() : notifier.play();
-                  },
-                  child: Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: kDeepPink,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                ),
-              ),
-              // Video duration indicator
-              if (controller.value.isInitialized)
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: ValueListenableBuilder(
-                    valueListenable: controller,
-                    builder: (context, value, child) {
-                      final position = value.position;
-                      final duration = value.duration;
-                      final progress = position.inMilliseconds / (duration.inMilliseconds == 0 ? 1 : duration.inMilliseconds);
-
-                      return LinearProgressIndicator(
-                        value: progress,
-                        color: colorScheme.primary,
-                        backgroundColor: colorScheme.primary.withOpacity(0.3),
-                        minHeight: 3,
-                      );
-                    },
-                  ),
-                ),
-            ],
-          );
-        },
-        loading: () => const FancyLoadingIndicator(),
-        error: (e, _) => ErrorDisplay(error: e.toString()),
-      ),
-    );
+    return VideoPreview(mediaUrl: mediaUrl);
   }
 
   String formatDuration(Duration duration) {
@@ -687,100 +724,7 @@ class ExplorePostMediaDisplay extends ConsumerWidget {
       );
     } else {
       // Video content
-      final videoState = ref.watch(videoPlayerControllerProvider(mediaUrl));
-
-      return Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(
-          minHeight: 200,
-          maxHeight: 300,
-        ),
-        color: Colors.grey.shade100,
-        child: videoState.when(
-          data: (controller) {
-            final isPlaying = controller.value.isPlaying;
-
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                // Video player
-                controller.value.isInitialized
-                    ? AspectRatio(
-                        aspectRatio: controller.value.aspectRatio,
-                        child: VideoPlayer(controller),
-                      )
-                    : const Center(child: CircularProgressIndicator()),
-
-                // Animated play/pause button
-                AnimatedOpacity(
-                  opacity: isPlaying ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: GestureDetector(
-                    onTap: () {
-                      final notifier = ref.read(videoPlayerControllerProvider(mediaUrl).notifier);
-                      isPlaying ? notifier.pause() : notifier.play();
-                    },
-                    child: Container(
-                      width: 58,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        color: kDeepPink,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Video progress indicator
-                if (controller.value.isInitialized)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: ValueListenableBuilder(
-                      valueListenable: controller,
-                      builder: (context, value, child) {
-                        final position = value.position;
-                        final duration = value.duration;
-                        final progress = position.inMilliseconds / (duration.inMilliseconds == 0 ? 1 : duration.inMilliseconds);
-
-                        return LinearProgressIndicator(
-                          value: progress,
-                          color: kDeepPink,
-                          backgroundColor: kDeepPink.withOpacity(0.3),
-                          minHeight: 3,
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            );
-          },
-          loading: () => const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(kDeepPink),
-            ),
-          ),
-          error: (e, _) => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, color: Colors.red, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  'Video could not be loaded',
-                  style: TextStyle(color: Colors.red.shade700),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return VideoPreview(mediaUrl: mediaUrl);
     }
   }
 }

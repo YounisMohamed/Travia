@@ -54,22 +54,22 @@ class ErrorPage extends StatelessWidget {
                 child: Column(
                   children: [
                     RedHatText(
-                      text: "We're sorry, but an error occurred.\n Kindly check your",
-                      color: Colors.grey[600]!,
+                      text: "This could be to a real time error or a bug\n Kindly check your",
+                      color: kDeepGrey,
                       size: 16,
                       center: true,
                       isBold: true,
                     ),
                     RedHatText(
-                      text: "internet connection",
+                      text: "\nInternet connection\n",
                       color: Colors.blue[600]!,
-                      size: 16,
+                      size: 18,
                       center: true,
                       isBold: true,
                     ),
                     RedHatText(
-                      text: "Hey younis remember to remove this later: $error",
-                      color: Colors.grey[600]!,
+                      text: "If this keeps happening, Close the app and open again.",
+                      color: kDeepGrey,
                       size: 16,
                       center: true,
                       isBold: true,
@@ -82,7 +82,7 @@ class ErrorPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 Phoenix.rebirth(context);
-                context.go(path);
+                context.push(path);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,

@@ -28,7 +28,6 @@ class PostDetailsPage extends ConsumerWidget {
     super.key,
     required this.postId,
   });
-  final TextEditingController _commentController = TextEditingController();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -111,6 +110,7 @@ class PostDetailsPage extends ConsumerWidget {
             likes: post.likesCount,
             dislikes: post.dislikesCount,
           )));
+          print("POSTER OF ${postId} is ${post.userId}");
 
           return CustomScrollView(
             slivers: [
@@ -319,7 +319,7 @@ class PostDetailsPage extends ConsumerWidget {
                             },
                             child: MediaPostPreview(
                               mediaUrl: post.mediaUrl,
-                              isVideo: post.mediaUrl.endsWith('.mp4') || post.mediaUrl.endsWith('.mov'),
+                              isVideo: isPathVideo(post.mediaUrl),
                             ),
                           ),
                         ),
@@ -406,7 +406,7 @@ class PostDetailsPage extends ConsumerWidget {
                                   context: context,
                                   builder: (context) => CommentModal(
                                         postId: postId,
-                                        posterId: userId,
+                                        posterId: post.userId,
                                       ));
                             },
                           ),
@@ -525,7 +525,7 @@ class PostDetailsPage extends ConsumerWidget {
                                         context: context,
                                         builder: (context) => CommentModal(
                                               postId: postId,
-                                              posterId: userId,
+                                              posterId: post.userId,
                                             ));
                                   },
                                   child: Text(
@@ -539,33 +539,43 @@ class PostDetailsPage extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            ...commentsAsync.value!.take(2).map((comment) {
+                            ...commentsAsync.value!.take(3).map((comment) {
                               return Padding(
                                 padding: EdgeInsets.only(top: 12),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: Colors.grey.shade300,
-                                      backgroundImage: NetworkImage(comment.userPhotoUrl),
+                                    GestureDetector(
+                                      child: CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.grey.shade300,
+                                        backgroundImage: NetworkImage(comment.userPhotoUrl),
+                                      ),
+                                      onTap: () {
+                                        context.push("/profile/${comment.userId}");
+                                      },
                                     ),
                                     SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            comment.userUsername,
-                                            style: GoogleFonts.lexendDeca(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
+                                          GestureDetector(
+                                            child: Text(
+                                              comment.userUsername,
+                                              style: GoogleFonts.lexendDeca(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
                                             ),
+                                            onTap: () {
+                                              context.push("/profile/${comment.userId}");
+                                            },
                                           ),
                                           SizedBox(height: 2),
                                           Text(
-                                            comment.content,
+                                            comment.content.length > 50 ? "${comment.content.substring(0, 50)}..." : comment.content,
                                             style: GoogleFonts.lexendDeca(
                                               fontSize: 13,
                                               color: Colors.black87,

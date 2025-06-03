@@ -70,7 +70,7 @@ class BannedUserPage extends StatelessWidget {
                   end: Alignment.centerRight,
                 ).createShader(bounds),
                 child: Text(
-                  "Your travel journey is temporarily paused",
+                  "Your account is temporarily paused",
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -124,25 +124,6 @@ class BannedUserPage extends StatelessWidget {
                         height: 1.5,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.schedule_rounded,
-                          color: kDeepPink,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "Review Period: 24-48 hours",
-                          style: GoogleFonts.ibmPlexSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -186,7 +167,7 @@ class BannedUserPage extends StatelessWidget {
                         path: 'youniesmm9@gmail.com',
                         query: encodeQueryParameters({
                           'subject': 'Account Suspension Appeal - Travia App',
-                          'body': 'Hello Travia Support Team,\n\nI am writing to appeal my account suspension. Please review my case.\n\nThank you.',
+                          'body': 'Hello Travia Support,\n\nI am writing to appeal my account suspension. Please review my case.\n\nThank you.',
                         }),
                       );
 

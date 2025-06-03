@@ -1,9 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Helpers/PopUp.dart';
+import 'package:travia/main.dart';
 
 import '../Helpers/AppColors.dart';
+import '../database/DatabaseMethods.dart';
 
 // State classes
 class ReportState {
@@ -85,6 +87,59 @@ class ReportStateNotifier extends StateNotifier<ReportState> {
     state = state.copyWith(isSubmitting: isSubmitting);
   }
 
+  Future<void> _sendAccountReportNotification(String reporterId, String targetUserId) async {
+    try {
+      // Get the reporter's username
+      final reporterResponse = await supabase.from('users').select('username').eq('id', reporterId).single();
+
+      final reporterUsername = reporterResponse['username'] ?? 'Someone';
+
+      await sendNotification(
+        type: "report",
+        title: "Account Reported",
+        content: "Your account was reported by $reporterUsername",
+        target_user_id: targetUserId,
+        source_id: targetUserId,
+        sender_user_id: reporterId,
+      );
+    } catch (error) {
+      // If notification fails, don't affect the report submission
+      print('Failed to send account report notification: $error');
+    }
+  }
+
+  Future<bool> _checkExistingReport({
+    required String reportType,
+    String? targetUserId,
+    String? targetPostId,
+    String? targetCommentId,
+  }) async {
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+      var query = supabase.from('reports').select().eq('reporter_id', currentUserId).eq('report_type', reportType);
+
+      // Add target-specific filters based on report type
+      switch (reportType) {
+        case 'post':
+          query = query.eq('target_post_id', targetPostId!);
+          break;
+        case 'comment':
+          query = query.eq('target_comment_id', targetCommentId!);
+          break;
+        case 'account':
+          query = query.eq('target_account_id', targetUserId!);
+          break;
+      }
+
+      final response = await query;
+      return response.isNotEmpty;
+    } catch (error) {
+      // If there's an error checking, allow the report to proceed
+      return false;
+    }
+  }
+
   Future<bool> submitReport({
     required String reportType,
     String? targetUserId,
@@ -98,9 +153,19 @@ class ReportStateNotifier extends StateNotifier<ReportState> {
     setSubmitting(true);
 
     try {
-      // Get current user ID from your Firebase auth
-      // Replace this with your actual Firebase auth user ID
-      final currentUserId = 'current_user_id'; // TODO: Get from Firebase Auth
+      // Check if user has already reported this target
+      final alreadyReported = await _checkExistingReport(
+        reportType: reportType,
+        targetUserId: targetUserId,
+        targetPostId: targetPostId,
+        targetCommentId: targetCommentId,
+      );
+
+      if (alreadyReported) {
+        return false; // Will be handled in the UI to show appropriate message
+      }
+
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
       final reportData = {
         'reporter_id': currentUserId,
@@ -122,7 +187,12 @@ class ReportStateNotifier extends StateNotifier<ReportState> {
           break;
       }
 
-      await Supabase.instance.client.from('reports').insert(reportData);
+      await supabase.from('reports').insert(reportData);
+
+      // Send notification if reporting an account
+      if (reportType == 'account' && targetUserId != null) {
+        await _sendAccountReportNotification(currentUserId, targetUserId);
+      }
 
       return true;
     } catch (error) {
@@ -173,12 +243,51 @@ class ReportsPage extends ConsumerWidget {
     }
   }
 
+  Future<bool> _checkIfAlreadyReported(WidgetRef ref) async {
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+      var query = supabase.from('reports').select().eq('reporter_id', currentUserId).eq('report_type', reportType);
+
+      // Add target-specific filters based on report type
+      switch (reportType) {
+        case 'post':
+          query = query.eq('target_post_id', targetPostId!);
+          break;
+        case 'comment':
+          query = query.eq('target_comment_id', targetCommentId!);
+          break;
+        case 'account':
+          query = query.eq('target_account_id', targetUserId!);
+          break;
+      }
+
+      final response = await query;
+      return response.isNotEmpty;
+    } catch (error) {
+      return false;
+    }
+  }
+
   Future<void> _submitReport(WidgetRef ref, BuildContext context) async {
     final reportNotifier = ref.read(reportStateProvider.notifier);
     final reportState = ref.read(reportStateProvider);
 
     if (reportState.selectedReason == null) {
       Popup.showWarning(text: 'Please select a reason for reporting', context: context);
+      return;
+    }
+
+    // Check if already reported before submitting
+    final alreadyReported = await _checkIfAlreadyReported(ref);
+    if (alreadyReported) {
+      String targetType = reportType;
+      if (targetType == 'account') targetType = 'user';
+
+      Popup.showWarning(
+        text: 'You have already reported this $targetType',
+        context: context,
+      );
       return;
     }
 
@@ -199,7 +308,19 @@ class ReportsPage extends ConsumerWidget {
         Navigator.of(context).pop();
       }
     } else {
-      Popup.showError(text: 'Failed to submit report. Please try again.', context: context);
+      // Check again if it was a duplicate report issue
+      final stillAlreadyReported = await _checkIfAlreadyReported(ref);
+      if (stillAlreadyReported) {
+        String targetType = reportType;
+        if (targetType == 'account') targetType = 'user';
+
+        Popup.showWarning(
+          text: 'You have already reported this $targetType',
+          context: context,
+        );
+      } else {
+        Popup.showError(text: 'Failed to submit report. Please try again.', context: context);
+      }
     }
   }
 

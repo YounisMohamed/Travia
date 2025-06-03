@@ -1,17 +1,19 @@
 import 'package:bottom_picker/bottom_picker.dart';
 import 'package:bottom_picker/resources/arrays.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:travia/Classes/UserSupabase.dart';
+import 'package:travia/Helpers/HelperMethods.dart';
 import 'package:travia/main.dart';
 
 import '../Auth/AuthMethods.dart';
 import '../Helpers/AppColors.dart';
 import '../Helpers/Constants.dart';
 import '../Helpers/DropDown.dart';
-import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
 
 final profileDisplayNameProvider = StateProvider.family<String, UserModel>((ref, user) => user.displayName ?? "");
@@ -24,6 +26,21 @@ final profileRelationshipStatusProvider = StateProvider.family<String?, UserMode
 final profileVisitedCountriesProvider = StateProvider.family<List<String>, UserModel>(
   (ref, user) => user.visitedCountries,
 );
+
+final countrySearchQueryProvider = StateProvider<String>((ref) => '');
+final filteredCountriesProvider = Provider.family<List<Map<String, String>>, UserModel>((ref, user) {
+  final searchQuery = ref.watch(countrySearchQueryProvider).toLowerCase();
+
+  if (searchQuery.isEmpty) {
+    return countries;
+  }
+
+  return countries.where((country) {
+    final countryName = country['name']!.toLowerCase();
+    final countryCode = country['code']!.toLowerCase();
+    return countryName.contains(searchQuery) || countryCode.contains(searchQuery);
+  }).toList();
+});
 
 class EditProfilePage extends ConsumerStatefulWidget {
   final UserModel user;
@@ -107,137 +124,383 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        // Use Consumer to watch the provider inside the dialog
         return Consumer(
           builder: (context, ref, _) {
             final visitedCountries = ref.watch(profileVisitedCountriesProvider(widget.user));
+            final filteredCountries = ref.watch(filteredCountriesProvider(widget.user));
 
             return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 40),
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.9,
-                height: MediaQuery.of(context).size.height * 0.7,
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Previously Visited Countries',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: Colors.grey),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: kDeepPink.withOpacity(0.2),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                      offset: Offset(0, 10),
                     ),
-                    Divider(color: kDeepPink.withOpacity(0.3)),
-                    SizedBox(height: 8),
-                    Expanded(
-                      child: GridView.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.8,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [kDeepPinkLight, kDeepPink],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        itemCount: countries.length,
-                        itemBuilder: (context, index) {
-                          final country = countries[index];
-                          final isSelected = visitedCountries.contains(country['emoji']);
-
-                          return GestureDetector(
-                            onTap: () {
-                              final currentList = List<String>.from(visitedCountries);
-                              if (isSelected) {
-                                currentList.remove(country['emoji']);
-                              } else {
-                                currentList.add(country['emoji']!);
-                              }
-                              ref.read(profileVisitedCountriesProvider(widget.user).notifier).state = currentList;
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isSelected ? kDeepPink : Colors.grey.shade300,
-                                  width: isSelected ? 2 : 1,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.flight_takeoff_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Travel History',
+                                  style: GoogleFonts.lexendDeca(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                                color: isSelected ? kDeepPink.withOpacity(0.1) : Colors.white,
+                                Text(
+                                  'Select countries you\'ve visited',
+                                  style: GoogleFonts.lexendDeca(
+                                    fontSize: 13,
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: Icon(Icons.close, color: Colors.white),
+                              onPressed: () {
+                                ref.read(countrySearchQueryProvider.notifier).state = '';
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Search Bar
+                    Container(
+                      margin: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: kDeepPink.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                      child: TextField(
+                        onChanged: (value) {
+                          ref.read(countrySearchQueryProvider.notifier).state = value;
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Search countries...',
+                          hintStyle: GoogleFonts.lexendDeca(
+                            color: Colors.grey.shade500,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: kDeepPink,
+                          ),
+                          suffixIcon: ref.watch(countrySearchQueryProvider).isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(Icons.clear, color: Colors.grey),
+                                  onPressed: () {
+                                    ref.read(countrySearchQueryProvider.notifier).state = '';
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        style: GoogleFonts.lexendDeca(fontSize: 14),
+                      ),
+                    ),
+
+                    // Selected Count Badge
+                    if (visitedCountries.isNotEmpty)
+                      Container(
+                        margin: EdgeInsets.symmetric(horizontal: 16),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [kDeepPink.withOpacity(0.1), kDeepPinkLight.withOpacity(0.1)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_rounded,
+                              size: 16,
+                              color: kDeepPink,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              '${visitedCountries.length} countries selected',
+                              style: GoogleFonts.lexendDeca(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: kDeepPink,
                               ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: 4,
-                                          offset: Offset(0, 2),
-                                        ),
-                                      ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    SizedBox(
+                      height: 16,
+                    ),
+                    // Countries Grid
+                    Expanded(
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.5,
+                        ),
+                        child: filteredCountries.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.search_off_rounded,
+                                      size: 64,
+                                      color: Colors.grey.shade300,
                                     ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: CachedNetworkImage(
-                                        imageUrl: 'https://flagsapi.com/${country['code']}/flat/64.png',
-                                        fit: BoxFit.cover,
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'No countries found',
+                                      style: GoogleFonts.lexendDeca(
+                                        fontSize: 16,
+                                        color: Colors.grey.shade500,
                                       ),
                                     ),
+                                  ],
+                                ),
+                              )
+                            : Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                child: GridView.builder(
+                                  shrinkWrap: true,
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 0.85,
                                   ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    country['code']!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: isSelected ? kDeepPink : Colors.black87,
-                                    ),
+                                  itemCount: filteredCountries.length,
+                                  itemBuilder: (context, index) {
+                                    final country = filteredCountries[index];
+                                    final isSelected = visitedCountries.contains(country['emoji']);
+
+                                    return GestureDetector(
+                                      onTap: () {
+                                        final currentList = List<String>.from(visitedCountries);
+                                        if (isSelected) {
+                                          currentList.remove(country['emoji']);
+                                        } else {
+                                          currentList.add(country['emoji']!);
+                                        }
+                                        ref.read(profileVisitedCountriesProvider(widget.user).notifier).state = currentList;
+                                      },
+                                      child: AnimatedContainer(
+                                        duration: Duration(milliseconds: 200),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? kDeepPink.withOpacity(0.1) : Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: isSelected ? kDeepPink : Colors.grey.shade200,
+                                            width: isSelected ? 2 : 1,
+                                          ),
+                                          boxShadow: isSelected
+                                              ? [
+                                                  BoxShadow(
+                                                    color: kDeepPink.withOpacity(0.2),
+                                                    blurRadius: 8,
+                                                    offset: Offset(0, 4),
+                                                  ),
+                                                ]
+                                              : [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.05),
+                                                    blurRadius: 4,
+                                                    offset: Offset(0, 2),
+                                                  ),
+                                                ],
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              width: 56,
+                                              height: 42,
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(8),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.1),
+                                                    blurRadius: 4,
+                                                    offset: Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(8),
+                                                child: CachedNetworkImage(
+                                                  imageUrl: 'https://flagsapi.com/${country['code']}/flat/64.png',
+                                                  fit: BoxFit.cover,
+                                                  placeholder: (context, url) => Container(
+                                                    color: Colors.grey.shade200,
+                                                    child: Center(
+                                                      child: Text(
+                                                        country['emoji']!,
+                                                        style: TextStyle(fontSize: 24),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  errorWidget: (context, url, error) => Container(
+                                                    color: Colors.grey.shade200,
+                                                    child: Center(
+                                                      child: Text(
+                                                        country['emoji']!,
+                                                        style: TextStyle(fontSize: 24),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(height: 8),
+                                            Text(
+                                              country['name']!.length > 10 ? country['code']! : country['name']!,
+                                              style: GoogleFonts.lexendDeca(
+                                                fontSize: 11,
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                                color: isSelected ? kDeepPink : Colors.black87,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (isSelected)
+                                              Container(
+                                                margin: EdgeInsets.only(top: 4),
+                                                padding: EdgeInsets.all(2),
+                                                decoration: BoxDecoration(
+                                                  color: kDeepPink,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  Icons.check,
+                                                  size: 10,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                      ),
+                    ),
+
+                    // Action Buttons
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () {
+                                ref.read(profileVisitedCountriesProvider(widget.user).notifier).state = [];
+                              },
+                              child: Text(
+                                'Clear All',
+                                style: GoogleFonts.lexendDeca(
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  colors: [kDeepPinkLight, kDeepPink],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: kDeepPink.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 4),
                                   ),
                                 ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        gradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink]),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                            child: Text(
-                              'Done (${visitedCountries.length} selected)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () {
+                                    ref.read(countrySearchQueryProvider.notifier).state = '';
+                                    Navigator.pop(context);
+                                  },
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(vertical: 14),
+                                    child: Center(
+                                      child: Text(
+                                        'Done',
+                                        style: GoogleFonts.lexendDeca(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],
@@ -247,7 +510,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           },
         );
       },
-    );
+    ).then((_) {
+      // Clear search when dialog is closed
+      ref.read(countrySearchQueryProvider.notifier).state = '';
+    });
   }
 
   bool _isBadgeSectionExpanded = false;
@@ -454,8 +720,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 },
                 validator: (value) => value == null ? "Please select your relationship status" : null,
               ),
-              const SizedBox(height: 16),
-              const SizedBox(height: 16),
+              const SizedBox(height: 28),
 
               // Previously Visited Countries
               const Text(
@@ -636,10 +901,33 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 child: ElevatedButton(
                   onPressed: () async {
                     try {
-                      final username = ref.read(profileUsernameProvider(widget.user)).toLowerCase();
+                      final username = ref.read(profileUsernameProvider(widget.user)).toLowerCase().trim();
                       bool userNameExists = await checkIfUsernameExists(username);
                       if (userNameExists && username != widget.user.username) {
                         Popup.showWarning(text: "Username already exists", context: context);
+                        return;
+                      }
+
+                      if (username.length < 4) {
+                        Popup.showWarning(text: "Username at least 3 characters", context: context);
+                        return;
+                      }
+                      if (username.length > 14) {
+                        Popup.showWarning(text: "Username at most 14 characters", context: context);
+                        return;
+                      }
+
+                      if (filter.hasProfanity(username)) {
+                        Popup.showWarning(text: "Bad words detected", context: context);
+                        return;
+                      }
+
+                      final validUsernameRegExp = RegExp(r'^[a-zA-Z0-9._]+$');
+                      if (!validUsernameRegExp.hasMatch(username) && username != "yoño") {
+                        Popup.showWarning(
+                          text: "Only letters, numbers, . and _ allowed in username",
+                          context: context,
+                        );
                         return;
                       }
 
@@ -656,6 +944,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       }
                       if (displayNameTrimmed.length > 25) {
                         Popup.showWarning(text: "Display name cannot exceed 25 characters", context: context);
+                        return;
+                      }
+                      if (filter.hasProfanity(displayNameTrimmed)) {
+                        Popup.showWarning(text: "Bad words detected", context: context);
                         return;
                       }
                       final validDisplayNameRegex = RegExp(r'^[a-zA-Z0-9._ ]+$');
@@ -677,12 +969,16 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       }
 
                       final bio = ref.read(profileBioProvider(widget.user));
-                      if (bio.length > 100) {
-                        Popup.showWarning(text: "Bio too long, at most 100 characters", context: context);
+                      if (bio.length > 150) {
+                        Popup.showWarning(text: "Bio too long, at most 150 characters", context: context);
+                        return;
+                      }
+                      if (filter.hasProfanity(bio) || hasArabicProfanity(bio)) {
+                        Popup.showWarning(text: "Bad words detected", context: context);
                         return;
                       }
                       final visited_countries = ref.read(profileVisitedCountriesProvider(widget.user));
-                      if (visited_countries.length > 80) {
+                      if (visited_countries.length > 50) {
                         Popup.showWarning(text: "You have been to way too many countries man.", context: context);
                         return;
                       }
@@ -697,6 +993,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         'showLikedPosts': ref.read(showLikedPostsProvider(widget.user)),
                         'updated_at': DateTime.now().toIso8601String(),
                       }).eq('id', widget.user.id);
+
+                      FirebaseAuth.instance.currentUser!.updateDisplayName(displayNameTrimmed);
 
                       Navigator.pop(context);
                     } catch (e) {
@@ -727,18 +1025,3 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     );
   }
 }
-
-const badgeDescriptions = {
-  'Founder': 'Exclusive to the creator of the app.',
-  'isYounisBaby': 'Special badge for being Younis himself.',
-  'Poster': 'Upload 5 or more posts to earn this badge.',
-  'Story Teller': 'Share at least 5 stories to unlock this badge.',
-  'Adventurer': 'Create 5 or more plans.',
-  'Social': 'Participate in 10 or more chats to get this badge.',
-  'Trendy': 'Post 6+ posts that each reach the trend.',
-  'Ramy': 'Add "Ramy" to your display name. That\'s it.',
-  'International': 'Add 5 or more visited countries to your profile.',
-  'Popular': 'Get followed by at least 20 users.',
-  'Clean': 'Earned by having zero reports on your profile.',
-  'New User': 'Welcome! Start engaging to earn your first badge.',
-};

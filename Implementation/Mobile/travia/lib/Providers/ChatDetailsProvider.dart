@@ -25,10 +25,7 @@ final messagesProvider = StreamProvider.family<List<MessageClass>, String>((ref,
   print("Messages stream setup for conversationId: $conversationId");
 
   await for (final event in supabase.from('messages').stream(primaryKey: ['message_id']).eq('conversation_id', conversationId)) {
-    print("Messages stream event: $event");
-
     final messages = event.map((json) => MessageClass.fromMap(json)).toList();
-    print("Messages updated: ${messages.map((m) => m.messageId).toList()}");
 
     yield messages;
   }
@@ -66,8 +63,15 @@ final chatPageCombinedProvider = Provider.family<AsyncValue<ChatPageData>, Strin
 
 final pendingMessagesProvider = StateProvider<Map<String, MessageClass>>((ref) => {});
 
-final isTypingProvider = StateNotifierProvider<TypingNotifier, bool>((ref) {
-  return TypingNotifier();
+final isTypingProvider = StateNotifierProvider.autoDispose<TypingNotifier, bool>((ref) {
+  final notifier = TypingNotifier();
+
+  // When provider is disposed, ensure typing is stopped
+  ref.onDispose(() {
+    notifier.stopTyping();
+  });
+
+  return notifier;
 });
 
 class TypingNotifier extends StateNotifier<bool> {
@@ -91,6 +95,10 @@ class TypingNotifier extends StateNotifier<bool> {
   @override
   void dispose() {
     _typingTimer?.cancel();
+    // Ensure state is false when disposing
+    if (state) {
+      state = false;
+    }
     super.dispose();
   }
 }
@@ -146,7 +154,13 @@ final replyMessageProvider = StateProvider<MessageClass?>((ref) => null);
 final textDirectionProvider = StateProvider<TextDirection>((ref) => TextDirection.ltr);
 
 void updateTextDirection(WidgetRef ref, String text) {
-  final isRtl = RegExp(r'^[\u0600-\u06FF]').hasMatch(text);
+  if (text.isEmpty) {
+    // Reset to LTR when text is empty
+    ref.read(textDirectionProvider.notifier).state = TextDirection.ltr;
+    return;
+  }
+  final firstChar = text[0];
+  final isRtl = RegExp(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]').hasMatch(firstChar);
   ref.read(textDirectionProvider.notifier).state = isRtl ? TextDirection.rtl : TextDirection.ltr;
 }
 
@@ -219,4 +233,79 @@ class RecordingStateNotifier extends StateNotifier<bool> {
 // Define the provider for the recording state
 final recordingStateProvider = StateNotifierProvider<RecordingStateNotifier, bool>((ref) {
   return RecordingStateNotifier();
+});
+
+final recordingPausedProvider = StateProvider<bool>((ref) => false);
+final recordingDurationProvider = StateProvider<int>((ref) => 0);
+
+class MessageDraft {
+  final String conversationId;
+  final String content;
+  final DateTime lastUpdated;
+
+  MessageDraft({
+    required this.conversationId,
+    required this.content,
+    required this.lastUpdated,
+  });
+
+  MessageDraft copyWith({
+    String? conversationId,
+    String? content,
+    DateTime? lastUpdated,
+  }) {
+    return MessageDraft(
+      conversationId: conversationId ?? this.conversationId,
+      content: content ?? this.content,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+    );
+  }
+}
+
+// StateNotifier to manage drafts for all conversations
+class MessageDraftNotifier extends StateNotifier<Map<String, MessageDraft>> {
+  MessageDraftNotifier() : super({});
+
+  // Save or update draft for a specific conversation
+  void saveDraft(String conversationId, String content) {
+    if (content.trim().isEmpty) {
+      // Remove draft if content is empty
+      state = {...state}..remove(conversationId);
+    } else {
+      state = {
+        ...state,
+        conversationId: MessageDraft(
+          conversationId: conversationId,
+          content: content,
+          lastUpdated: DateTime.now(),
+        ),
+      };
+    }
+  }
+
+  // Get draft for a specific conversation
+  String? getDraft(String conversationId) {
+    return state[conversationId]?.content;
+  }
+
+  // Clear draft for a specific conversation
+  void clearDraft(String conversationId) {
+    state = {...state}..remove(conversationId);
+  }
+
+  // Clear all drafts (optional)
+  void clearAllDrafts() {
+    state = {};
+  }
+}
+
+// Global provider for message drafts
+final messageDraftProvider = StateNotifierProvider<MessageDraftNotifier, Map<String, MessageDraft>>((ref) {
+  return MessageDraftNotifier();
+});
+
+// Convenience provider to get draft for a specific conversation
+final conversationDraftProvider = Provider.family<String?, String>((ref, conversationId) {
+  final drafts = ref.watch(messageDraftProvider);
+  return drafts[conversationId]?.content;
 });

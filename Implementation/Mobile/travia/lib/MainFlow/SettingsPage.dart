@@ -40,7 +40,6 @@ class SettingsPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 32),
-
             // Support & About Section
             const Text(
               'Support & About',
@@ -58,12 +57,6 @@ class SettingsPage extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  _buildSettingsItem(
-                    icon: Icons.credit_card_outlined,
-                    title: 'Support us',
-                    onTap: () {},
-                  ),
-                  _buildDivider(),
                   _buildSettingsItem(
                     icon: Icons.info_outline,
                     title: 'Terms and Policies',
@@ -125,6 +118,22 @@ class SettingsPage extends ConsumerWidget {
                           actionIcon: Icons.person,
                           onActionPressed: () async {
                             await signOut(context, ref);
+                          });
+                    },
+                  ),
+                  _buildDivider(),
+                  _buildSettingsItem(
+                    icon: Icons.logout_outlined,
+                    title: 'Delete account',
+                    onTap: () {
+                      showCustomDialog(
+                          context: context,
+                          title: "Delete your account",
+                          message: "Are you sure you want to delete your account? your information and preferences will be lost, and you will have to complete your profile again",
+                          actionText: "Goodbye",
+                          actionIcon: Icons.person,
+                          onActionPressed: () async {
+                            await deleteAccount(context);
                           });
                     },
                     isLast: true,

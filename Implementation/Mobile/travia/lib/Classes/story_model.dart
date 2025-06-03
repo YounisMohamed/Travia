@@ -5,7 +5,7 @@ class story_model {
   final String userId;
   final String username;
   final String userPhotoUrl;
-  final List<String> seenBy;
+  final List<dynamic> seenBy;
   final List<story_item_model>? items;
 
   story_model({

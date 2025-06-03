@@ -4,8 +4,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:material_dialogs/dialogs.dart';
-import 'package:material_dialogs/widgets/buttons/icon_outline_button.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 
@@ -14,7 +12,6 @@ import '../Helpers/DeleteConfirmation.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/NotificationProvider.dart';
-import '../main.dart';
 
 class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
@@ -24,8 +21,8 @@ class NotificationsPage extends ConsumerWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Notifications')),
-        body: const Center(child: Text('Please log in to see notifications')),
+        appBar: AppBar(title: const Text('Alerts')),
+        body: const Center(child: Text('Please log in to see alerts')),
       );
     }
 
@@ -38,7 +35,7 @@ class NotificationsPage extends ConsumerWidget {
         title: Row(
           children: [
             Text(
-              "Notifications",
+              "Alerts",
               style: GoogleFonts.ibmPlexSans(
                 fontSize: 21,
                 fontWeight: FontWeight.bold,
@@ -78,7 +75,7 @@ class NotificationsPage extends ConsumerWidget {
                       context: context,
                       title: 'Mark All as Read',
                       message: 'Are you sure? This action cannot be undone.',
-                      actionText: 'Mark All Read',
+                      actionText: 'Mark All',
                       actionIcon: Icons.mark_email_read_rounded,
                       actionColor: kDeepPink,
                       onActionPressed: () async {
@@ -86,7 +83,7 @@ class NotificationsPage extends ConsumerWidget {
 
                         // Show success message
                         if (context.mounted) {
-                          Popup.showSuccess(text: "All messages marked as read", context: context);
+                          Popup.showSuccess(text: "All alerts marked as read", context: context);
                         }
                       },
                     );
@@ -153,7 +150,7 @@ class NotificationsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'No notifications yet',
+                    'No alerts yet',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -272,86 +269,194 @@ class AnnouncementNotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: InkWell(
-        onTap: () {
-          if (!isRead) {
-            ref.read(notificationReadProvider.notifier).markAsRead(notificationId);
-          }
-        },
-        borderRadius: BorderRadius.circular(14),
-        splashColor: kDeepPink.withOpacity(0.08),
-        highlightColor: Colors.grey.withOpacity(0.06),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, kDeepPink.withOpacity(0.7)],
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            if (!isRead) {
+              ref.read(notificationReadProvider.notifier).markAsRead(notificationId);
+            }
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isRead ? Colors.white : Colors.white.withOpacity(0.98),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isRead ? Colors.grey.shade200 : kDeepPink.withOpacity(0.2),
+                width: isRead ? 1 : 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isRead ? Colors.grey.withOpacity(0.08) : kDeepPink.withOpacity(0.12),
+                  blurRadius: isRead ? 8 : 16,
+                  offset: const Offset(0, 4),
+                  spreadRadius: isRead ? 0 : 2,
+                ),
+              ],
             ),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: kDeepPinkLight.withOpacity(0.6), width: 1.4),
-            boxShadow: [
-              BoxShadow(
-                color: kDeepPink.withOpacity(isRead ? 0.05 : 0.15),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: kDeepPinkLight.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kDeepPink.withOpacity(0.4), width: 1),
-                ),
-                child: Text(
-                  "ANNOUNCEMENT",
-                  style: TextStyle(
-                    color: kDeepPink,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                content,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              if (!isRead)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: kDeepPink,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: kDeepPink.withOpacity(0.4),
-                          blurRadius: 4,
-                          spreadRadius: 1,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [kDeepPinkLight, kDeepPink],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.campaign_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: kDeepPink.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: kDeepPink,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      "ANNOUNCEMENT",
+                                      style: GoogleFonts.lexendDeca(
+                                        color: kDeepPink,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Spacer(),
+                              if (!isRead)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [kDeepPinkLight, kDeepPink],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    "NEW",
+                                    style: GoogleFonts.lexendDeca(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "From Travia Team",
+                            style: GoogleFonts.lexendDeca(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isRead ? Colors.grey.shade50 : kDeepPink.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isRead ? Colors.grey.shade200 : kDeepPink.withOpacity(0.1),
+                      width: 1,
                     ),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        content,
+                        style: GoogleFonts.lexendDeca(
+                          fontSize: 15,
+                          fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
+                          color: Colors.black87,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (!isRead) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.touch_app_rounded,
+                              size: 16,
+                              color: kDeepPink.withOpacity(0.7),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Tap to mark as read",
+                              style: GoogleFonts.lexendDeca(
+                                fontSize: 12,
+                                color: kDeepPink.withOpacity(0.7),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: Colors.grey.shade500,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      timeAgo(createdAt),
+                      style: GoogleFonts.lexendDeca(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -397,6 +502,8 @@ class StandardNotificationTile extends StatelessWidget {
         return Icons.chat_bubble_outline;
       case 'follow':
         return Icons.person_add_outlined;
+      case 'report':
+        return Icons.flag;
       case 'mention':
         return Icons.alternate_email;
       case 'message':
@@ -444,27 +551,12 @@ class StandardNotificationTile extends StatelessWidget {
                 ref.read(notificationReadProvider.notifier).markAsRead(notificationId);
               }
 
-              if (type == "comment" || type == "post" || type == "like") {
+              if (type == "comment" || type == "post" || type == "like" || type == "dislike") {
                 context.push('/post/$sourceId');
+              } else if (type == 'follow' || type == 'report') {
+                context.push('/profile/$sourceId');
               } else if (type == "message") {
-                final response = await supabase.from('conversations').select('conversation_id').eq('conversation_id', sourceId!).maybeSingle();
-                if (response != null) {
-                  context.push("/messages/$sourceId");
-                } else {
-                  if (context.mounted) {
-                    Dialogs.materialDialog(msg: 'This conversation was deleted or does not exist', title: "Not Found", color: Colors.white, context: context, actions: [
-                      IconsOutlineButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        text: 'Ok',
-                        iconData: Icons.cancel_outlined,
-                        textStyle: TextStyle(color: Colors.grey),
-                        iconColor: Colors.grey,
-                      ),
-                    ]);
-                  }
-                }
+                context.push("/messages/$sourceId");
               }
             },
             borderRadius: BorderRadius.circular(16),

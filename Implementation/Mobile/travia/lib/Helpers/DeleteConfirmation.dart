@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:material_dialogs/dialogs.dart';
 import 'package:material_dialogs/widgets/buttons/icon_button.dart';
 import 'package:material_dialogs/widgets/buttons/icon_outline_button.dart';
@@ -18,12 +19,13 @@ Future<void> showCustomDialog({
   Color dialogColor = kWhite,
   bool isDismissible = true,
 }) async {
-  return Dialogs.bottomMaterialDialog(
+  return Dialogs.materialDialog(
     msg: message,
+    msgAlign: TextAlign.center,
+    msgStyle: GoogleFonts.lexendDeca(fontWeight: FontWeight.w600),
     title: title,
     color: dialogColor,
     context: context,
-    isDismissible: isDismissible,
     actions: [
       IconsOutlineButton(
         onPressed: () {

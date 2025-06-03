@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
             },
             android: {
               notification: {
-                icon: "ic_launcher", 
+                icon: "launcher_icon", 
                 color: "#b60f68", 
                 default_sound: true,
                 default_vibrate_timings: true,

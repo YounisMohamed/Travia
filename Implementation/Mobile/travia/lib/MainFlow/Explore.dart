@@ -105,69 +105,162 @@ class ExplorePage extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        ref.read(selectedFeedProvider.notifier).state = "For You";
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: selectedFeed == "For You" ? kDeepPink : Colors.white,
-                        foregroundColor: selectedFeed == "For You" ? Colors.white : Colors.black54,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: selectedFeed != "For You" ? BorderSide(color: Colors.grey.shade300) : BorderSide.none,
+                padding: const EdgeInsets.all(5.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  padding: EdgeInsets.all(5),
+                  child: Row(
+                    children: [
+                      // Feed Toggle Buttons
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(25),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                      child: Text(
-                        "For You",
-                        style: GoogleFonts.ibmPlexSans(
-                          fontWeight: FontWeight.w500,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                ref.read(selectedFeedProvider.notifier).state = "For You";
+                              },
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: selectedFeed == "For You" ? kDeepPink : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(22),
+                                  boxShadow: selectedFeed == "For You"
+                                      ? [
+                                          BoxShadow(
+                                            color: kDeepPink.withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ]
+                                      : [],
+                                ),
+                                child: Text(
+                                  "For You",
+                                  style: GoogleFonts.ibmPlexSans(
+                                    fontWeight: FontWeight.w600,
+                                    color: selectedFeed == "For You" ? Colors.white : Colors.grey.shade600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                ref.read(selectedFeedProvider.notifier).state = "Following";
+                              },
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: selectedFeed == "Following" ? kDeepPink : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(22),
+                                  boxShadow: selectedFeed == "Following"
+                                      ? [
+                                          BoxShadow(
+                                            color: kDeepPink.withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ]
+                                      : [],
+                                ),
+                                child: Text(
+                                  "Following",
+                                  style: GoogleFonts.ibmPlexSans(
+                                    fontWeight: FontWeight.w600,
+                                    color: selectedFeed == "Following" ? Colors.white : Colors.grey.shade600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        ref.read(selectedFeedProvider.notifier).state = "Following";
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: selectedFeed == "Following" ? kDeepPink : Colors.white,
-                        foregroundColor: selectedFeed == "Following" ? Colors.white : Colors.black54,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: selectedFeed != "Following" ? BorderSide(color: Colors.grey.shade300) : BorderSide.none,
+                      const Spacer(),
+                      // Discover Button
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => FriendsScreen(
+                                userIdOfCurrentFriendsList: FirebaseAuth.instance.currentUser!.uid,
+                                initialIndex: 2,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [kDeepPink.withOpacity(0.8), kDeepPinkLight],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: kDeepPink.withOpacity(0.25),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.explore_outlined,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                "Discover",
+                                style: GoogleFonts.ibmPlexSans(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
-                      child: Text(
-                        "Following",
-                        style: GoogleFonts.ibmPlexSans(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => FriendsScreen(userIdOfCurrentFriendsList: FirebaseAuth.instance.currentUser!.uid)));
-                      },
-                      icon: Container(
-                        padding: const EdgeInsets.all(4),
+                      const SizedBox(width: 12),
+                      // Search Button
+                      Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade300),
+                          color: Colors.grey.shade100,
                         ),
-                        child: const Icon(CupertinoIcons.plus, size: 20),
+                        child: IconButton(
+                          onPressed: () {},
+                          icon: Icon(
+                            Icons.search_rounded,
+                            size: 22,
+                            color: Colors.grey.shade700,
+                          ),
+                          padding: EdgeInsets.all(8),
+                          constraints: BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 40,
+                          ),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.search, size: 24),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -638,7 +731,7 @@ class ExplorePostCard extends ConsumerWidget {
                       ),
                       child: ExplorePostMediaDisplay(
                         mediaUrl: mediaUrl,
-                        isVideo: mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov'),
+                        isVideo: isPathVideo(mediaUrl),
                       ),
                     ),
                   ),

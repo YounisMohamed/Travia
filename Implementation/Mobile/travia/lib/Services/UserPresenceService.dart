@@ -65,7 +65,7 @@ class UserPresenceService {
             break;
         }
       },
-      // Add this to explicitly handle app termination
+      // handle app termination
       onDetach: () {
         if (_currentUserId != null) {
           _setUserOfflineAndUpdateLastActive();

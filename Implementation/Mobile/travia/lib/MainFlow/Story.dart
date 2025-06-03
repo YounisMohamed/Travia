@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:material_dialogs/dialogs.dart';
 import 'package:material_dialogs/widgets/buttons/icon_button.dart';
 import 'package:material_dialogs/widgets/buttons/icon_outline_button.dart';
@@ -13,10 +15,12 @@ import 'package:story_view/widgets/story_view.dart';
 import 'package:travia/Classes/story_item_model.dart';
 import 'package:travia/Helpers/AppColors.dart';
 
+import '../Classes/UserSupabase.dart';
 import '../Classes/story_model.dart';
 import '../Helpers/DummyCards.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Helpers/PopUp.dart';
+import '../Providers/AllUsersProvider.dart';
 import '../Providers/ConversationProvider.dart';
 import '../Providers/ImagePickerProvider.dart';
 import '../Providers/LoadingProvider.dart';
@@ -37,12 +41,15 @@ class StoryBar extends ConsumerWidget {
       data: (stories) {
         final userStory = user != null ? stories.where((s) => s.userId == user.uid).firstOrNull : null;
 
+        // Reorder stories: unseen first, then seen
+        final reorderedStories = _reorderStoriesBySeen(stories, user?.uid);
+
         return SizedBox(
           height: 90,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: stories.length + 1,
+            itemCount: reorderedStories.length + 1,
             itemBuilder: (context, index) {
               if (index == 0) {
                 // First tile is always the "Add Story" bubble
@@ -102,10 +109,7 @@ class StoryBar extends ConsumerWidget {
                       print("Processing file: ${mediaFile.path}");
 
                       // Upload the media to Supabase
-                      final mediaUrl = await ref.read(storyMediaUploadProvider.notifier).uploadStory(
-                            userId: user!.uid,
-                            mediaFile: mediaFile,
-                          );
+                      final mediaUrl = await ref.read(storyMediaUploadProvider.notifier).uploadStory(userId: user!.uid, mediaFile: mediaFile, context: context);
                       print("Upload result URL: $mediaUrl");
 
                       if (mediaUrl == null) {
@@ -173,17 +177,19 @@ class StoryBar extends ConsumerWidget {
 
               // For the user's own story (if they have one), show it at index 1
               if (index == 1 && userStory != null) {
-                return _buildStoryBubble(context, userStory);
+                final isSeen = _isStorySeenByUser(userStory, user!.uid);
+                return _buildStoryBubble(context, userStory, isSeen);
               }
 
               // Adjust index for other stories to account for the user's story possibly taking slot 1
               final adjustedIndex = userStory != null ? index - 1 : index;
-              final otherStories = stories.where((s) => s.userId != user?.uid).toList();
+              final otherStories = reorderedStories.where((s) => s.userId != user?.uid).toList();
 
               // Check if the adjusted index is valid for other stories
               if (adjustedIndex - 1 < otherStories.length) {
                 final story = otherStories[adjustedIndex - 1];
-                return _buildStoryBubble(context, story);
+                final isSeen = _isStorySeenByUser(story, user?.uid);
+                return _buildStoryBubble(context, story, isSeen);
               }
 
               return const SizedBox.shrink(); // Fallback for any edge cases
@@ -196,7 +202,56 @@ class StoryBar extends ConsumerWidget {
     );
   }
 
-  Widget _buildStoryBubble(BuildContext context, story_model story) {
+  // Function to check if a story has been seen by the current user
+  bool _isStorySeenByUser(story_model story, String? userId) {
+    if (userId == null) return false;
+
+    // Check if all story items have been seen by the user
+    final items = story.items ?? [];
+    if (items.isEmpty) return false;
+
+    return items.every((item) {
+      final seenBy = item.seenBy ?? [];
+      return seenBy.contains(userId);
+    });
+  }
+
+  // Function to reorder stories: unseen first, seen last
+  List<story_model> _reorderStoriesBySeen(List<story_model> stories, String? currentUserId) {
+    if (currentUserId == null) return stories;
+
+    final unseenStories = <story_model>[];
+    final seenStories = <story_model>[];
+
+    for (final story in stories) {
+      if (_isStorySeenByUser(story, currentUserId)) {
+        seenStories.add(story);
+      } else {
+        unseenStories.add(story);
+      }
+    }
+
+    // Helper function to get the latest creation time from story items
+    DateTime getLatestItemTime(story_model story) {
+      final items = story.items ?? [];
+      if (items.isEmpty) return DateTime.now();
+
+      // Find the most recent story item
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items.first.createdAt;
+    }
+
+    // Sort unseen stories by latest story item creation time (newest first)
+    unseenStories.sort((a, b) => getLatestItemTime(b).compareTo(getLatestItemTime(a)));
+
+    // Sort seen stories by latest story item creation time (newest first)
+    seenStories.sort((a, b) => getLatestItemTime(b).compareTo(getLatestItemTime(a)));
+
+    // Return unseen stories first, then seen stories
+    return [...unseenStories, ...seenStories];
+  }
+
+  Widget _buildStoryBubble(BuildContext context, story_model story, bool isSeen) {
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(MaterialPageRoute(
@@ -207,19 +262,46 @@ class StoryBar extends ConsumerWidget {
         padding: const EdgeInsets.only(right: 12),
         child: Column(
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: kDeepPink,
-              child: CircleAvatar(
-                radius: 25,
-                backgroundImage: story.userPhotoUrl != null ? CachedNetworkImageProvider(story.userPhotoUrl!) : null,
-                child: story.userPhotoUrl == null ? const Icon(Icons.person) : null,
-              ),
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: isSeen ? Colors.grey.withOpacity(0.5) : kDeepPink,
+                  child: CircleAvatar(
+                    radius: 25,
+                    backgroundImage: story.userPhotoUrl != null ? CachedNetworkImageProvider(story.userPhotoUrl!) : null,
+                    child: story.userPhotoUrl == null ? const Icon(Icons.person) : null,
+                  ),
+                ),
+                // Visual indicator for seen stories
+                if (isSeen)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.grey,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        size: 8,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 5),
             Text(
               story.username ?? 'User',
-              style: const TextStyle(fontSize: 12),
+              style: TextStyle(
+                fontSize: 12,
+                color: isSeen ? Colors.grey : null,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -435,6 +517,10 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
         final likedStories = ref.watch(likeStoryItemProvider);
         final isLiked = likedStories[currentItemId] ?? false;
 
+        // Calculate views count for current item
+        final viewsCount = (currentItem.seenBy ?? []).length;
+        final isOwnStory = story.userId == currentUserId;
+
         if (isPaused) {
           controller.pause();
         } else {
@@ -459,9 +545,11 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                 onStoryShow: (storyItem, index) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     ref.read(currentStoryItemIndexProvider.notifier).state = index;
+                    if (!isOwnStory) _markStoryItemAsSeen(sortedItems[index], currentUserId);
                   });
                 },
               ),
+
               // Top Bar
               Positioned(
                 top: 60,
@@ -469,29 +557,100 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                 right: 16,
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundImage: NetworkImage(story.userPhotoUrl ?? ''),
+                    GestureDetector(
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundImage: NetworkImage(story.userPhotoUrl ?? ''),
+                      ),
+                      onTap: () {
+                        context.push("/profile/${story.userId}");
+                      },
                     ),
                     const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          story.username ?? '',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          timeAgo(currentItem.createdAt),
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          GestureDetector(
+                            child: Text(
+                              story.username ?? '',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                            onTap: () {
+                              context.push("/profile/${story.userId}");
+                            },
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                timeAgo(currentItem.createdAt),
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                              // Views indicator - only show for story owner or if there are views
+                              if (viewsCount > 0) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black26,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.white24, width: 0.5),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.visibility,
+                                        color: Colors.white70,
+                                        size: 12,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        formatCount(viewsCount),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
+
+                    // Views detail button (only for story owner)
+                    if (isOwnStory)
+                      GestureDetector(
+                        onTap: () async {
+                          _pauseStory();
+                          await _showViewersDetail(context, currentItem);
+                          _resumeStory();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white24, width: 0.5),
+                          ),
+                          child: const Icon(
+                            Icons.remove_red_eye,
+                            color: kDeepPink,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+
                     if (story.userId == currentUserId)
                       IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.white),
+                        icon: const Icon(Icons.delete, color: kDeepPink),
                         onPressed: () {
                           controller.pause();
                           Dialogs.materialDialog(
@@ -592,8 +751,8 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
                             try {
                               await sendNotification(
                                 type: 'story_like',
-                                title: "liked your story ❤️",
-                                content: "",
+                                title: "liked your story",
+                                content: "liked your story",
                                 target_user_id: story.userId,
                                 source_id: currentItemId,
                                 sender_user_id: currentUserId,
@@ -701,6 +860,291 @@ class _StoryViewerPageState extends ConsumerState<StoryViewerPage> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _markStoryItemAsSeen(story_item_model item, String userId) async {
+    try {
+      final currentSeenBy = item.seenBy ?? [];
+
+      // Only update if user hasn't seen this item yet
+      if (!currentSeenBy.contains(userId)) {
+        final updatedSeenBy = [...currentSeenBy, userId];
+
+        await supabase.from('story_items').update({'seen_by': updatedSeenBy}).eq('item_id', item.itemId);
+
+        print('Marked story item ${item.itemId} as seen by $userId');
+      }
+    } catch (e) {
+      print('Error marking story item as seen: $e');
+    }
+  }
+
+  Future<void> _showViewersDetail(BuildContext context, story_item_model storyItem) async {
+    final seenBy = storyItem.seenBy ?? [];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final usersAsync = ref.watch(usersProvider);
+
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.grey[900]!,
+                  Colors.black87,
+                ],
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with gradient accent
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [kDeepPink.withOpacity(0.2), kDeepPinkLight.withOpacity(0.1)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: kDeepPink.withOpacity(0.3), width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [kDeepPink, kDeepPinkLight],
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.visibility, color: Colors.white, size: 16),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        "Viewed by ${seenBy.length} ${seenBy.length == 1 ? 'person' : 'people'}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (seenBy.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800]?.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[700]!, width: 1),
+                    ),
+                    child: const Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.visibility_off, color: Colors.white54, size: 32),
+                          SizedBox(height: 8),
+                          Text(
+                            "No views yet",
+                            style: TextStyle(color: Colors.white54, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  usersAsync.when(
+                    data: (users) {
+                      // Create a map for quick user lookup
+                      final userMap = {for (var user in users) user.id: user};
+
+                      // Filter viewers who exist in the users list
+                      final viewersWithDetails = seenBy.map((userId) => userMap[userId]).where((user) => user != null).cast<UserModel>().toList();
+
+                      // Sort viewers alphabetically by display name
+                      viewersWithDetails.sort((a, b) => a.displayName.compareTo(b.displayName));
+
+                      return ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.5,
+                        ),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 50),
+                          shrinkWrap: true,
+                          itemCount: viewersWithDetails.length,
+                          itemBuilder: (context, index) {
+                            final user = viewersWithDetails[index];
+
+                            return GestureDetector(
+                              onTap: () {
+                                context.push('/profile/${user.id}');
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Colors.grey[800]!,
+                                      Colors.grey[850]!,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: kDeepPink.withOpacity(0.2),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: kDeepPink.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          colors: [kDeepPink.withOpacity(0.3), kDeepPinkLight.withOpacity(0.3)],
+                                        ),
+                                        border: Border.all(color: kDeepPink.withOpacity(0.5), width: 2),
+                                      ),
+                                      child: CircleAvatar(
+                                        radius: 22,
+                                        backgroundColor: Colors.transparent,
+                                        backgroundImage: user.photoUrl.isNotEmpty ? CachedNetworkImageProvider(user.photoUrl) : null,
+                                        child: user.photoUrl.isEmpty
+                                            ? Text(
+                                                user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : user.username[0].toUpperCase(),
+                                                style: GoogleFonts.lexendDeca(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  user.displayName.isNotEmpty ? user.displayName : user.username,
+                                                  style: GoogleFonts.lexendDeca(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 16,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          if (user.displayName.isNotEmpty && user.username != user.displayName)
+                                            Text(
+                                              "@${user.username}",
+                                              style: GoogleFonts.lexendDeca(
+                                                color: Colors.black87,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_ios,
+                                      color: kDeepPink.withOpacity(0.6),
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                    loading: () => Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800]?.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(
+                              color: kDeepPink,
+                              strokeWidth: 3,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              "Loading viewers...",
+                              style: TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    error: (error, stack) => Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+                      ),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.red, size: 32),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Error loading viewers",
+                              style: const TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.w600),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              error.toString(),
+                              style: const TextStyle(color: Colors.red, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

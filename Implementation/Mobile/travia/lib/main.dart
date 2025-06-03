@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:profanity_filter/profanity_filter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Auth/WelcomePage.dart';
@@ -19,8 +20,10 @@ import 'Auth/completeProfilePage.dart';
 import 'MainFlow/ChatPage.dart';
 import 'MainFlow/DMsPage.dart';
 import 'MainFlow/ErrorPage.dart';
+import 'MainFlow/GroupMembersPage.dart';
 import 'MainFlow/HomePage.dart';
 import 'MainFlow/MediaPickerScreen.dart';
+import 'MainFlow/NewConversationPage.dart';
 import 'MainFlow/NotificationsPage.dart';
 import 'MainFlow/PermissionsPage.dart';
 import 'MainFlow/PostDetails.dart';
@@ -34,6 +37,8 @@ final supabase = Supabase.instance.client;
 SharedPreferences? prefs;
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+final filter = ProfanityFilter();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -133,7 +138,7 @@ class MyApp extends StatelessWidget {
 
     final GoRouter router = GoRouter(
         initialLocation: initialLocation,
-        //initialLocation: "/messages/9dd27c1c-89ea-4ade-afe6-bc57abf4bf65",
+        //initialLocation: "/messages/74ee6ee8-13d0-4597-a121-1e6ae573c770",
         //initialLocation: '/recorder',
         //initialLocation: '/dms-page',
         //initialLocation: '/error-page/shit/shit',
@@ -245,6 +250,16 @@ class MyApp extends StatelessWidget {
               return ChatPage(conversationId: conversationId);
             },
           ),
+          GoRoute(
+            path: '/dms-page/new',
+            builder: (context, state) => const NewConversationPage(),
+          ),
+          GoRoute(
+              path: '/group-members/:conversationId',
+              builder: (context, state) {
+                final conversationId = state.pathParameters['conversationId']!;
+                return GroupMembersPage(conversationId: conversationId);
+              }),
           GoRoute(
             path: '/recorder',
             builder: (context, state) => RecorderPage(),

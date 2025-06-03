@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:travia/Classes/message_class.dart';
 
+import '../Helpers/Constants.dart';
 import '../main.dart';
 
 String timeAgo(DateTime utcDateTime) {
@@ -39,6 +42,29 @@ String timeAgo(DateTime utcDateTime) {
     final years = (difference.inDays / 365).floor();
     return '$years year${years == 1 ? '' : 's'} ago';
   }
+}
+
+String formatTimeLabel(DateTime timeStamp) {
+  // Force to UTC
+  final utcTime = timeStamp.isUtc
+      ? timeStamp
+      : DateTime.utc(
+          timeStamp.year,
+          timeStamp.month,
+          timeStamp.day,
+          timeStamp.hour,
+          timeStamp.minute,
+          timeStamp.second,
+          timeStamp.millisecond,
+          timeStamp.microsecond,
+        );
+
+  // format time to something like 11:03 PM
+  final hour = utcTime.hour % 12 == 0 ? 12 : utcTime.hour % 12;
+  final minute = utcTime.minute.toString().padLeft(2, '0');
+  final period = utcTime.hour >= 12 ? 'PM' : 'AM';
+
+  return '$hour:$minute $period';
 }
 
 String formatCount(int count) {
@@ -162,4 +188,381 @@ bool canSendNotification(String postId, String reactionType, String userId) {
     return true;
   }
   return false;
+}
+
+String? normalizeCountry(String? inputCountry) {
+  if (inputCountry == null) return null;
+  for (var c in countries) {
+    if (inputCountry.toLowerCase().contains(c['name']!.toLowerCase())) {
+      return c['name'];
+    }
+  }
+  return null;
+}
+
+bool hasArabicProfanity(String input) {
+  // THIS IS TO PREVENT BAD WORDS IN COMMENTS, SORRY IF THESE WORDS OFFENDED YOU :)
+  // THE OFFICIAL LIST OF PROFANITY IN GITHUB ONLY SUPPORTS 30 WORDS
+  // SO I HAD TO TAKE MATTERS INTO MY OWN HANDS
+  final List<String> profaneWords = [
+    'كسمك',
+    'بنت الشرموطة',
+    'الزاني',
+    'الزانية',
+    'خول',
+    'عرص',
+    'متناك',
+    'مومس',
+    'كس امك',
+    'كسمك',
+    'كسختك',
+    'كسمين',
+    'كسمين امك',
+    'كس اختك',
+    'كسمينك',
+    'يلعن امك',
+    'يلعن',
+    'العن',
+    'شاذ',
+    'نيك',
+    'منيوك',
+    'متناك',
+    'زانية',
+    'بتتناك',
+    'شرموطة',
+    'شرموط',
+    'قحبة',
+    'قحاب',
+    'عاهرة',
+    'عاهر',
+    'وسخ',
+    'وسخة',
+    'غبي',
+    'احا',
+    'خرا',
+    'زبي',
+    'زب',
+    'طيز',
+    'طيزك',
+    'بضان',
+    'شرمط',
+    'معرص',
+    'ابن الشرموطة',
+    'ابن القحبة',
+    'يابن الشرموطة',
+    'يابن القحبة',
+    'لعنة الله',
+    'لعنة',
+    'ملعون',
+    'كس اخت',
+    'كس ام',
+    'نيكني',
+    'انيكك',
+    'انيك',
+    'تتناك',
+    'يتناك',
+    'منايك',
+    'مناييك',
+    'فاجرة',
+    'فاجر',
+    'ديوث',
+    'قواد',
+    'جحش',
+    'بهيمة',
+    'حقير',
+    'نجس',
+    'قذر',
+    'احة',
+    'احا',
+    'يلعن دينك',
+    'يخرب بيتك',
+    'عبيط',
+    'اهبل',
+    'خولات',
+    'وسخين',
+    'ابن الوسخة',
+    'بنت الوسخة',
+    'متبعبص',
+    'بعبوص',
+    'زق',
+    'خنيث',
+    'فاسق',
+    'منحرف',
+    'عرصة',
+    'كس اخوك',
+    'ايري',
+    'اير',
+    'بدي انيكك',
+    'زامل',
+    'قواد',
+    'دين',
+    'دينك',
+    'ديانة',
+    'سياسة',
+    'نعال',
+    'يلعن والديك',
+    'kosomak',
+    'kos omak',
+    'kos om',
+    'ks omk',
+    'ksomk',
+    'ksmk',
+    'kosomk',
+    'kos',
+    'neek',
+    'nik',
+    'n1k',
+    'ne1k',
+    'metnak',
+    'met2nak',
+    'metnayak',
+    'metn2k',
+    'sharmota',
+    'sharmoota',
+    '4armota',
+    '4armoota',
+    'shar2ota',
+    'a7a',
+    'a7aa',
+    'a77a',
+    'aha',
+    'ahaa',
+    '3ars',
+    '3rs',
+    'ars',
+    'khwal',
+    '5ol',
+    '5wal',
+    'khawal',
+    'khawl',
+    'teez',
+    'tiz',
+    't1z',
+    'teezak',
+    'tizak',
+    'zeb',
+    'zeby',
+    'zby',
+    'zebi',
+    'zibi',
+    'zb',
+    'zbby',
+    'ayr',
+    'ayri',
+    'eyr',
+    'eyri',
+    '3ayr',
+    '3ayri',
+    'gazma',
+    'gizma',
+    '8azma',
+    'wes5',
+    'weskh',
+    'wesk5',
+    'ws5',
+    'wskh',
+    'ibn el sharmota',
+    'ibn sharmota',
+    'ebn sharmota',
+    'ibn el sharmoota',
+    'ebn el sharmota',
+    'bent el sharmota',
+    'bnt el sharmota',
+    'yel3an',
+    'yel3n',
+    'yl3n',
+    'yl3an',
+    'la3an',
+    'l3an',
+    'la3nat',
+    'l3nat',
+    'manyok',
+    'mnyok',
+    'manyook',
+    'mnouk',
+    'mnayek',
+    'mnayik',
+    '7ayawan',
+    '7ywan',
+    '5anzeer',
+    '5anzir',
+    'khanzeer',
+    'khanzir',
+    '5nzeer',
+    '5nzir',
+    'khnzeer',
+    'khnzir',
+    'ka7ba',
+    'k7ba',
+    'kahba',
+    'qahba',
+    'qa7ba',
+    '2a7ba',
+    '2ahba',
+    'ahira',
+    '3ahira',
+    '3ahra',
+    '3ahr',
+    'dayooth',
+    'dywth',
+    'dioth',
+    'd1oth',
+    'labwa',
+    'lbwa',
+    'lab2a',
+    'momis',
+    'momes',
+    'mums',
+    'sharmoota',
+    'shrmota',
+    '4rmoota',
+    'ya kalb',
+    'yakalb',
+    'yklb',
+    'ya ibn el sharmota',
+    'yabn el sharmota',
+    'ybn el 4armota',
+    'kos o5tak',
+    'kos okhtak',
+    'ks o5tk',
+    'ks okhtak',
+    'f*ck',
+    'sh*t',
+    'b*tch',
+    '2rs',
+    '3rs',
+    '5ol',
+    '5wal',
+    '7ywan',
+    '7mar',
+    '5nzir',
+    '2hba',
+    '3hr',
+    '4rmota',
+    'kossomak',
+    'kosommak',
+    'kossommak',
+    'neik',
+    'neeek',
+    'n33k',
+    'sharmouta',
+    'sharmooota',
+    'khawal',
+    'khaawal',
+    'khwaal',
+    '5waal',
+    '5awaal',
+  ];
+
+  // Additional Franco patterns with spaces
+  final List<String> francoPhrases = [
+    'kos om',
+    'ks om',
+    'kos omm',
+    'ibn el',
+    'ebn el',
+    'bent el',
+    'bnt el',
+    'ya ibn',
+    'ya ebn',
+    'ya bent el',
+    'ya bnt el',
+    'ya bent l',
+    'ya bnt l',
+  ];
+
+  final normalizedInput = input.trim().toLowerCase();
+
+  // Remove common character substitutions to catch variations
+  final cleanedInput = normalizedInput
+      .replaceAll('0', 'o')
+      .replaceAll('1', 'i')
+      .replaceAll('3', 'e')
+      .replaceAll('4', 'a')
+      .replaceAll('5', 's')
+      .replaceAll('7', 'h')
+      .replaceAll('8', 'g')
+      .replaceAll('@', 'a')
+      .replaceAll('!', 'i')
+      .replaceAll('\$', 's');
+
+  // Check exact words
+  for (final word in profaneWords) {
+    if (normalizedInput.contains(word) || cleanedInput.contains(word)) {
+      return true;
+    }
+  }
+
+  // Check phrases (for multi-word profanities)
+  for (final phrase in francoPhrases) {
+    if (normalizedInput.contains(phrase) || cleanedInput.contains(phrase)) {
+      // Check if it's followed by a profane context
+      for (final word in profaneWords) {
+        if (normalizedInput.contains('$phrase$word') || normalizedInput.contains('$phrase $word') || cleanedInput.contains('$phrase$word') || cleanedInput.contains('$phrase $word')) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // Check for word boundaries to avoid false positives
+  final words = normalizedInput.split(RegExp(r'\s+'));
+  final cleanedWords = cleanedInput.split(RegExp(r'\s+'));
+
+  for (final word in words + cleanedWords) {
+    if (profaneWords.contains(word)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool isEmojiOnly(String content) {
+  final emojiRegex = RegExp(r'^[\u{1F300}-\u{1FAFF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u200d\s]+$', unicode: true);
+  return emojiRegex.hasMatch(content.trim());
+}
+
+IconData getReplyIcon(String contentType) {
+  switch (contentType) {
+    case 'text':
+      return Icons.chat_bubble_outline;
+    case 'record':
+      return Icons.mic;
+    case 'image':
+      return Icons.image;
+    case 'video':
+      return Icons.videocam;
+    default:
+      return Icons.attach_file;
+  }
+}
+
+String getReplyPreviewText(MessageClass message) {
+  switch (message.contentType) {
+    case 'text':
+      return message.content.length > 60 ? '${message.content.substring(0, 60)}...' : message.content;
+    case 'record':
+      return '🎵 Voice message';
+    case 'image':
+      return '📷 Photo';
+    case 'video':
+      return '🎥 Video';
+    default:
+      return '📎 Attachment';
+  }
+}
+
+TextDirection getTextDirectionForText(String text) {
+  if (text.isEmpty) return TextDirection.ltr;
+
+  final firstChar = text[0];
+  final isRtl = RegExp(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]').hasMatch(firstChar);
+  return isRtl ? TextDirection.rtl : TextDirection.ltr;
+}
+
+bool isPathVideo(String path) {
+  final extension = p.extension(path).toLowerCase();
+  final isVideo = ['.mp4', '.mov', '.avi', '.mkv', '.flv', '.wmv'].contains(extension);
+  return isVideo;
 }

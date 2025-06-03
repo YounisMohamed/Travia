@@ -72,11 +72,8 @@ dependencies:
   video_player: ^2.9.3
   fraction: ^5.0.4
   cross_file: ^0.3.4+2
-  ffmpeg_kit_flutter_min_gpl: ^6.0.3
   video_editor: ^3.0.0
   firebase_messaging: ^15.2.4
-  hive:
-  hive_flutter:
   url_launcher: ^6.3.1
   record: ^6.0.0
   audioplayers: ^6.4.0
@@ -98,8 +95,11 @@ dependencies:
   curved_navigation_bar: ^1.0.6
   glass: ^2.0.0+2
   bottom_picker: ^3.2.0
-  dropdown_button2: ^2.3.9
   animated_custom_dropdown: ^3.1.1
+  profanity_filter: ^2.0.0
+  geolocator: 13.0.4
+  geocoding: 3.0.0
+  flutter_exit_app: ^1.1.4
 
 dependency_overrides:
   rxdart: ^0.28.0

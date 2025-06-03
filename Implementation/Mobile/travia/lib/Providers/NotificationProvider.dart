@@ -115,7 +115,7 @@ final unreadNotificationCountProvider = Provider<int>((ref) {
         bool isReadLocally = readState['read'][notification.id] == true;
         bool isRead = notification.isRead || isReadLocally;
 
-        if (!isRead) {
+        if (!isRead && notification.type != "message") {
           unreadCount++;
         }
       }

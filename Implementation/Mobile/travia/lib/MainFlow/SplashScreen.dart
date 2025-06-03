@@ -47,7 +47,7 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
     String? supabaseUserId;
 
     // top-level timeout for the entire operation
-    final timeoutDuration = Duration(seconds: 10);
+    final timeoutDuration = Duration(seconds: 6);
 
     try {
       // Apply timeout to the Supabase user ID fetch
