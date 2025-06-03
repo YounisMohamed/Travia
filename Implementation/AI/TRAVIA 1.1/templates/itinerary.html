@@ -1,0 +1,511 @@
+<!-- templates/itinerary.html -->
+{% extends "base.html" %}
+
+{% block title %}Your Itinerary - Travel AI{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="text-center mb-4">
+            <i class="fas fa-route text-primary"></i> Your Personalized Itinerary
+        </h2>
+        <p class="text-center text-muted mb-4">
+            Like or dislike places to improve future recommendations! Our AI learns your preferences for atmosphere, cuisine, and ambience.
+        </p>
+    </div>
+</div>
+
+<!-- Metadata Learning Insights Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-brain text-info"></i> AI Learning Insights
+                </h5>
+                <p class="card-text mb-2">
+                    <small class="text-muted">
+                        Your itinerary is personalized based on your preferences and past interactions. 
+                        The system has analyzed your likes to understand your taste for <strong>atmosphere</strong> (romantic, casual, classy), 
+                        <strong>cuisine types</strong>, and <strong>price ranges</strong>.
+                    </small>
+                </p>
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <i class="fas fa-heart text-danger"></i>
+                        <small class="d-block text-muted">Learns from Likes</small>
+                    </div>
+                    <div class="col-md-3">
+                        <i class="fas fa-utensils text-warning"></i>
+                        <small class="d-block text-muted">Cuisine Preferences</small>
+                    </div>
+                    <div class="col-md-3">
+                        <i class="fas fa-star text-success"></i>
+                        <small class="d-block text-muted">Atmosphere Analysis</small>
+                    </div>
+                    <div class="col-md-3">
+                        <i class="fas fa-dollar-sign text-info"></i>
+                        <small class="d-block text-muted">Price Range Learning</small>
+                    </div>
+                </div>
+                <div class="text-center mt-2">
+                    <a href="/metadata_insights" class="btn btn-sm btn-outline-info">
+                        <i class="fas fa-chart-bar"></i> View Detailed AI Insights
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% for day_data in itinerary %}
+<div class="day-section mb-5">
+    <div class="day-header">
+        <h3><i class="fas fa-calendar-day"></i> Day {{ day_data.day }}</h3>
+    </div>
+    
+    <div class="row">
+        {% for business in day_data.businesses %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card business-card h-100 position-relative">
+                <div class="feedback-buttons">
+                    <button class="like-btn" onclick="giveFeedback('{{ business.id }}', 'like')" title="Like this place">
+                        <i class="fas fa-thumbs-up"></i>
+                    </button>
+                    <button class="dislike-btn" onclick="giveFeedback('{{ business.id }}', 'dislike')" title="Dislike this place">
+                        <i class="fas fa-thumbs-down"></i>
+                    </button>
+                </div>
+                
+                <div class="card-body">
+                    <h5 class="card-title">{{ business.name }}</h5>
+                    
+                    <!-- Business Type & Category -->
+                    <div class="mb-2">
+                        <span class="badge bg-primary me-1">
+                            {% if business.is_restaurant %}Restaurant
+                            {% elif business.is_cafe %}Café
+                            {% elif business.is_bar %}Bar
+                            {% elif business.is_shop %}Shop
+                            {% elif business.is_gym %}Gym
+                            {% elif business.is_beauty_health %}Beauty & Health
+                            {% else %}Business
+                            {% endif %}
+                        </span>
+                        
+                        <!-- Use fake_cuisine from database -->
+                        {% if business.fake_cuisine %}
+                            <span class="badge bg-secondary me-1">{{ business.fake_cuisine }}</span>
+                        {% else %}
+                            <!-- Fallback: Show generic type if no cuisine in database -->
+                            {% if business.is_restaurant %}
+                                <span class="badge bg-light text-dark me-1">Dining</span>
+                            {% elif business.is_cafe %}
+                                <span class="badge bg-light text-dark me-1">Café</span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Star Rating & Reviews -->
+                    <div class="mb-2">
+                        <div class="stars">
+                            {% if business.stars %}
+                                {% for i in range(5) %}
+                                    {% if i < business.stars|int %}
+                                        <i class="fas fa-star"></i>
+                                    {% else %}
+                                        <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="text-muted">({{ business.review_count or 0 }} reviews)</span>
+                            {% else %}
+                                <span class="text-muted">No rating available</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Address -->
+                    <p class="card-text">
+                        <i class="fas fa-map-marker-alt text-danger"></i>
+                        {{ business.address or 'Address not available' }}{% if business.city %}, {{ business.city }}{% endif %}
+                        {% if business.state %}, {{ business.state }}{% endif %}
+                        {% if business.postal_code %} {{ business.postal_code }}{% endif %}
+                    </p>
+                    
+                    <!-- Price Range -->
+                    {% if business.price_range %}
+                    <p class="card-text">
+                        <i class="fas fa-dollar-sign text-success"></i>
+                        <strong>Price: {% for i in range(business.price_range|int) %}${% endfor %}</strong>
+                        <span class="text-muted">
+                            ({% if business.price_range == 1 %}Budget-friendly
+                            {% elif business.price_range == 2 %}Moderate
+                            {% elif business.price_range == 3 %}Expensive
+                            {% else %}Very Expensive{% endif %})
+                        </span>
+                    </p>
+                    {% endif %}
+                    
+                    <!-- Features & Amenities -->
+                    <div class="amenities mb-3">
+                        <h6 class="mb-2"><i class="fas fa-info-circle text-info"></i> Features</h6>
+                        <div class="row text-center">
+                            {% if business.good_for_kids %}
+                            <div class="col-4 mb-2">
+                                <i class="fas fa-child text-info"></i>
+                                <small class="d-block">Kid Friendly</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if business.wifi %}
+                            <div class="col-4 mb-2">
+                                <i class="fas fa-wifi text-primary"></i>
+                                <small class="d-block">WiFi</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if business.outdoor_seating %}
+                            <div class="col-4 mb-2">
+                                <i class="fas fa-tree text-success"></i>
+                                <small class="d-block">Outdoor Seating</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if business.restaurants_takeout %}
+                            <div class="col-4 mb-2">
+                                <i class="fas fa-shopping-bag text-warning"></i>
+                                <small class="d-block">Takeout</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if business.restaurants_delivery %}
+                            <div class="col-4 mb-2">
+                                <i class="fas fa-truck text-orange"></i>
+                                <small class="d-block">Delivery</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if business.accepts_credit_cards %}
+                            <div class="col-4 mb-2">
+                                <i class="fas fa-credit-card text-info"></i>
+                                <small class="d-block">Cards Accepted</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if business.restaurants_good_for_groups %}
+                            <div class="col-4 mb-2">
+                                <i class="fas fa-users text-purple"></i>
+                                <small class="d-block">Group Friendly</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Ambience -->
+                    {% if business.ambience_classy or business.ambience_casual or business.ambience_romantic or business.ambience_trendy %}
+                    <div class="ambience mb-3">
+                        <h6 class="mb-2"><i class="fas fa-palette text-purple"></i> Ambience</h6>
+                        <div class="d-flex flex-wrap">
+                            {% if business.ambience_classy %}
+                                <span class="badge bg-dark me-1 mb-1">Classy</span>
+                            {% endif %}
+                            {% if business.ambience_casual %}
+                                <span class="badge bg-light text-dark me-1 mb-1">Casual</span>
+                            {% endif %}
+                            {% if business.ambience_romantic %}
+                                <span class="badge bg-danger me-1 mb-1">Romantic</span>
+                            {% endif %}
+                            {% if business.ambience_trendy %}
+                                <span class="badge bg-warning text-dark me-1 mb-1">Trendy</span>
+                            {% endif %}
+                            {% if business.ambience_intimate %}
+                                <span class="badge bg-info me-1 mb-1">Intimate</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Good For -->
+                    {% if business.good_for_breakfast or business.good_for_lunch or business.good_for_dinner or business.good_for_brunch %}
+                    <div class="good-for mb-3">
+                        <h6 class="mb-2"><i class="fas fa-clock text-success"></i> Good For</h6>
+                        <div class="d-flex flex-wrap">
+                            {% if business.good_for_breakfast %}
+                                <span class="badge bg-warning text-dark me-1 mb-1">Breakfast</span>
+                            {% endif %}
+                            {% if business.good_for_brunch %}
+                                <span class="badge bg-success me-1 mb-1">Brunch</span>
+                            {% endif %}
+                            {% if business.good_for_lunch %}
+                                <span class="badge bg-primary me-1 mb-1">Lunch</span>
+                            {% endif %}
+                            {% if business.good_for_dinner %}
+                                <span class="badge bg-dark me-1 mb-1">Dinner</span>
+                            {% endif %}
+                            {% if business.good_for_latenight %}
+                                <span class="badge bg-secondary me-1 mb-1">Late Night</span>
+                            {% endif %}
+                            {% if business.good_for_dessert %}
+                                <span class="badge bg-info me-1 mb-1">Dessert</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Noise Level -->
+                    {% if business.noise_level and business.noise_level != '' %}
+                    <p class="card-text">
+                        <i class="fas fa-volume-up text-warning"></i>
+                        <strong>Noise Level:</strong> 
+                        <span class="badge bg-secondary">{{ business.noise_level.title() }}</span>
+                    </p>
+                    {% endif %}
+                    
+                    <!-- Dress Code -->
+                    {% if business.restaurants_attire and business.restaurants_attire != '' %}
+                    <p class="card-text">
+                        <i class="fas fa-tshirt text-info"></i>
+                        <strong>Dress Code:</strong> {{ business.restaurants_attire.title() }}
+                    </p>
+                    {% endif %}
+                    
+                    <!-- Hours (simplified) -->
+                    {% if business.hours_monday or business.hours_tuesday %}
+                    <div class="hours mb-3">
+                        <h6 class="mb-2"><i class="fas fa-clock text-primary"></i> Hours</h6>
+                        <small class="text-muted">
+                            {% if business.hours_monday %}Mon: {{ business.hours_monday }}{% endif %}
+                            {% if business.hours_tuesday and business.hours_monday != business.hours_tuesday %}
+                                <br>Tue: {{ business.hours_tuesday }}
+                            {% elif business.hours_monday %}
+                                <br>Similar hours throughout week
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- AI Scores -->
+                    <div class="ai-scores mt-3">
+                        {% if business.content_score %}
+                        <div class="mb-1">
+                            <small class="text-muted">
+                                <i class="fas fa-chart-line"></i> Match Score: 
+                                <span class="badge bg-primary">{{ (business.content_score * 100)|round|int }}%</span>
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        {% if business.rl_score %}
+                        <div class="mb-1">
+                            <small class="text-info">
+                                <i class="fas fa-brain"></i> AI Confidence: 
+                                <span class="badge bg-info">{{ (business.rl_score * 100)|round|int }}%</span>
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<div class="text-center mt-5">
+    <a href="/preferences" class="btn btn-outline-primary">
+        <i class="fas fa-redo"></i> Generate New Itinerary
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function giveFeedback(businessId, interactionType) {
+    fetch('/feedback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            business_id: businessId,
+            interaction_type: interactionType
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response:', data);
+        if (data.status === 'success') {
+            // Visual feedback
+            const button = event.target.closest('button');
+            const originalHTML = button.innerHTML;
+            const originalBgColor = button.style.backgroundColor;
+            
+            if (interactionType === 'like') {
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.style.backgroundColor = '#20c997';
+            } else {
+                button.innerHTML = '<i class="fas fa-times"></i>';
+                button.style.backgroundColor = '#6f42c1';
+            }
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+                button.style.backgroundColor = originalBgColor;
+            }, 2000);
+            
+            // Show success toast
+            showToast(`✅ Feedback recorded! The AI learned about your preferences for this ${getCuisineType(businessId)} place. Future recommendations will be better tailored to your taste!`, 'success');
+        } else {
+            showToast('❌ Unexpected response from server', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Fetch error:', error);
+        showToast('⚠️ Feedback saved! Your preference was recorded and will help personalize future recommendations.', 'warning');
+        
+        // Still show visual feedback since it's working in backend
+        const button = event.target.closest('button');
+        const originalHTML = button.innerHTML;
+        
+        if (interactionType === 'like') {
+            button.innerHTML = '<i class="fas fa-check"></i>';
+            button.style.backgroundColor = '#20c997';
+        } else {
+            button.innerHTML = '<i class="fas fa-times"></i>';
+            button.style.backgroundColor = '#6f42c1';
+        }
+        
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.style.backgroundColor = '';
+        }, 2000);
+    });
+}
+
+function getCuisineType(businessId) {
+    // Find the business card to extract cuisine information
+    const businessCard = document.querySelector(`[onclick*="${businessId}"]`).closest('.business-card');
+    const cuisineBadge = businessCard.querySelector('.badge.bg-secondary');
+    return cuisineBadge ? cuisineBadge.textContent.toLowerCase() : 'restaurant';
+}
+
+function showToast(message, type = 'success') {
+    // Remove any existing toasts
+    const existingToasts = document.querySelectorAll('.feedback-toast');
+    existingToasts.forEach(toast => toast.remove());
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'success'} position-fixed feedback-toast`;
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    toast.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+    toast.innerHTML = `
+        <div class="d-flex align-items-center">
+            <span class="flex-grow-1">${message}</span>
+            <button type="button" class="btn-close ms-2" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 4000);
+}
+</script>
+
+<style>
+.business-card {
+    transition: transform 0.2s ease-in-out;
+    border: 1px solid #e0e0e0;
+}
+
+.business-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.feedback-buttons {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    display: flex;
+    gap: 5px;
+}
+
+.like-btn, .dislike-btn {
+    border: none;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0.8;
+}
+
+.like-btn {
+    background-color: #28a745;
+    color: white;
+}
+
+.dislike-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.like-btn:hover, .dislike-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.day-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.stars i {
+    color: #ffc107;
+}
+
+.amenities .row > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.text-orange {
+    color: #fd7e14 !important;
+}
+
+.text-purple {
+    color: #6f42c1 !important;
+}
+
+.ai-scores {
+    border-top: 1px solid #e9ecef;
+    padding-top: 10px;
+}
+</style>
+{% endblock %}

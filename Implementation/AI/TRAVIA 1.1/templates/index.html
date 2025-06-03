@@ -1,0 +1,53 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h1 class="display-4 mb-4">
+            <i class="fas fa-map-marked-alt text-primary"></i>
+            Welcome to Travel AI
+        </h1>
+        <p class="lead mb-4">
+            Discover <strong>intelligent, personalized</strong> travel itineraries powered by advanced AI and metadata learning.
+            Our system learns from your preferences to create perfectly tailored recommendations.
+        </p>
+        <div class="d-grid gap-2 d-md-block">
+            <a href="/select_user" class="btn btn-primary btn-lg">
+                <i class="fas fa-users"></i> Select Existing User
+            </a>
+            <a href="/new_user" class="btn btn-success btn-lg">
+                <i class="fas fa-user-plus"></i> Create New User
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4 text-center">
+        <i class="fas fa-brain fa-3x text-primary mb-3"></i>
+        <h4>Metadata Learning</h4>
+        <p>Our AI analyzes the atmosphere, cuisine, price range, and ambience of places you like to understand your unique preferences.</p>
+    </div>
+    <div class="col-md-4 text-center">
+        <i class="fas fa-heart fa-3x text-danger mb-3"></i>
+        <h4>Learns from Your Likes</h4>
+        <p>Every like and dislike teaches our system more about your taste, improving recommendations for romantic, family-friendly, or classy venues.</p>
+    </div>
+    <div class="col-md-4 text-center">
+        <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+        <h4>Smart Recommendations</h4>
+        <p>Get personalized itineraries that match your preferred cuisine types, atmosphere, and price ranges based on your interaction history.</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12 text-center">
+        <div class="alert alert-info">
+            <i class="fas fa-lightbulb"></i>
+            <strong>How it works:</strong> Choose your initial preferences, then like or dislike places in your itinerary. 
+            Our metadata learning system will remember that you prefer romantic Italian restaurants or family-friendly casual spots!
+        </div>
+    </div>
+</div>
+{% endblock %}
