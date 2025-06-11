@@ -1,0 +1,11 @@
+Content categories: dance, comedy, cooking, education, etc.
+
+
+
+'attributes_GoodForKids',
+       'attributes_Ambience_touristy', 'attributes_Ambience_romantic',
+       'attributes_Ambience_intimate', 'attributes_Ambience_trendy',
+       'attributes_Ambience_classy', 'attributes_Ambience_casual',
+       'Bars_Night', 'Beauty_Health_Care', 'Cafes', 'GYM',
+       'Restaurants_Cuisines', 'Shops'
+Content categories: dance, comedy, cooking, education, etc.

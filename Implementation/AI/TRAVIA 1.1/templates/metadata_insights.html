@@ -1,0 +1,194 @@
+<!-- templates/metadata_insights.html -->
+{% extends "base.html" %}
+
+{% block title %}AI Learning Insights - Travel AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h3><i class="fas fa-brain"></i> Your AI Learning Insights</h3>
+                <p class="mb-0">
+                    <small>See what our metadata learning system has discovered about your preferences</small>
+                </p>
+            </div>
+            <div class="card-body">
+                {% if metadata_preferences %}
+                <!-- Atmosphere Preferences -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-star text-warning"></i> Atmosphere Preferences</h5>
+                        <div class="progress-container">
+                            <div class="mb-2">
+                                <span>Romantic Places</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-danger" style="width: {{ (metadata_preferences.romantic_preference * 100)|round }}%">
+                                        {{ (metadata_preferences.romantic_preference * 100)|round }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <span>Classy Establishments</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-dark" style="width: {{ (metadata_preferences.classy_preference * 100)|round }}%">
+                                        {{ (metadata_preferences.classy_preference * 100)|round }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <span>Calm & Quiet</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-primary" style="width: {{ (metadata_preferences.calm_preference * 100)|round }}%">
+                                        {{ (metadata_preferences.calm_preference * 100)|round }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <span>Casual Dining</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-success" style="width: {{ (metadata_preferences.casual_preference * 100)|round }}%">
+                                        {{ (metadata_preferences.casual_preference * 100)|round }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-users text-info"></i> Family Preferences</h5>
+                        <div class="progress-container">
+                            <div class="mb-2">
+                                <span>Family-Friendly Places</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-info" style="width: {{ (metadata_preferences.family_friendly_preference * 100)|round }}%">
+                                        {{ (metadata_preferences.family_friendly_preference * 100)|round }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <span>Good for Kids</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-warning" style="width: {{ (metadata_preferences.good_for_kids_preference * 100)|round }}%">
+                                        {{ (metadata_preferences.good_for_kids_preference * 100)|round }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <span>Lively & Energetic</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-orange" style="width: {{ (metadata_preferences.noisy_preference * 100)|round }}%">
+                                        {{ (metadata_preferences.noisy_preference * 100)|round }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cuisine Preferences -->
+                {% if metadata_preferences.preferred_cuisines %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5><i class="fas fa-utensils text-success"></i> Preferred Cuisines</h5>
+                        <div class="row">
+                            {% for cuisine, count in metadata_preferences.preferred_cuisines.items() %}
+                            <div class="col-md-4 mb-2">
+                                <div class="card border-success">
+                                    <div class="card-body text-center py-2">
+                                        <h6 class="card-title mb-1">{{ cuisine }}</h6>
+                                        <span class="badge bg-success">{{ count }} likes</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Price Range Preferences -->
+                {% if metadata_preferences.preferred_price_ranges %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5><i class="fas fa-dollar-sign text-warning"></i> Price Range Preferences</h5>
+                        <div class="row">
+                            {% for price, count in metadata_preferences.preferred_price_ranges.items() %}
+                            <div class="col-md-3 mb-2">
+                                <div class="card border-warning">
+                                    <div class="card-body text-center py-2">
+                                        <h6 class="card-title mb-1">
+                                            {% for i in range(price|int) %}${% endfor %}
+                                        </h6>
+                                        <span class="badge bg-warning text-dark">{{ count }} likes</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Location Preferences -->
+                {% if metadata_preferences.preferred_locations %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5><i class="fas fa-map-marker-alt text-danger"></i> Preferred Locations</h5>
+                        <div class="row">
+                            {% for location, count in metadata_preferences.preferred_locations.items() %}
+                            <div class="col-md-6 mb-2">
+                                <div class="card border-danger">
+                                    <div class="card-body py-2">
+                                        <h6 class="card-title mb-1">{{ location }}</h6>
+                                        <span class="badge bg-danger">{{ count }} likes</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-brain fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Learning Data Yet</h4>
+                    <p class="text-muted">Start liking places in your itineraries to see your AI learning insights!</p>
+                    <a href="/itinerary" class="btn btn-primary">View My Itinerary</a>
+                </div>
+                {% endif %}
+                
+                <div class="text-center mt-4">
+                    <a href="/itinerary" class="btn btn-primary">
+                        <i class="fas fa-route"></i> Back to Itinerary
+                    </a>
+                    <a href="/preferences" class="btn btn-outline-secondary">
+                        <i class="fas fa-sliders-h"></i> Update Preferences
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.progress-container .progress {
+    height: 25px;
+    margin-bottom: 5px;
+}
+
+.bg-orange {
+    background-color: #fd7e14 !important;
+}
+
+.border-success, .border-warning, .border-danger {
+    border-width: 2px !important;
+}
+
+.card-body.py-2 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+}
+</style>
+{% endblock %} 
