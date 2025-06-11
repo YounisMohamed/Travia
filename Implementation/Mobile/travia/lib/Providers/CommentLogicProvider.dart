@@ -28,15 +28,16 @@ class CommentSubmitNotifier extends AsyncNotifier<void> {
         id: commentId,
         parentCommentId: parentCommentId,
       );
-
-      await sendNotification(
-        type: 'comment',
-        title: "commented on your post",
-        content: content,
-        target_user_id: posterId,
-        source_id: postId,
-        sender_user_id: userId,
-      );
+      if (userId != posterId) {
+        await sendNotification(
+          type: 'comment',
+          title: "commented on your post",
+          content: content,
+          target_user_id: posterId,
+          source_id: postId,
+          sender_user_id: userId,
+        );
+      }
 
       state = const AsyncData(null);
     } catch (e, st) {

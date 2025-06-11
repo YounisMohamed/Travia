@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
 import 'package:travia/Classes/message_class.dart';
 
 import '../Helpers/Constants.dart';
 import '../main.dart';
+import 'AppColors.dart';
 
 String timeAgo(DateTime utcDateTime) {
   // Force the input to UTC (Every body's time is different so its a time mw7d)
@@ -565,4 +567,97 @@ bool isPathVideo(String path) {
   final extension = p.extension(path).toLowerCase();
   final isVideo = ['.mp4', '.mov', '.avi', '.mkv', '.flv', '.wmv'].contains(extension);
   return isVideo;
+}
+
+class WarningBox extends StatelessWidget {
+  final String warning;
+  const WarningBox({super.key, required this.warning});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kDeepPink.withOpacity(0.05),
+        border: Border.all(color: kDeepPink),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 20, color: kDeepPink),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              warning,
+              style: GoogleFonts.lexendDeca(
+                fontSize: 13,
+                color: kDeepPink,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CityAirportMapping {
+  static const Map<String, String> _cityToAirportCode = {
+    'New York': 'JFK',
+    'Mexico City': 'MEX',
+    'Barcelona': 'BCN',
+    'Moscow': 'SVO',
+    'Berlin': 'BER',
+    'Paris': 'CDG',
+    'Dubai': 'DXB',
+    'Rome': 'FCO',
+    'Toronto': 'YYZ',
+    'Los Angeles': 'LAX',
+    'Rio de Janeiro': 'GIG',
+    'Shanghai': 'PVG',
+  };
+
+  /// Get airport code for a city name
+  /// Returns the airport code if found, otherwise returns the original city name
+  static String getAirportCode(String cityName) {
+    final code = _cityToAirportCode[cityName];
+    if (code != null) {
+      return code;
+    }
+
+    // Try case-insensitive search
+    final lowerCityName = cityName.toLowerCase();
+    for (final entry in _cityToAirportCode.entries) {
+      if (entry.key.toLowerCase() == lowerCityName) {
+        return entry.value;
+      }
+    }
+
+    // If not found, return the original city name as fallback
+    print('Warning: Airport code not found for city: $cityName');
+    return cityName;
+  }
+
+  /// Get all supported cities
+  static List<String> getSupportedCities() {
+    return _cityToAirportCode.keys.toList()..sort();
+  }
+
+  /// Check if a city is supported
+  static bool isCitySupported(String cityName) {
+    return _cityToAirportCode.containsKey(cityName) || _cityToAirportCode.keys.any((city) => city.toLowerCase() == cityName.toLowerCase());
+  }
+
+  /// Get city name from airport code
+  static String? getCityFromAirportCode(String airportCode) {
+    for (final entry in _cityToAirportCode.entries) {
+      if (entry.value == airportCode.toUpperCase()) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
 }

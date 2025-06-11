@@ -51,7 +51,7 @@ class _UploadPostPageState extends ConsumerState<UploadPostPage> {
     });
 
     return Scaffold(
-      backgroundColor: kDeepGrey,
+      backgroundColor: kBackground,
       appBar: AppBar(
         forceMaterialTransparency: true,
         centerTitle: false,

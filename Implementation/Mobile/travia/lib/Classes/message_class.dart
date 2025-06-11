@@ -1,6 +1,3 @@
-import 'package:hive/hive.dart';
-
-
 class MessageClass {
   final String messageId;
   final String conversationId;

@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:travia/Auth/WelcomePage.dart';
 import 'package:travia/Helpers/AppColors.dart';
 import 'package:travia/MainFlow/BannedUserPage.dart';
+import 'package:travia/MainFlow/CitySelector.dart';
 import 'package:travia/MainFlow/ProfilePage.dart';
 
 import 'Auth/ForgotPassword.dart';
@@ -26,6 +27,7 @@ import 'MainFlow/MediaPickerScreen.dart';
 import 'MainFlow/NewConversationPage.dart';
 import 'MainFlow/NotificationsPage.dart';
 import 'MainFlow/PermissionsPage.dart';
+import 'MainFlow/PlanResultPage.dart';
 import 'MainFlow/PostDetails.dart';
 import 'MainFlow/SplashScreen.dart';
 import 'MainFlow/UploadPostPage.dart';
@@ -143,8 +145,13 @@ class MyApp extends StatelessWidget {
         //initialLocation: '/dms-page',
         //initialLocation: '/error-page/shit/shit',
         //initialLocation: "/complete-profile",
+        //initialLocation: "/city",
         routes: [
           // ====================== AUTH ROUTES ======================
+          //GoRoute(
+          //  path: '/sandbox',
+          //  builder: (context, state) => EventListPage(),
+          //),
           GoRoute(
             path: '/welcome',
             builder: (context, state) => WelcomePage(),
@@ -268,6 +275,21 @@ class MyApp extends StatelessWidget {
             path: '/banned',
             builder: (context, state) => BannedUserPage(),
           ),
+          GoRoute(
+            path: '/city',
+            builder: (context, state) => CitySelector(),
+          ),
+          GoRoute(
+            path: '/plan-result',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return PlanResultPage(
+                destination: extra?['destination'] ?? 'Paris',
+                days: extra?['days'] ?? 1,
+                date: extra?['date'] ?? DateTime.now(),
+              );
+            },
+          ),
         ],
         navigatorKey: navigatorKey);
 
@@ -277,7 +299,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData.light().copyWith(
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
-          backgroundColor: kDeepGrey,
+          backgroundColor: kBackground,
           elevation: 0,
           iconTheme: IconThemeData(color: Colors.black),
         ),
@@ -286,6 +308,7 @@ class MyApp extends StatelessWidget {
           selectionColor: Colors.black12,
           selectionHandleColor: Colors.black,
         ),
+        primaryColor: kDeepPink,
       ),
       routerConfig: router,
     );

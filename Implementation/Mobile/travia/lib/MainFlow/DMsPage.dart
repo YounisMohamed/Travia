@@ -61,7 +61,7 @@ class _DMsPageState extends ConsumerState<DMsPage> {
     final isLoading = ref.watch(conversationIsLoadingProvider);
 
     return Scaffold(
-      backgroundColor: kDeepGrey,
+      backgroundColor: kBackground,
       appBar: AppBar(
         forceMaterialTransparency: true,
         title: Row(
@@ -110,7 +110,6 @@ class _DMsPageState extends ConsumerState<DMsPage> {
               ref.read(messagesProvider(conversationId));
               ref.read(conversationParticipantsProvider(conversationId));
             }
-
             if (conversationDetails.isEmpty) {
               return Center(
                 child: Column(
@@ -201,7 +200,6 @@ class _DMsPageState extends ConsumerState<DMsPage> {
                 ),
               );
             }
-
             return ListView.separated(
               itemCount: conversationDetails.length,
               separatorBuilder: (context, index) => const Divider(height: 1),
@@ -211,12 +209,8 @@ class _DMsPageState extends ConsumerState<DMsPage> {
                   conversationId: detail.conversationId,
                   conversationType: detail.conversationType,
                   title: detail.title,
-                  lastMessageContent: detail.lastMessageContent,
-                  lastMessageContentType: detail.lastMessageContentType,
-                  lastMessageAt: detail.lastMessageAt,
                   userUsername: detail.userUsername,
                   userPhotoUrl: detail.userPhotoUrl,
-                  unreadCount: detail.unreadCount,
                   isPinned: detail.isPinned,
                   sender: detail.sender,
                   groupPicture: detail.groupPicture,
@@ -241,12 +235,8 @@ class ConversationTile extends ConsumerWidget {
   final String conversationId;
   final String conversationType;
   final String? title;
-  final String? lastMessageContent;
-  final String? lastMessageContentType;
-  final DateTime? lastMessageAt;
   final String? userUsername;
   final String? userPhotoUrl;
-  final int unreadCount;
   final String? sender;
   final bool isPinned;
   final String? chatTheme;
@@ -258,12 +248,8 @@ class ConversationTile extends ConsumerWidget {
     required this.conversationType,
     this.title,
     this.groupPicture,
-    this.lastMessageContent,
-    this.lastMessageContentType,
-    this.lastMessageAt,
     this.userUsername,
     this.userPhotoUrl,
-    required this.unreadCount,
     this.sender,
     required this.isPinned,
     this.chatTheme,
@@ -274,6 +260,9 @@ class ConversationTile extends ConsumerWidget {
     final notificationState = ref.watch(convNotificationsProvider);
     final isNotificationEnabled = notificationState[conversationId] ?? true;
     final typingUsersAsync = ref.watch(otherTypingProvider(conversationId));
+
+    // Watch real-time last message updates for this conversation
+    final lastMessageAsync = ref.watch(conversationLastMessageStreamProvider(conversationId));
 
     bool isDirect = conversationType == 'direct';
     bool isGroup = conversationType == 'group';
@@ -291,7 +280,15 @@ class ConversationTile extends ConsumerWidget {
 
     String displayTitle = isDirect ? ("@$userUsername") : (title ?? 'Group Conversation');
 
-    String time = lastMessageAt != null ? timeAgo(lastMessageAt!) : "";
+    // Get last message data from stream
+    final lastMessageData = lastMessageAsync.asData?.value;
+    final lastMessageContent = lastMessageData?.lastMessageContent;
+    final lastMessageContentType = lastMessageData?.lastMessageContentType;
+    final lastMessageAt = lastMessageData?.lastMessageAt;
+    final displayUnreadCount = lastMessageData?.unreadCount ?? 0;
+    final lastMessageSender = lastMessageData?.lastMessageSender;
+
+    String time = lastMessageAt != null ? timeAgo(lastMessageAt) : "";
 
     return GestureDetector(
       onLongPress: isDirect ? () => _showDeleteDialog(context, ref, conversationId) : () => _showLeaveGroupDialog(context, ref, conversationId, FirebaseAuth.instance.currentUser!.uid),
@@ -327,7 +324,7 @@ class ConversationTile extends ConsumerWidget {
                   typingText,
                   style: GoogleFonts.lexend(fontSize: 15, color: kDeepPink, fontWeight: FontWeight.bold),
                 )
-              else
+              else if (lastMessageContent != null)
                 RichText(
                   text: TextSpan(
                     style: GoogleFonts.lexend(
@@ -336,9 +333,9 @@ class ConversationTile extends ConsumerWidget {
                       height: 1.4,
                     ),
                     children: [
-                      if (!isDirect && (sender != null))
+                      if (!isDirect && (lastMessageSender != null))
                         TextSpan(
-                          text: "$sender: ",
+                          text: "$lastMessageSender: ",
                           style: GoogleFonts.lexend(
                             fontWeight: FontWeight.bold,
                             color: kDeepPink,
@@ -354,6 +351,15 @@ class ConversationTile extends ConsumerWidget {
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 3,
+                )
+              else
+                Text(
+                  'Start Sending!',
+                  style: GoogleFonts.lexend(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               if (time.isNotEmpty)
                 Padding(
@@ -383,7 +389,7 @@ class ConversationTile extends ConsumerWidget {
                 color: kDeepPink,
               ),
             ),
-            if (unreadCount > 0)
+            if (displayUnreadCount > 0)
               Container(
                 width: 16,
                 height: 16,
@@ -393,7 +399,7 @@ class ConversationTile extends ConsumerWidget {
                 ),
                 child: Center(
                   child: Text(
-                    unreadCount.toString(),
+                    displayUnreadCount.toString(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,

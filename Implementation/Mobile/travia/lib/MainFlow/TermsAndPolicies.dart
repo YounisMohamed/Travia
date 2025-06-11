@@ -29,9 +29,9 @@ class _TermsAndPoliciesPageState extends State<TermsAndPoliciesPage> with Single
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kBackground,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: kBackground,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios_rounded, color: Colors.black87),
@@ -51,7 +51,7 @@ class _TermsAndPoliciesPageState extends State<TermsAndPoliciesPage> with Single
           child: Container(
             margin: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             decoration: BoxDecoration(
-              color: kDeepGrey,
+              color: kBackground,
               borderRadius: BorderRadius.circular(12),
             ),
             padding: EdgeInsets.all(4),
@@ -60,6 +60,7 @@ class _TermsAndPoliciesPageState extends State<TermsAndPoliciesPage> with Single
               labelColor: kDeepPinkLight,
               unselectedLabelColor: kDeepPink,
               labelStyle: GoogleFonts.lexendDeca(fontWeight: FontWeight.bold),
+              indicatorColor: kDeepPink,
               tabs: [
                 Tab(text: 'Terms of Service'),
                 Tab(text: 'Privacy Policy'),
@@ -336,7 +337,7 @@ class _TermsAndPoliciesPageState extends State<TermsAndPoliciesPage> with Single
       padding: EdgeInsets.all(16),
       margin: EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: kDeepGrey,
+        color: kBackground,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:travia/Helpers/Constants.dart';
 import 'package:travia/Helpers/DummyCards.dart';
 import 'package:travia/Providers/LoadingProvider.dart';
 
@@ -25,6 +26,7 @@ import '../Services/UserPresenceService.dart';
 import 'DMsPage.dart';
 import 'Explore.dart';
 import 'NotificationsPage.dart';
+import 'PlanPage.dart';
 import 'PostCard.dart';
 import 'ProfilePage.dart';
 import 'Story.dart';
@@ -40,30 +42,38 @@ class MainNavigationPage extends ConsumerStatefulWidget {
 
 class _MainNavigationPageState extends ConsumerState<MainNavigationPage> with WidgetsBindingObserver {
   final user = FirebaseAuth.instance.currentUser;
+  late final RealtimeManager _realtimeManager;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    // Store reference to realtime manager early
+    _realtimeManager = ref.read(realtimeManagerProvider);
+
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.go("/splash-screen");
+        if (mounted) {
+          context.go("/splash-screen");
+        }
       });
     }
 
     // Setup realtime channels
     if (user != null) {
-      ref.read(realtimeManagerProvider).setupChannels(user!.uid);
+      _realtimeManager.setupChannels(user!.uid);
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(userPresenceServiceProvider).initialize();
+      if (mounted) {
+        ref.read(userPresenceServiceProvider).initialize();
+      }
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Navigate to messages through notification
-      if (widget.type != null && widget.source_id != null) {
+      if (mounted && widget.type != null && widget.source_id != null) {
         print("Navigating with type: ${widget.type}, source_id: ${widget.source_id}");
         String type = widget.type!;
         String source_id = widget.source_id!;
@@ -79,29 +89,26 @@ class _MainNavigationPageState extends ConsumerState<MainNavigationPage> with Wi
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // You can also setup channels here if needed
     if (user != null) {
-      ref.read(realtimeManagerProvider).setupChannels(user!.uid);
+      _realtimeManager.setupChannels(user!.uid);
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final realtimeManager = ref.read(realtimeManagerProvider);
-
     if (state == AppLifecycleState.resumed) {
       if (user != null) {
-        realtimeManager.setupChannels(user!.uid);
+        _realtimeManager.setupChannels(user!.uid);
       }
     } else if (state == AppLifecycleState.paused) {
-      realtimeManager.disposeChannels(); // Note: remove the underscore since it's called from outside
+      _realtimeManager.disposeChannels();
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    ref.read(realtimeManagerProvider).disposeChannels(); // Clean up channels
+    _realtimeManager.disposeChannels();
     super.dispose();
   }
 
@@ -318,7 +325,7 @@ class BottomNav extends StatelessWidget {
       child: CurvedNavigationBar(
         key: GlobalKey<CurvedNavigationBarState>(),
         backgroundColor: Colors.transparent,
-        color: kDeepGrey,
+        color: kBackground,
         buttonBackgroundColor: kDeepPink,
         height: 75, // Increased height to accommodate text
         animationDuration: Duration(milliseconds: 300),
@@ -436,7 +443,8 @@ class HomeWidget extends ConsumerWidget {
 
     bool isLoading = ref.watch(loadingProvider);
     final postsAsync = ref.watch(postsProvider);
-    final unreadDMCount = ref.watch(unreadDMCountProvider);
+    final unreadDMCountAsync = ref.watch(unreadDMCountProvider);
+    final unreadDMCount = unreadDMCountAsync.value ?? 0;
 
     // Create custom swipe gesture handlers for the Home screen
     return GestureDetector(
@@ -449,7 +457,7 @@ class HomeWidget extends ConsumerWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: kDeepGrey,
+        backgroundColor: kBackground,
         appBar: AppBar(
           forceMaterialTransparency: true,
           backgroundColor: Colors.white,
@@ -516,7 +524,7 @@ class HomeWidget extends ConsumerWidget {
                 child: TypewriterAnimatedText(
                   text: "Plan Smart. Travel Far.",
                   style: GoogleFonts.ibmPlexSans(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -572,8 +580,6 @@ class HomeWidget extends ConsumerWidget {
   }
 
   Widget _buildFeed(BuildContext context, List<Post> posts) {
-    // Function to calculate engagement score for post ranking
-
     double calculateEngagementScore(Post post) {
       final likes = post.likesCount;
       final dislikes = post.dislikesCount;
@@ -581,36 +587,34 @@ class HomeWidget extends ConsumerWidget {
 
       // Weights for different engagement types
       const double likeWeight = 1.0;
-      const double dislikeWeight = -0.8; // Negative impact, but less than likes
-      const double commentWeight = 1.5; // Comments are valuable engagement
+      const double dislikeWeight = -0.8;
+      const double commentWeight = 1.5;
 
       // Base score calculation
       double score = (likes * likeWeight) + (dislikes * dislikeWeight) + (comments * commentWeight);
 
-      // Apply time decay factor (newer posts get slight boost)
+      // time decay factor (newer posts get slight boost)
       final now = DateTime.now();
       final daysSincePost = now.difference(post.createdAt).inDays;
 
-      // Gradual decay over time (posts lose 5% score per day, minimum 50% of original)
+      // decay over time (posts lose 5% score per day, minimum 50% of original)
       final timeFactor = max(0.5, 1.0 - (daysSincePost * 0.05));
       score *= timeFactor;
 
-      // Prevent negative scores from dominating
+      // Prevent negative scores
       return max(0, score);
     }
 
-    // Function to sort posts by engagement score
     List<Post> sortPostsByEngagement(List<Post> postsToSort) {
       final sortedPosts = List<Post>.from(postsToSort);
       sortedPosts.sort((a, b) {
         final scoreA = calculateEngagementScore(a);
         final scoreB = calculateEngagementScore(b);
-        return scoreB.compareTo(scoreA); // Descending order (highest score first)
+        return scoreB.compareTo(scoreA);
       });
       return sortedPosts;
     }
 
-    // Function to group posts by location efficiently
     Map<String, List<Post>> groupPostsByLocation(List<Post> allPosts) {
       final result = <String, List<Post>>{};
       final cityPostCounts = <String, int>{};
@@ -658,24 +662,19 @@ class HomeWidget extends ConsumerWidget {
       return result;
     }
 
-    // Sort all posts by engagement for the recommended section
     final sortedPosts = sortPostsByEngagement(posts);
 
-    // Group posts by location (already sorted within each group)
     final postsByLocation = groupPostsByLocation(posts);
 
-    // Create a list to hold all sections (for better organization)
     final List<Widget> sections = [];
 
-    // First section - Recommended For You (using sorted posts)
     sections.add(_buildPostSection(
       context: context,
       title: "Recommended For You",
-      posts: sortedPosts.take(20).toList(), // Limit to top 20 for performance
+      posts: sortedPosts.take(10).toList(),
     ));
     sections.add(SizedBox(height: 20));
 
-    // Add location-based sections (posts already sorted within each group)
     for (final entry in postsByLocation.entries) {
       // Skip "Others" section for now - we'll add it at the end
       if (entry.key == "Others") continue;
@@ -684,11 +683,11 @@ class HomeWidget extends ConsumerWidget {
         context: context,
         title: "Explore ${entry.key}",
         posts: entry.value,
+        countryIcon: getEmojiFromCountryName(entry.key),
       ));
       sections.add(SizedBox(height: 20));
     }
 
-    // Add "Others" section at the end (if it exists)
     if (postsByLocation.containsKey("Others")) {
       sections.add(_buildPostSection(
         context: context,
@@ -698,7 +697,6 @@ class HomeWidget extends ConsumerWidget {
       sections.add(SizedBox(height: 20));
     }
 
-    // Add planning card at the very end
     sections.add(_buildPlanningCard(context));
     sections.add(SizedBox(height: 20));
 
@@ -711,6 +709,7 @@ class HomeWidget extends ConsumerWidget {
   Widget _buildPostSection({
     required BuildContext context,
     required String title,
+    String? countryIcon,
     required List<Post> posts,
   }) {
     if (posts.isEmpty) return SizedBox.shrink();
@@ -730,7 +729,7 @@ class HomeWidget extends ConsumerWidget {
               child: Row(
                 children: [
                   Text(
-                    title,
+                    "${title} ${countryIcon ?? ""}",
                     style: GoogleFonts.ibmPlexSans(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -759,45 +758,46 @@ class HomeWidget extends ConsumerWidget {
               ),
             ),
             SizedBox(width: 2),
-            GestureDetector(
-              onTap: () {
-                onExplorePressed();
-              },
-              child: Padding(
-                padding: const EdgeInsets.only(top: 14.0),
-                child: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        kDeepPink,
-                        kDeepPinkLight,
+            if (title == "Recommended For You")
+              GestureDetector(
+                onTap: () {
+                  onExplorePressed();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 14.0),
+                  child: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          kDeepPink,
+                          kDeepPinkLight,
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: kDeepPink.withOpacity(0.4),
+                          blurRadius: 3,
+                          spreadRadius: 1,
+                        ),
+                        BoxShadow(
+                          color: kDeepPinkLight.withOpacity(0.3),
+                          blurRadius: 2,
+                          spreadRadius: 1,
+                        ),
                       ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: kDeepPink.withOpacity(0.4),
-                        blurRadius: 3,
-                        spreadRadius: 1,
-                      ),
-                      BoxShadow(
-                        color: kDeepPinkLight.withOpacity(0.3),
-                        blurRadius: 2,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.arrow_forward_rounded,
-                    color: Colors.white,
-                    size: 15,
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
 
@@ -963,14 +963,4 @@ Widget _buildPlanningCard(BuildContext context) {
       ],
     ),
   );
-}
-
-class PlanPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: Text("Plan Trip"),
-        ),
-        body: Center(child: Text("Plan Your Trip")),
-      );
 }

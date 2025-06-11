@@ -30,7 +30,7 @@ class NotificationsPage extends ConsumerWidget {
     final notificationsAsyncValue = ref.watch(notificationsProvider);
 
     return Scaffold(
-      backgroundColor: kDeepGrey,
+      backgroundColor: kBackground,
       appBar: AppBar(
         title: Row(
           children: [
@@ -575,7 +575,7 @@ class StandardNotificationTile extends StatelessWidget {
                           kDeepPink.withOpacity(0.02),
                         ],
                       ),
-                color: kDeepGrey,
+                color: kBackground,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isRead ? Colors.grey.shade200 : kDeepPink.withOpacity(0.2),

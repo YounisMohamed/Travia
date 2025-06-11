@@ -49,7 +49,7 @@ class ExplorePage extends ConsumerWidget {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: kDeepGrey,
+        backgroundColor: kBackground,
         appBar: AppBar(
           forceMaterialTransparency: true,
           elevation: 0,
@@ -96,12 +96,38 @@ class ExplorePage extends ConsumerWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-                child: Text(
-                  "Explore",
-                  style: GoogleFonts.ibmPlexSans(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  children: [
+                    Text(
+                      "Explore",
+                      style: GoogleFonts.ibmPlexSans(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 15,
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey.shade100,
+                      ),
+                      child: IconButton(
+                        onPressed: () {},
+                        icon: Icon(
+                          Icons.search_rounded,
+                          size: 22,
+                          color: Colors.grey.shade700,
+                        ),
+                        padding: EdgeInsets.all(5),
+                        constraints: BoxConstraints(
+                          minWidth: 15,
+                          minHeight: 15,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Padding(
@@ -235,27 +261,6 @@ class ExplorePage extends ConsumerWidget {
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Search Button
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey.shade100,
-                        ),
-                        child: IconButton(
-                          onPressed: () {},
-                          icon: Icon(
-                            Icons.search_rounded,
-                            size: 22,
-                            color: Colors.grey.shade700,
-                          ),
-                          padding: EdgeInsets.all(8),
-                          constraints: BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
                           ),
                         ),
                       ),

@@ -7,11 +7,11 @@ import '../main.dart';
 class RealtimeManager {
   static const String PERSONAL_CHANNEL = 'personal_updates';
   static const String PUBLIC_CHANNEL = 'public_updates';
-  static const String CONVERSATIONS_CHANNEL = 'conversations_updates';
+  static const String MESSAGES_CHANNEL = 'messages_updates';
 
   RealtimeChannel? _personalChannel;
   RealtimeChannel? _publicChannel;
-  RealtimeChannel? _conversationsChannel;
+  RealtimeChannel? _messagesChannel;
 
   void setupChannels(String currentUserId) {
     disposeChannels(); // Clean up any existing channels first
@@ -88,28 +88,17 @@ class RealtimeManager {
         )
         .subscribe();
 
-    // Channel 3: Conversations (dynamically filtered)
-    _setupConversationsChannel(currentUserId);
+    // Channel 3: Messages (dynamically filtered)
+    _setupMessagesChannel(currentUserId);
   }
 
-  Future<void> _setupConversationsChannel(String currentUserId) async {
+  Future<void> _setupMessagesChannel(String currentUserId) async {
     try {
       final conversationIds = await fetchConversationIds(currentUserId);
 
       if (conversationIds.isNotEmpty) {
-        _conversationsChannel = supabase
-            .channel(CONVERSATIONS_CHANNEL)
-            .onPostgresChanges(
-              event: PostgresChangeEvent.all,
-              schema: 'public',
-              table: 'conversations',
-              filter: PostgresChangeFilter(
-                type: PostgresChangeFilterType.inFilter,
-                column: 'conversation_id',
-                value: conversationIds,
-              ),
-              callback: (payload) => _handleConversationChange(payload),
-            )
+        _messagesChannel = supabase
+            .channel(MESSAGES_CHANNEL)
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
@@ -124,7 +113,7 @@ class RealtimeManager {
             .subscribe();
       }
     } catch (e) {
-      print('Error setting up conversations channel: $e');
+      print('Error setting up messages channel: $e');
     }
   }
 
@@ -146,9 +135,9 @@ class RealtimeManager {
   }
 
   void _handleConversationParticipantChange(PostgresChangePayload payload) {
-    // When a user is added to a new conversation, refresh the conversations channel
+    // When a user is added to a new conversation, refresh the messages channel
     if (payload.eventType == PostgresChangeEvent.insert) {
-      _setupConversationsChannel(payload.newRecord['user_id']);
+      _setupMessagesChannel(payload.newRecord['user_id']);
     }
   }
 
@@ -167,11 +156,6 @@ class RealtimeManager {
     print('User change: ${payload.eventType}');
   }
 
-  void _handleConversationChange(PostgresChangePayload payload) {
-    // Handle conversation updates
-    print('Conversation change: ${payload.eventType}');
-  }
-
   void _handleMessageChange(PostgresChangePayload payload) {
     // Handle message updates
     print('Message change: ${payload.eventType}');
@@ -180,11 +164,11 @@ class RealtimeManager {
   void disposeChannels() {
     _personalChannel?.unsubscribe();
     _publicChannel?.unsubscribe();
-    _conversationsChannel?.unsubscribe();
+    _messagesChannel?.unsubscribe();
 
     _personalChannel = null;
     _publicChannel = null;
-    _conversationsChannel = null;
+    _messagesChannel = null;
   }
 }
 

@@ -518,7 +518,7 @@ class ProfilePageSkeleton extends StatelessWidget {
                         width: double.infinity,
                         margin: EdgeInsets.only(top: screenWidth * 0.12),
                         decoration: const BoxDecoration(
-                          color: kDeepGrey,
+                          color: kBackground,
                           borderRadius: BorderRadius.only(
                             topLeft: Radius.circular(40),
                             topRight: Radius.circular(40),

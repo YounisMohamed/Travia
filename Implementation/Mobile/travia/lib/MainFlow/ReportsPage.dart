@@ -339,7 +339,7 @@ class ReportsPage extends ConsumerWidget {
     });
 
     return Scaffold(
-      backgroundColor: kDeepGrey,
+      backgroundColor: kBackground,
       appBar: AppBar(
         forceMaterialTransparency: true,
         backgroundColor: kWhite,
@@ -508,7 +508,7 @@ class ReportsPage extends ConsumerWidget {
                         borderSide: const BorderSide(color: kDeepPink, width: 2),
                       ),
                       filled: true,
-                      fillColor: kDeepGrey,
+                      fillColor: kBackground,
                     ),
                   ),
                 ],

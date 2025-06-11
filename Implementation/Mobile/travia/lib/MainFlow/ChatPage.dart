@@ -26,6 +26,7 @@ import '../Classes/message_class.dart';
 import '../Helpers/AppColors.dart';
 import '../Helpers/Constants.dart';
 import '../Helpers/DeleteConfirmation.dart';
+import '../Helpers/EncryptionHelper.dart';
 import '../Helpers/HelperMethods.dart';
 import '../Providers/ChatDetailsProvider.dart';
 import '../Providers/ImagePickerProvider.dart';
@@ -114,7 +115,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
     return chatPageAsync.when(
         data: (chatData) => Scaffold(
               resizeToAvoidBottomInset: true,
-              backgroundColor: kDeepGrey,
+              backgroundColor: kBackground,
               appBar: ChatAppBar(
                 conversationId: widget.conversationId,
                 metadata: chatData.metadata,
@@ -214,16 +215,32 @@ class ChatPageState extends ConsumerState<ChatPage> {
       final replyMessage = ref.read(replyMessageProvider);
       final messageId = Uuid().v4();
 
+      // ENCRYPT THE CONTENT HERE
+      String encryptedContent = content;
+      String? encryptedReplyContent;
+
+      // Encrypt based on content type
+      if (contentType == 'text' || contentType == 'image' || contentType == 'video' || contentType == 'gif' || contentType == 'record' || contentType == 'story_reply') {
+        encryptedContent = EncryptionHelper.encryptContent(content.toString(), widget.conversationId);
+      }
+
+      // Encrypt reply content if exists
+      if (replyMessage != null && replyMessage.content.isNotEmpty) {
+        encryptedReplyContent = EncryptionHelper.encryptContent(replyMessage.content, widget.conversationId);
+      }
+
+      // Create placeholder with ORIGINAL content for UI
       final placeholder = MessageClass(
           messageId: messageId,
           conversationId: widget.conversationId,
           senderId: currentUserId,
-          content: content,
+          content: content, // Use original content for UI
           contentType: contentType,
           sentAt: DateTime.now().toUtc(),
           readBy: {currentUserId: DateTime.now().toUtc().toIso8601String()},
           isEdited: false,
           replyToMessageId: replyMessage?.messageId,
+          replyToMessageContent: replyMessage?.content, // Original content
           reactions: null,
           isConfirmed: false,
           isDeleted: false,
@@ -235,15 +252,17 @@ class ChatPageState extends ConsumerState<ChatPage> {
             messageId: placeholder,
           });
 
+      // Send to database with ENCRYPTED content
       await supabase
           .from('messages')
           .insert({
             'message_id': messageId,
             'conversation_id': widget.conversationId,
             'sender_id': currentUserId,
-            'content': content,
+            'content': encryptedContent, // Encrypted content
             'content_type': contentType,
             'reply_to_message_id': replyMessage?.messageId,
+            'reply_to_message_content': encryptedReplyContent, // Encrypted reply
           })
           .select('message_id')
           .single();
@@ -273,7 +292,6 @@ class ChatPageState extends ConsumerState<ChatPage> {
           if (canInteract) {
             notificationTargets.add(target_user_id);
           }
-          // Note: We don't add blocked users to notifications, but message still gets sent
         }
       }
 
@@ -283,7 +301,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
             type: 'message',
             title: "sent you a message",
             content: contentType == "text"
-                ? content
+                ? content // Use original content for notification
                 : contentType == 'record'
                     ? "New Record 🎙️"
                     : "New Media 📷",
@@ -351,7 +369,7 @@ class ChatBodyContainer extends StatelessWidget {
     var keyBoardSize = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      decoration: BoxDecoration(color: kDeepGrey),
+      decoration: BoxDecoration(color: kBackground),
       child: Column(
         children: [
           Expanded(
@@ -985,7 +1003,7 @@ class _MessageInputBarState extends ConsumerState<MessageInputBar> {
               ),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                color: kDeepGrey,
+                color: kBackground,
                 child: Column(
                   children: [
                     if (replyMessage != null)

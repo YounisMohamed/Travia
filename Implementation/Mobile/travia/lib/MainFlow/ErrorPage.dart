@@ -55,7 +55,7 @@ class ErrorPage extends StatelessWidget {
                   children: [
                     RedHatText(
                       text: "This could be to a real time error or a bug\n Kindly check your",
-                      color: kDeepGrey,
+                      color: kBackground,
                       size: 16,
                       center: true,
                       isBold: true,
@@ -69,7 +69,7 @@ class ErrorPage extends StatelessWidget {
                     ),
                     RedHatText(
                       text: "If this keeps happening, Close the app and open again.",
-                      color: kDeepGrey,
+                      color: kBackground,
                       size: 16,
                       center: true,
                       isBold: true,

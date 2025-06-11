@@ -80,12 +80,17 @@ class Popup {
     );
   }
 
+  static void clearPopups() {
+    InteractiveToast.closeAllToast();
+  }
+
   // Success toast with green theme
   static void showSuccess({
     required String text,
     required BuildContext context,
     int duration = 3,
   }) {
+    Popup.clearPopups();
     showPopUp(
       text: text,
       context: context,
@@ -100,6 +105,7 @@ class Popup {
     required BuildContext context,
     int duration = 4,
   }) {
+    Popup.clearPopups();
     showPopUp(
       text: text,
       context: context,
@@ -114,6 +120,7 @@ class Popup {
     required BuildContext context,
     int duration = 3,
   }) {
+    Popup.clearPopups();
     showPopUp(
       text: text,
       context: context,
@@ -128,6 +135,7 @@ class Popup {
     required BuildContext context,
     int duration = 3,
   }) {
+    Popup.clearPopups();
     showPopUp(
       text: text,
       context: context,

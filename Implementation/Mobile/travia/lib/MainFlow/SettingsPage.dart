@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:travia/Auth/AuthMethods.dart';
-import 'package:travia/Helpers/AppColors.dart';
 import 'package:travia/Helpers/DeleteConfirmation.dart';
 import 'package:travia/MainFlow/FeedbackPage.dart';
 import 'package:travia/MainFlow/TermsAndPolicies.dart';
@@ -19,7 +18,7 @@ class SettingsPage extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back,
-            color: kDeepPink,
+            color: Colors.black,
             size: 28,
           ),
           onPressed: () => Navigator.pop(context),
@@ -123,7 +122,7 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   _buildDivider(),
                   _buildSettingsItem(
-                    icon: Icons.logout_outlined,
+                    icon: Icons.delete,
                     title: 'Delete account',
                     onTap: () {
                       showCustomDialog(

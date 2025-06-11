@@ -100,6 +100,9 @@ dependencies:
   geolocator: 13.0.4
   geocoding: 3.0.0
   flutter_exit_app: ^1.1.4
+  encrypt: ^5.0.3
+  html: ^0.15.6
+
 
 dependency_overrides:
   rxdart: ^0.28.0
@@ -137,6 +140,12 @@ flutter:
     - assets/unliked.png
     - assets/placeholder_image.png
     - assets/plane.png
+    - assets/Africa.svg
+    - assets/Asia.svg
+    - assets/Australia.svg
+    - assets/Europe.svg
+    - assets/North_America.svg
+    - assets/South_America.svg
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

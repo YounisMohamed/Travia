@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../Classes/ChatDetails.dart';
 import '../Classes/ConversationParticipants.dart';
 import '../Classes/message_class.dart';
+import '../Helpers/EncryptionHelper.dart';
 import '../MainFlow/ChatPage.dart';
 import '../main.dart';
 
@@ -25,11 +26,20 @@ final messagesProvider = StreamProvider.family<List<MessageClass>, String>((ref,
   print("Messages stream setup for conversationId: $conversationId");
 
   await for (final event in supabase.from('messages').stream(primaryKey: ['message_id']).eq('conversation_id', conversationId)) {
-    final messages = event.map((json) => MessageClass.fromMap(json)).toList();
+    final messages = event.map((json) => decryptMessage(json, conversationId)).toList();
 
     yield messages;
   }
 });
+
+MessageClass decryptMessage(Map<String, dynamic> messageData, String conversationId) {
+  final decryptedData = Map<String, dynamic>.from(messageData);
+  decryptedData['content'] = EncryptionHelper.decryptContent(messageData['content'] ?? '', conversationId);
+  if (messageData['reply_to_message_content'] != null) {
+    decryptedData['reply_to_message_content'] = EncryptionHelper.decryptContent(messageData['reply_to_message_content'], conversationId);
+  }
+  return MessageClass.fromMap(decryptedData);
+}
 
 final conversationParticipantsProvider = StreamProvider.family<List<ConversationParticipants>, String>((ref, conversationId) {
   return supabase

@@ -435,23 +435,30 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               child: TextField(
                 decoration: InputDecoration(
                   hintText: 'Search users...',
-                  prefixIcon: const Icon(Icons.search, color: Colors.white),
+                  prefixIcon: const Icon(Icons.search, color: kDeepPink),
                   suffixIcon: searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, color: Colors.white),
                           onPressed: () {
-                            // Clear search query
                             ref.read(searchQueryProvider.notifier).state = '';
                           },
                         )
                       : null,
                   filled: true,
-                  fillColor: kDeepPink,
-                  hintStyle: const TextStyle(color: Colors.white70),
+                  fillColor: Colors.white,
+                  hintStyle: const TextStyle(color: Colors.black),
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(color: kDeepPink, width: 1),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide(color: kDeepPink, width: 1),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide(color: kDeepPink, width: 1),
                   ),
                 ),
                 style: const TextStyle(color: Colors.white),

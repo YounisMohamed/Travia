@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 const Color kDeepPink = Color(0xffb60f68);
-const Color kDeepBlue = Color(0xff1D2860);
 const Color kDeepPinkLight = Color(0xFFe70950);
-const Color kDeepGrey = Color(0xFFFAFDFF);
-const Color kDarkBackground = Color(0xFF121212);
+const Color kBackground = Color(0xFFFAFDFF);
 const Color kWhite = Colors.white;
+
+const Color kBlack = Colors.black;
+const Color kDeepBlue = Color(0xff1D2860);
+const Color kDarkBackground = Color(0xFF121212);
 const Color kBlackOpaque = Colors.black54;
 const double kBorderRadius = 8.0;
 const double kGridSpacing = 3.0;

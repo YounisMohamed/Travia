@@ -74,7 +74,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor: kDeepGrey,
+      backgroundColor: kBackground,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -103,7 +103,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                 child: Container(
                   padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: kDeepGrey,
+                    color: kBackground,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: kDeepPink.withOpacity(0.1),

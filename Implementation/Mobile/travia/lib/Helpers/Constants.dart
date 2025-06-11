@@ -242,6 +242,12 @@ final List<Map<String, String>> countries = [
   {'code': 'ZM', 'name': 'Zambia', 'emoji': '🇿🇲'},
   {'code': 'ZW', 'name': 'Zimbabwe', 'emoji': '🇿🇼'},
 ];
+String getEmojiFromCountryName(String countryName) {
+  return countries.firstWhere(
+    (country) => country['name'] == countryName,
+    orElse: () => {'emoji': '🏳️'}, // default/fallback emoji
+  )['emoji']!;
+}
 
 class BadgeStyle {
   final List<Color> gradient;

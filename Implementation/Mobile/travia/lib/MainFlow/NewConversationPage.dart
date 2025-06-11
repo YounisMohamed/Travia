@@ -117,7 +117,7 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> with 
     final horizontalPadding = isSmallScreen ? 16.0 : 24.0;
 
     return Scaffold(
-      backgroundColor: kDeepGrey,
+      backgroundColor: kBackground,
       resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
@@ -170,7 +170,7 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> with 
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  color: kDeepGrey,
+                  color: kBackground,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(4),
@@ -237,7 +237,7 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> with 
           // Search field
           Container(
             decoration: BoxDecoration(
-              color: kDeepGrey,
+              color: kBackground,
               borderRadius: BorderRadius.circular(16),
             ),
             padding: const EdgeInsets.all(16),
@@ -367,7 +367,7 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> with 
           // Group name field
           Container(
             decoration: BoxDecoration(
-              color: kDeepGrey,
+              color: kBackground,
               borderRadius: BorderRadius.circular(16),
             ),
             padding: const EdgeInsets.all(16),

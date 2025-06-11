@@ -351,7 +351,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                 width: double.infinity,
                                 margin: EdgeInsets.only(top: screenWidth * 0.12),
                                 decoration: const BoxDecoration(
-                                  color: kDeepGrey,
+                                  color: kBackground,
                                   borderRadius: BorderRadius.only(
                                     topLeft: Radius.circular(40),
                                     topRight: Radius.circular(40),
@@ -785,7 +785,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                                                   Icon(Icons.inbox, size: 60, color: kDeepPinkLight),
                                                                   const SizedBox(height: 10),
                                                                   Text(
-                                                                    'No${isTabEqualPosts ? "" : " ${tabLabels[selectedTab].toLowerCase()}"} posts yet.\n If this was an error, try refreshing.',
+                                                                    'No${isTabEqualPosts ? "" : " ${tabLabels[selectedTab].toLowerCase()}"} posts yet.\n If this was an Error,\nTry Refreshing.',
                                                                     textAlign: TextAlign.center,
                                                                     style: TextStyle(
                                                                       fontSize: 16,
@@ -984,7 +984,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: GoogleFonts.lexendDeca(fontSize: 13, color: kDeepPinkLight, fontWeight: FontWeight.bold),
+            style: GoogleFonts.lexendDeca(fontSize: 13, color: kDeepPink, fontWeight: FontWeight.bold),
           ),
         ],
       ),

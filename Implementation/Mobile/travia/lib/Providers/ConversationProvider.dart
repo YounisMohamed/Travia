@@ -6,49 +6,96 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../Classes/ConversationDetail.dart';
 import '../Classes/UserSupabase.dart';
+import '../Helpers/EncryptionHelper.dart';
 import '../MainFlow/DMsPage.dart';
 import '../main.dart';
 
 final conversationIsLoadingProvider = StateProvider<bool>((ref) => false);
 
-final conversationDetailsProvider = StreamProvider<List<ConversationDetail>>((ref) async* {
+final conversationDetailsProvider = FutureProvider<List<ConversationDetail>>((ref) async {
   final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    return [];
+  }
 
   try {
-    final stream = supabase.from('conversations').stream(primaryKey: ['conversation_id']).order('last_message_at', ascending: false);
+    // Fetch conversation details using RPC
+    final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': user.uid});
 
-    await for (final _ in stream) {
-      final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': user!.uid});
+    final List<ConversationDetail> details = (response as List).map((data) {
+      // Decrypt last message content if it exists
+      String? decryptedLastMessage = data['last_message_content'];
+      if (decryptedLastMessage != null && decryptedLastMessage.isNotEmpty) {
+        decryptedLastMessage = EncryptionHelper.decryptContent(decryptedLastMessage, data['conversation_id']);
+      }
 
-      final List<ConversationDetail> details = (response as List)
-          .map((data) => ConversationDetail(
-              conversationId: data['conversation_id'],
-              conversationType: data['conversation_type'],
-              title: data['title'],
-              createdAt: DateTime.parse(data['created_at']),
-              updatedAt: DateTime.parse(data['updated_at']),
-              lastMessageAt: data['last_message_at'] != null ? DateTime.parse(data['last_message_at']) : null,
-              lastMessageId: data['last_message_id'],
-              lastMessageContent: data['last_message_content'],
-              lastMessageContentType: data['last_message_content_type'],
-              userId: data['user_id'],
-              lastReadAt: data['last_read_at'] != null ? DateTime.parse(data['last_read_at']) : null,
-              userUsername: data['user_username'],
-              userPhotoUrl: data['user_photo_url'],
-              unreadCount: data['unread_count'] ?? 0,
-              sender: data['sender'],
-              isTyping: data['is_typing'],
-              isPinned: data['is_pinned'],
-              chatTheme: data['chat_theme'],
-              groupPicture: data['group_picture']))
-          .toList();
+      return ConversationDetail(
+          conversationId: data['conversation_id'],
+          conversationType: data['conversation_type'],
+          title: data['title'],
+          createdAt: DateTime.parse(data['created_at']),
+          updatedAt: DateTime.parse(data['updated_at']),
+          userId: data['user_id'],
+          userUsername: data['user_username'],
+          userPhotoUrl: data['user_photo_url'],
+          sender: data['sender'],
+          isTyping: data['is_typing'],
+          isPinned: data['is_pinned'],
+          chatTheme: data['chat_theme'],
+          groupPicture: data['group_picture']);
+    }).toList();
 
-      yield details;
-    }
+    return details;
   } catch (e, stackTrace) {
-    print('Error in conversation stream: $e');
+    print('Error fetching conversation details: $e');
     debugPrintStack(stackTrace: stackTrace);
-    rethrow;
+
+    // Return empty list on error
+    return [];
+  }
+});
+
+// Provider to get total unread count across all conversations
+final unreadDMCountProvider = StreamProvider<int>((ref) async* {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    yield 0;
+    return;
+  }
+
+  try {
+    // Get all conversation IDs for the user
+    final participantsResponse = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', user.uid);
+
+    final conversationIds = participantsResponse.map((p) => p['conversation_id'] as String).toList();
+
+    if (conversationIds.isEmpty) {
+      yield 0;
+      return;
+    }
+
+    // Stream changes to messages table for all user's conversations
+    final stream = supabase.from('messages').stream(primaryKey: ['message_id']).inFilter('conversation_id', conversationIds);
+
+    await for (final event in stream) {
+      // Get all unread messages
+      final unreadResponse = await supabase.from('messages').select('message_id, read_by, sender_id').inFilter('conversation_id', conversationIds);
+
+      // Filter and count unread messages on client side
+      final unreadCount = unreadResponse.where((message) {
+        // Skip messages from current user
+        if (message['sender_id'] == user.uid) return false;
+
+        // Check if message is unread
+        final readBy = message['read_by'] as Map<String, dynamic>?;
+        return readBy == null || readBy[user.uid] == null;
+      }).length;
+
+      yield unreadCount;
+    }
+  } catch (e) {
+    print('Error in unread count stream: $e');
+    yield 0;
   }
 });
 
@@ -163,22 +210,100 @@ final createGroupConversationProvider = FutureProvider.family<String, GroupChatP
   return conversationId;
 });
 
-final unreadDMCountProvider = Provider<int>((ref) {
-  final conversationsAsync = ref.watch(conversationDetailsProvider);
+class ConversationLastMessageData {
+  final String conversationId;
+  final DateTime? lastMessageAt;
+  final String? lastMessageId;
+  final String? lastMessageContent;
+  final String? lastMessageContentType;
+  final String? lastMessageSender;
+  final DateTime? lastReadAt;
+  final int unreadCount;
 
-  return conversationsAsync.when(
-    data: (conversations) {
-      if (conversations.isEmpty) return 0;
+  ConversationLastMessageData({
+    required this.conversationId,
+    this.lastMessageAt,
+    this.lastMessageId,
+    this.lastMessageContent,
+    this.lastMessageContentType,
+    this.lastMessageSender,
+    this.lastReadAt,
+    required this.unreadCount,
+  });
+}
 
-      // Sum up all unread counts from all conversations
-      int totalUnreadCount = 0;
-      for (final conversation in conversations) {
-        totalUnreadCount += conversation.unreadCount;
+// Simple stream that just listens to messages
+final conversationLastMessageStreamProvider = StreamProvider.family<ConversationLastMessageData?, String>((ref, conversationId) async* {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    yield null;
+    return;
+  }
+
+  try {
+    // Stream messages for this conversation, ordered by newest first
+    final stream = supabase.from('messages').stream(primaryKey: ['message_id']).eq('conversation_id', conversationId).order('sent_at', ascending: false).limit(1);
+
+    await for (final event in stream) {
+      if (event.isEmpty) {
+        yield ConversationLastMessageData(
+          conversationId: conversationId,
+          lastMessageAt: null,
+          lastMessageId: null,
+          lastMessageContent: 'Loading',
+          lastMessageContentType: null,
+          lastMessageSender: null,
+          lastReadAt: null,
+          unreadCount: 0,
+        );
+        continue;
       }
 
-      return totalUnreadCount;
-    },
-    loading: () => 0,
-    error: (_, __) => 0,
-  );
+      // Get the latest message
+      final lastMessage = event.first;
+
+      // Get unread count
+      final unreadResponse = await supabase.from('messages').select('message_id, read_by').eq('conversation_id', conversationId).neq('sender_id', user.uid);
+
+      final unreadCount = unreadResponse.where((message) {
+        final readBy = message['read_by'] as Map<String, dynamic>?;
+        return readBy == null || readBy[user.uid] == null;
+      }).length;
+
+      // Process message content
+      String processedContent = lastMessage['content'];
+      final contentType = lastMessage['content_type'] as String;
+
+      switch (contentType) {
+        case 'text':
+          processedContent = EncryptionHelper.decryptContent(processedContent, conversationId);
+          break;
+        case 'record':
+          processedContent = 'Record Message 🎙️';
+          break;
+        case 'story_reply':
+          processedContent = 'Story reply 💬';
+          break;
+        case 'image':
+        case 'video':
+        case 'gif': // NOT YET SUPPORTED
+          processedContent = 'Media Message 📷';
+          break;
+      }
+
+      yield ConversationLastMessageData(
+        conversationId: conversationId,
+        lastMessageAt: DateTime.parse(lastMessage['sent_at']),
+        lastMessageId: lastMessage['message_id'],
+        lastMessageContent: processedContent,
+        lastMessageContentType: contentType,
+        lastMessageSender: lastMessage['sender_username'],
+        lastReadAt: null,
+        unreadCount: unreadCount,
+      );
+    }
+  } catch (e) {
+    print('Error in message stream: $e');
+    yield null;
+  }
 });

@@ -14,6 +14,7 @@ import '../Helpers/AppColors.dart';
 import '../Helpers/Constants.dart';
 import '../Helpers/DefaultFormField.dart';
 import '../Helpers/DropDown.dart';
+import '../Helpers/HelperMethods.dart';
 import '../Helpers/Loading.dart';
 import '../Helpers/PopUp.dart';
 import '../Providers/LoadingProvider.dart';
@@ -699,26 +700,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                       ),
 
                       SizedBox(height: height * 0.04),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline, size: 18, color: kDeepPink),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                "We request your relationship status and gender to help our AI recommend family-friendly places. Sorry for the inconvenience.",
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: kDeepPink,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      WarningBox(
+                        warning: "We request your relationship status and gender to help our AI recommend family-friendly places. Sorry for the inconvenience.",
                       ),
-
                       SizedBox(height: height * 0.04),
 
                       // Previously Visited Countries

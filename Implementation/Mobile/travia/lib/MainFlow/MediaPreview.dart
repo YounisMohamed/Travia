@@ -67,7 +67,7 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
     return Container(
       height: 300,
       width: double.infinity,
-      decoration: BoxDecoration(gradient: LinearGradient(colors: [kDeepGrey, Colors.white])),
+      decoration: BoxDecoration(gradient: LinearGradient(colors: [kBackground, Colors.white])),
       child: videoState.when(
         data: (controller) {
           final isPlaying = controller.value.isPlaying;

@@ -48,7 +48,7 @@ class PostDetailsPage extends ConsumerWidget {
     });
 
     return Scaffold(
-      backgroundColor: kDeepGrey,
+      backgroundColor: kBackground,
       body: postsAsync.when(
         loading: () => Center(
           child: CircularProgressIndicator(
@@ -116,7 +116,7 @@ class PostDetailsPage extends ConsumerWidget {
             slivers: [
               // Custom App Bar
               SliverAppBar(
-                backgroundColor: kDeepGrey,
+                backgroundColor: kBackground,
                 forceMaterialTransparency: true,
                 elevation: 0,
                 leading: IconButton(
@@ -502,7 +502,7 @@ class PostDetailsPage extends ConsumerWidget {
                         margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
                         padding: EdgeInsets.all(screenWidth * 0.04),
                         decoration: BoxDecoration(
-                          color: kDeepGrey,
+                          color: kBackground,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
