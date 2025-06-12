@@ -1,0 +1,301 @@
+TRAVIA TRAVEL RECOMMENDATION SYSTEM - DATABASE SCHEMA DOCUMENTATION
+=======================================================================
+
+This document lists all database tables and columns used in the TRAVIA Flask application (flask_app.py).
+The application uses PostgreSQL as the database backend on port 5433.
+
+DATABASE CONNECTION CONFIGURATION:
+- Host: localhost
+- Database: traviadb
+- User: postgres
+- Password: 1234
+- Port: 5433
+
+=======================================================================
+TABLE 1: USERS
+=======================================================================
+Purpose: Stores user account information
+
+Columns Used:
+- id (TEXT/VARCHAR) - Primary key, user identifier (UUID format)
+- email (TEXT/VARCHAR) - User email address (optional, may have dummy values)
+- created_at (TIMESTAMP) - Account creation timestamp
+- display_name (TEXT/VARCHAR) - User display name (referenced in verify_schema.py)
+
+Usage in Application:
+- User creation and management
+- Session management
+- Linking user preferences and interactions
+
+SQL Operations:
+- INSERT: Creating new users
+- SELECT: User selection and listing
+- JOIN: Linking with preferences and interactions
+
+=======================================================================
+TABLE 2: USER_PREFERENCES
+=======================================================================
+Purpose: Stores user travel preferences and settings
+
+Columns Used:
+- id (SERIAL/INTEGER) - Primary key
+- user_id (TEXT/VARCHAR) - Foreign key to users.id
+- budget (INTEGER) - Budget preference (1-4 scale)
+- travel_days (INTEGER) - Number of travel days
+- travel_style (TEXT/VARCHAR) - 'tourist' or 'local'
+- noise_preference (TEXT/VARCHAR) - 'noisy' or 'quiet'
+- family_friendly (BOOLEAN) - Family-friendly preference
+- accommodation_type (TEXT/VARCHAR) - 'hotel', 'hostel', or 'airbnb'
+- preferred_cuisine (TEXT[] or TEXT) - Array of preferred cuisines
+- ambience_preference (TEXT/VARCHAR) - 'classy' or 'casual'
+- good_for_kids (BOOLEAN) - Kid-friendly preference
+- include_gym (BOOLEAN) - Include gym activities
+- include_bar (BOOLEAN) - Include bar activities
+- include_nightlife (BOOLEAN) - Include nightlife activities
+- include_beauty_health (BOOLEAN) - Include beauty/health activities
+- include_shop (BOOLEAN) - Include shopping activities
+- location (TEXT/VARCHAR) - Selected travel location (city, state format)
+- created_at (TIMESTAMP) - Preference creation timestamp
+
+Usage in Application:
+- Storing user travel preferences
+- Content-based filtering
+- Itinerary generation
+- Activity selection
+
+SQL Operations:
+- INSERT: Saving new preferences
+- SELECT: Retrieving latest user preferences
+- ALTER TABLE: Adding new activity preference columns
+
+=======================================================================
+TABLE 3: BUSINESSES
+=======================================================================
+Purpose: Main business/venue database for recommendations
+
+Columns Used:
+- id (INTEGER/SERIAL) - Primary key, business identifier
+- name (TEXT/VARCHAR) - Business name
+- city (TEXT/VARCHAR) - Business city
+- state (TEXT/VARCHAR) - Business state
+- stars (DECIMAL/NUMERIC) - Star rating (0-5 scale)
+- review_count (INTEGER) - Number of reviews
+- price_range (INTEGER) - Price range (1-4 scale)
+- fake_cuisine (TEXT/VARCHAR) - Cuisine type classification
+
+Business Type Flags (BOOLEAN):
+- is_restaurant - Restaurant flag
+- is_cafe - Cafe flag
+- is_bar - Bar flag
+- is_gym - Gym flag
+- is_shop - Shop flag
+- is_beauty_health - Beauty/health service flag
+- is_nightlife - Nightlife venue flag
+
+Meal Time Flags (BOOLEAN):
+- good_for_breakfast - Breakfast venue flag
+- good_for_lunch - Lunch venue flag
+- good_for_dinner - Dinner venue flag
+- good_for_dessert - Dessert venue flag
+
+Ambience Attributes (BOOLEAN):
+- ambience_classy - Classy ambience flag
+- ambience_casual - Casual ambience flag
+- ambience_romantic - Romantic ambience flag
+- ambience_touristy - Touristy ambience flag
+
+Facility Attributes (BOOLEAN):
+- good_for_kids - Kid-friendly flag
+- outdoor_seating - Outdoor seating available
+- wifi - WiFi available
+- noise_level (TEXT/VARCHAR) - Noise level ('loud', etc.)
+
+Other Attributes:
+- categories (TEXT/ARRAY) - Business categories
+- cuisine_types (TEXT[]/ARRAY) - Cuisine types array
+
+Usage in Application:
+- Main data source for recommendations
+- Location-based filtering
+- Activity type detection
+- Content-based filtering
+- Itinerary generation
+
+SQL Operations:
+- SELECT: Business retrieval with various filters
+- WHERE clauses: Location, cuisine, rating, activity type filtering
+- ORDER BY: Sorting by stars, review_count
+- LIKE patterns: Name-based activity detection (gym, bar, etc.)
+
+=======================================================================
+TABLE 4: USER_INTERACTIONS
+=======================================================================
+Purpose: Stores user feedback on business recommendations
+
+Columns Used:
+- id (SERIAL/INTEGER) - Primary key
+- user_id (TEXT/VARCHAR) - Foreign key to users.id
+- business_id (INTEGER) - Foreign key to businesses.id
+- interaction_type (TEXT/VARCHAR) - 'like' or 'dislike'
+- context_preferences (TEXT/JSON) - User preferences at time of interaction
+- created_at (TIMESTAMP) - Interaction timestamp
+
+Usage in Application:
+- Machine learning feedback collection
+- PPO model training
+- Learning user patterns
+- Preference analysis
+
+SQL Operations:
+- INSERT: Recording user feedback
+- SELECT: Retrieving interaction history
+- JOIN: Combining with business data for analysis
+
+=======================================================================
+TABLE 5: POSTS
+=======================================================================
+Purpose: Social media posts for metadata learning
+
+Columns Used:
+- id (TEXT/VARCHAR) - Primary key, post identifier
+- user_id (TEXT/VARCHAR) - Foreign key to users.id
+- caption (TEXT) - Post caption/description
+- created_at (TIMESTAMP) - Post creation timestamp
+
+Usage in Application:
+- Metadata preference analysis
+- Social learning features
+- Content analysis for preferences
+
+SQL Operations:
+- SELECT: Post retrieval for analysis
+- JOIN: Linking with metadata and likes
+
+=======================================================================
+TABLE 6: LIKES
+=======================================================================
+Purpose: User likes on posts for preference learning
+
+Columns Used:
+- id (SERIAL/INTEGER) - Primary key
+- post_id (TEXT/VARCHAR) - Foreign key to posts.id
+- liker_user_id (TEXT/VARCHAR) - Foreign key to users.id (user who liked)
+- type (TEXT/VARCHAR) - Like type ('like')
+- created_at (TIMESTAMP) - Like timestamp
+
+Usage in Application:
+- Metadata preference analysis
+- Learning user preferences from social interactions
+- Enhanced recommendation personalization
+
+SQL Operations:
+- SELECT: Retrieving user's liked posts
+- JOIN: Combining with metadata for preference analysis
+
+=======================================================================
+TABLE 7: METADATA
+=======================================================================
+Purpose: Metadata attributes for posts to learn user preferences
+
+Columns Used:
+- id (SERIAL/INTEGER) - Primary key
+- post_id (TEXT/VARCHAR) - Foreign key to posts.id
+- calm (INTEGER) - Calm attribute (0/1)
+- noisy (INTEGER) - Noisy attribute (0/1)
+- romantic (INTEGER) - Romantic attribute (0/1)
+- good_for_kids (INTEGER) - Kid-friendly attribute (0/1)
+- classy (INTEGER) - Classy attribute (0/1)
+- casual (INTEGER) - Casual attribute (0/1)
+- family_friendly_places (INTEGER) - Family-friendly attribute (0/1)
+- cuisine_type (TEXT/VARCHAR) - Cuisine type
+- price_range (INTEGER) - Price range
+- location (TEXT/VARCHAR) - Location information
+
+Usage in Application:
+- Learning user preferences from liked posts
+- Metadata-based recommendation scoring
+- Enhanced personalization
+- Preference pattern analysis
+
+SQL Operations:
+- SELECT: Retrieving metadata for liked posts
+- JOIN: Combining with likes for preference analysis
+
+=======================================================================
+COMMON SQL PATTERNS USED IN APPLICATION:
+=======================================================================
+
+1. LOCATION FILTERING:
+   WHERE city = %s AND state = %s
+
+2. QUALITY FILTERING:
+   WHERE (stars >= 3.0 OR stars IS NULL)
+   AND name IS NOT NULL AND name != ''
+
+3. CUISINE FILTERING:
+   WHERE fake_cuisine IN (%s, %s, ...)
+
+4. ACTIVITY DETECTION (Name-based with LIKE patterns):
+   - Gyms: WHERE LOWER(name) LIKE '%%gym%%' OR LOWER(name) LIKE '%%fitness%%' OR LOWER(name) LIKE '%%yoga%%'
+   - Bars: WHERE LOWER(name) LIKE '%%bar%%' OR LOWER(name) LIKE '%%pub%%' OR LOWER(name) LIKE '%%tavern%%'
+   - Nightlife: WHERE LOWER(name) LIKE '%%club%%' OR LOWER(name) LIKE '%%nightclub%%'
+   - Beauty/Health: WHERE LOWER(name) LIKE '%%salon%%' OR LOWER(name) LIKE '%%spa%%' OR LOWER(name) LIKE '%%beauty%%'
+   - Shopping: WHERE LOWER(name) LIKE '%%shop%%' OR LOWER(name) LIKE '%%store%%' OR LOWER(name) LIKE '%%boutique%%'
+
+5. SORTING:
+   ORDER BY stars DESC NULLS LAST, review_count DESC
+
+6. USER INTERACTION JOINS:
+   FROM user_interactions ui JOIN businesses b ON ui.business_id = b.id
+
+7. METADATA LEARNING JOINS:
+   FROM likes l JOIN metadata m ON l.post_id = m.post_id
+
+=======================================================================
+IMPORTANT NOTES:
+=======================================================================
+
+1. PostgreSQL Array Handling:
+   - preferred_cuisine stored as PostgreSQL array format: {Italian,Mexican}
+   - Application handles conversion between array and list formats
+
+2. LIKE Pattern Escaping:
+   - All LIKE patterns use %% escaping for psycopg2 compatibility
+   - This prevents parameter substitution conflicts
+
+3. Boolean Column Handling:
+   - Many boolean flags for business attributes
+   - Used for categorization and filtering
+
+4. Null Handling:
+   - Extensive use of "OR column IS NULL" for missing data
+   - "NULLS LAST" in ORDER BY clauses
+
+5. Dynamic Query Building:
+   - Placeholder generation for IN clauses
+   - Conditional query building based on user preferences
+
+6. Activity Detection Strategy:
+   - Primary: Boolean flags (is_gym, is_bar, etc.)
+   - Fallback: Name-based LIKE pattern matching
+   - Used for itinerary activity inclusion
+
+7. Machine Learning Integration:
+   - user_interactions table feeds PPO model training
+   - metadata table enables preference learning from social signals
+   - Combined approach for enhanced personalization
+
+=======================================================================
+DATABASE PERFORMANCE CONSIDERATIONS:
+=======================================================================
+
+Recommended Indexes:
+- businesses(city, state) - Location filtering
+- businesses(fake_cuisine) - Cuisine filtering
+- businesses(stars) - Rating sorting
+- user_interactions(user_id) - User history lookup
+- user_preferences(user_id) - Preference lookup
+- likes(liker_user_id) - User likes lookup
+- metadata(post_id) - Metadata joins
+
+======================================================================= 
