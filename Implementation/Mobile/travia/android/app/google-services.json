@@ -1,45 +1,45 @@
 {
   "project_info": {
-    "project_number": "536970171951",
-    "project_id": "travia-aast-8b14f",
-    "storage_bucket": "travia-aast-8b14f.firebasestorage.app"
+    "project_number": "560098689683",
+    "project_id": "traviaapp-8bc84",
+    "storage_bucket": "traviaapp-8bc84.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:536970171951:android:304805a8f5db498dbdd8da",
+        "mobilesdk_app_id": "1:560098689683:android:6cc08171c695691d72c366",
         "android_client_info": {
           "package_name": "com.grad.aast"
         }
       },
       "oauth_client": [
         {
-          "client_id": "536970171951-ho9vqanbr5a486ofp84timva64lmn48r.apps.googleusercontent.com",
+          "client_id": "560098689683-b2soanup1pgqjcued7ngjpbeeq9m18f6.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.grad.aast",
-            "certificate_hash": "97061b57f2599e79235b624eea1ac149e00c95ce"
+            "certificate_hash": "ef0ce32304b86aee2722e898a68e1c274c433ad8"
           }
         },
         {
-          "client_id": "536970171951-k30lmtrdnc348rr806u0lroar3kh5clj.apps.googleusercontent.com",
+          "client_id": "560098689683-bm07p4gei1484cfu7d54t9pn7rgq8eu6.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyA88wycgztfXsAXRXTDrrMiGyURs6loWz0"
+          "current_key": "AIzaSyAR8FrosfC4Nv3trKZVM2yGmoZJ3c9UY3Y"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "536970171951-k30lmtrdnc348rr806u0lroar3kh5clj.apps.googleusercontent.com",
+              "client_id": "560098689683-bm07p4gei1484cfu7d54t9pn7rgq8eu6.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "536970171951-su6g0ahdgf98ha64gsh7f8ski12927o1.apps.googleusercontent.com",
+              "client_id": "560098689683-hi8uani9s1na25shuv14nqtfr6gin6o8.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "com.grad.aast"

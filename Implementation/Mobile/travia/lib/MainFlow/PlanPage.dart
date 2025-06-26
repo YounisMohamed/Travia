@@ -1,5 +1,6 @@
 import 'package:bottom_picker/bottom_picker.dart';
 import 'package:bottom_picker/resources/arrays.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,16 +8,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:travia/Helpers/AppColors.dart';
 import 'package:travia/Helpers/HelperMethods.dart';
+import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Helpers/PopUp.dart';
+import 'package:travia/MainFlow/YourPlansPage.dart';
 
+import '../Classes/UserPreferences.dart';
+import '../Helpers/Constants.dart';
 import '../Helpers/GoogleTexts.dart';
+import '../Services/PlannerService.dart';
 import 'CitySelector.dart';
 
 // Providers for state management
 final plannerTypeProvider = StateProvider<String?>((ref) => null); // 'basic' or 'advanced'
 final daysProvider = StateProvider<int>((ref) => 1);
-final budgetRangeProvider = StateProvider<String>((ref) => 'Moderate');
-final selectedActivitiesProvider = StateProvider<Set<String>>((ref) => {'Restaurants'});
+final budgetRangeProvider = StateProvider<String>((ref) => '\$\$');
+final selectedActivitiesProvider = StateProvider<Set<String>>((ref) => {});
 final cuisineTypeProvider = StateProvider<Set<String>>((ref) => {'All'});
 final additionalPreferencesProvider = StateProvider<Set<String>>((ref) => {});
 final selectedCityProvider = StateProvider<String?>((ref) => null);
@@ -24,38 +30,74 @@ final timeOfTravel = StateProvider<DateTime>((ref) => DateTime.now().add(Duratio
 final isActivitiesCollapsedProvider = StateProvider<bool>((ref) => true);
 final isCuisineCollapsedProvider = StateProvider<bool>((ref) => true);
 
+final isCreatingPlanProvider = StateProvider<bool>((ref) => false);
+
+// Budget mapping
+Map<String, int> budgetToApiValue = {
+  '\$': 1,
+  '\$\$': 2,
+  '\$\$\$': 3,
+  '\$\$\$\$': 4,
+};
+
+// Activity mapping
+Map<String, String> activityToApiField = {
+  'Bars': 'is_bar',
+  'Nightlife': 'is_nightlife',
+  'Gyms': 'is_gym',
+  'Beauty & Health': 'is_beauty_health',
+  'Shopping': 'is_shop',
+};
+
 // Budget options
-final budgetOptions = ['Budget', 'Moderate', 'Luxury'];
+final budgetOptions = ['\$', '\$\$', '\$\$\$', '\$\$\$\$'];
 
 // Activity options
-final activityOptions = [
-  'Restaurants',
-  'Gym',
-  'Bars',
-  'Nightclubs',
-  'Beauty',
-  'Health',
-  'Care',
-  'Shops',
-];
+final activityOptions = ['Gyms', 'Bars', 'Nightlife', 'Beauty & Health', 'Shopping'];
 
 // Cuisine options
 final cuisineOptions = [
-  'All',
-  'Local',
-  'Asian',
   'Italian',
-  'American',
   'Mexican',
+  'Japanese',
+  'Chinese',
+  'French',
+  'Turkish',
+  'Korean',
+  'Indian',
+  'Thai',
+  'Vietnamese',
+  'American',
+  'Middle Eastern',
   'Mediterranean',
+  'Bistro',
+  'Café',
+  'Coffee Shop',
+  'Restaurant',
+  'Bakery',
+  'Pastry',
+  'Cupcakes',
+  'Ice Cream',
+  'Deli',
+  'Sandwich Spot',
+  'Burritos',
+  'Sushi',
+  'Ramen',
+  'Soup Spot',
+  'Doner',
+  'Vegan and Vegetarian Restaurant',
+  'Steakhouse',
+  'Fast Food',
+  'Burgers',
+  'Garden',
+  'German',
+  'Austrian',
+  'Iraqi Restaurant',
+  'Syrian Restaurant',
 ];
 
 // Additional preferences
-final additionalPreferences = [
-  'Family Friendly Places',
-  'Touristic Attractions',
-  'Experiences',
-];
+final additionalPreferences = ['Family Friendly Places', 'Good for Kids', 'Noisy Places', 'Classy Places'];
 
 class PlanPage extends ConsumerStatefulWidget {
   @override
@@ -63,6 +105,174 @@ class PlanPage extends ConsumerStatefulWidget {
 }
 
 class _PlanPageState extends ConsumerState<PlanPage> with SingleTickerProviderStateMixin {
+  Widget _buildCreateItineraryButton() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isCreating = ref.watch(isCreatingPlanProvider);
+
+        return isCreating
+            ? Center(
+                child: SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: LoadingWidget(
+                    size: 22,
+                  ),
+                ),
+              )
+            : SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: isCreating
+                      ? null
+                      : () async {
+                          // Get all provider values
+                          final days = ref.read(daysProvider);
+                          final city = ref.read(selectedCityProvider);
+                          final date = ref.read(timeOfTravel);
+                          final budgetString = ref.read(budgetRangeProvider);
+                          final selectedActivities = ref.read(selectedActivitiesProvider);
+                          final cuisineTypes = ref.read(cuisineTypeProvider);
+                          final additionalPreferences = ref.read(additionalPreferencesProvider);
+                          final plannerType = ref.read(plannerTypeProvider);
+
+                          // Validate city selection
+                          if (city == null) {
+                            Popup.showError(text: "Please select a city", context: context);
+                            return;
+                          }
+
+                          // Set loading state
+                          ref.read(isCreatingPlanProvider.notifier).state = true;
+
+                          try {
+                            // Convert budget string to API value
+                            final budget = budgetToApiValue[budgetString] ?? 2;
+
+                            // Convert cuisine types (remove 'All' if present)
+                            final preferredCuisine = cuisineTypes.where((c) => c != 'All').toList();
+
+                            // Parse additional preferences
+                            final familyFriendly = additionalPreferences.contains('Family Friendly');
+                            final goodForKids = additionalPreferences.contains('Good for Kids');
+                            final noise_preference = additionalPreferences.contains('Noisy Places') ? 'noisy' : 'quiet';
+                            final ambience = additionalPreferences.contains('Classy Places') ? 'classy' : 'casual';
+
+                            /*
+                    API PREFENECES JSON:
+                    {
+            "budget": 2,
+            "travel_days": 5,
+            "travel_style": "tourist",
+            "noise_preference": "quiet",
+            "family_friendly": false,
+            "accommodation_type": "hotel",
+            "preferred_cuisine": [],
+            "ambience_preference": "casual",
+            "good_for_kids": false,
+            "include_gym": true,
+            "include_bar": true,
+            "include_nightlife": false,
+            "include_beauty_health": false,
+            "include_shop": false,
+            "location": "Barcelona"
+                          }
+                     */
+
+                            // Map activities to include flags
+                            final includeGym = selectedActivities.contains('Gyms');
+                            final includeBar = selectedActivities.contains('Bars');
+                            final includeNightlife = selectedActivities.contains('Nightlife');
+                            final includeBeautyHealth = selectedActivities.contains('Beauty & Health');
+                            final includeShop = selectedActivities.contains('Shopping');
+
+                            // Determine travel style based on planner type
+                            final travelStyle = plannerType == 'advanced' ? 'local' : 'tourist';
+
+                            // Create user preferences
+                            final preferences = UserPreferences(
+                              budget: budget,
+                              travelDays: days,
+                              travelStyle: travelStyle,
+                              noisePreference: noise_preference,
+                              familyFriendly: familyFriendly,
+                              accommodationType: 'hotel',
+                              preferredCuisine: preferredCuisine,
+                              ambiencePreference: ambience,
+                              goodForKids: goodForKids,
+                              includeGym: includeGym,
+                              includeBar: includeBar,
+                              includeNightlife: includeNightlife,
+                              includeBeautyHealth: includeBeautyHealth,
+                              includeShop: includeShop,
+                              location: city,
+                              // includeTrendyPlaces: additionalPreferences.contains('Trendy Places'),
+                              // includeRomanticPlaces: additionalPreferences.contains('Romantic Places'),
+                              // includeTouristyPlaces: travelStyle == 'tourist',
+                            );
+
+                            // Get travel planner service
+                            final planner = TravelPlannerService.instance;
+
+                            final userId = FirebaseAuth.instance.currentUser!.uid;
+
+                            // Save preferences
+                            await planner.savePreferences(
+                              userId: userId,
+                              preferences: preferences,
+                            );
+
+                            // Generate itinerary
+                            final itinerary = await planner.generateItinerary(
+                              userId: userId,
+                              city: city,
+                            );
+
+                            // Save the itinerary to database
+                            final String tripId = await planner.saveItinerary(
+                              userId: userId,
+                              itinerary: itinerary,
+                              tripDate: date,
+                            );
+                            print("GENERATED ITINERARY: ${itinerary.toString()}");
+
+                            if (context.mounted) {
+                              context.push('/plan-result/$tripId');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              Popup.showError(
+                                text: e is TravelPlannerException ? e.message : "Failed to create travel plan. Please try again.",
+                                context: context,
+                              );
+                            }
+                          } finally {
+                            // Reset loading state
+                            ref.read(isCreatingPlanProvider.notifier).state = false;
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kDeepPink,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Create My Plan',
+                    style: GoogleFonts.ibmPlexSans(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+      },
+    );
+  }
+
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   final PageController _pageController = PageController();
@@ -125,37 +335,45 @@ class _PlanPageState extends ConsumerState<PlanPage> with SingleTickerProviderSt
   }
 
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBackground,
-      appBar: AppBar(
+    return RefreshIndicator(
+      onRefresh: () async {
+        refresh(context);
+      },
+      displacement: 32,
+      color: kDeepPink,
+      backgroundColor: Colors.white,
+      child: Scaffold(
         backgroundColor: kBackground,
-        elevation: 0,
-        title: TypewriterAnimatedText(
-          text: 'Plan your perfect trip',
-          style: GoogleFonts.ibmPlexSans(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(60),
-          child: TabBar(
-            controller: _tabController,
-            labelColor: kDeepPink,
-            unselectedLabelColor: Colors.black,
-            labelStyle: GoogleFonts.lexendDeca(fontWeight: FontWeight.bold),
-            indicatorColor: kDeepPink,
-            tabs: [
-              Tab(text: 'Plan'),
-              Tab(text: 'Your plans'),
-            ],
+        appBar: AppBar(
+          backgroundColor: kBackground,
+          elevation: 0,
+          title: TypewriterAnimatedText(
+            text: 'Plan your perfect trip',
+            style: GoogleFonts.ibmPlexSans(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 20),
+          ),
+          centerTitle: true,
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(60),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: kDeepPink,
+              unselectedLabelColor: Colors.black,
+              labelStyle: GoogleFonts.lexendDeca(fontWeight: FontWeight.bold),
+              indicatorColor: kDeepPink,
+              tabs: [
+                Tab(text: 'Plan'),
+                Tab(text: 'Your plans'),
+              ],
+            ),
           ),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildPlanTab(),
-          Text("Hello 2"),
-        ],
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildPlanTab(),
+            YourPlansPage(),
+          ],
+        ),
       ),
     );
   }
@@ -956,49 +1174,6 @@ class _PlanPageState extends ConsumerState<PlanPage> with SingleTickerProviderSt
               ),
             ],
           ],
-        );
-      },
-    );
-  }
-
-  Widget _buildCreateItineraryButton() {
-    return Consumer(
-      builder: (context, ref, child) {
-        return SizedBox(
-          width: double.infinity,
-          height: 55,
-          child: ElevatedButton(
-            onPressed: () {
-              final days = ref.read(daysProvider);
-              final city = ref.read(selectedCityProvider);
-              final date = ref.read(timeOfTravel);
-              if (city == null) {
-                Popup.showError(text: "Please select a city", context: context);
-                return;
-              }
-              final navigationData = {
-                'destination': city,
-                'days': days,
-                'date': date,
-              };
-              context.push('/plan-result', extra: navigationData);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kDeepPink,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              elevation: 0,
-            ),
-            child: Text(
-              'Create My Plan',
-              style: GoogleFonts.ibmPlexSans(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
         );
       },
     );

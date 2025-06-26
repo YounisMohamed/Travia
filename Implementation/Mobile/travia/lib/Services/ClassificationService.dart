@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../Helpers/Constants.dart';
+
 /// Request model for venue classification
 class ClassificationRequest {
   final String imageUrl;
@@ -129,29 +131,6 @@ class ClassificationMetadata {
   }
 }
 
-/// Health check response model
-class HealthCheckResponse {
-  final String status;
-  final String modelsLoaded;
-  final bool memoryOptimized;
-
-  HealthCheckResponse({
-    required this.status,
-    required this.modelsLoaded,
-    required this.memoryOptimized,
-  });
-
-  factory HealthCheckResponse.fromJson(Map<String, dynamic> json) {
-    return HealthCheckResponse(
-      status: json['status'] ?? 'unknown',
-      modelsLoaded: json['models_loaded'] ?? 'unknown',
-      memoryOptimized: json['memory_optimized'] ?? false,
-    );
-  }
-
-  bool get isHealthy => status == 'healthy';
-}
-
 /// Custom exception for classifier errors
 class ClassifierException implements Exception {
   final String message;
@@ -169,7 +148,7 @@ class ClassifierException implements Exception {
 }
 
 class TravelClassifierService {
-  static const String _defaultBaseUrl = 'http://192.168.8.4:8000';
+  static final String _defaultBaseUrl = baseUrlForClassification;
   static const Duration _defaultTimeout = Duration(seconds: 60); // Longer timeout for model loading
 
   final String baseUrl;
@@ -180,12 +159,11 @@ class TravelClassifierService {
   static TravelClassifierService? _instance;
 
   factory TravelClassifierService({
-    String? baseUrl,
     Duration? timeout,
     http.Client? client,
   }) {
     _instance ??= TravelClassifierService._internal(
-      baseUrl: baseUrl ?? _defaultBaseUrl,
+      baseUrl: _defaultBaseUrl,
       timeout: timeout ?? _defaultTimeout,
       client: client ?? http.Client(),
     );
@@ -200,25 +178,6 @@ class TravelClassifierService {
 
   /// Get singleton instance
   static TravelClassifierService get instance => _instance ?? TravelClassifierService();
-
-  /// Check if the API is healthy
-  Future<HealthCheckResponse> checkHealth() async {
-    try {
-      final response = await _makeRequest(
-        'GET',
-        '/health',
-      );
-
-      return HealthCheckResponse.fromJson(response);
-    } catch (e) {
-      throw ClassifierException(
-        message: 'Health check failed: ${e.toString()}',
-        originalError: e,
-      );
-    }
-  }
-
-  /// Classify a venue from image URL
   Future<ClassificationResponse> classifyFromUrl({
     required String imageUrl,
     required String caption,
@@ -236,11 +195,9 @@ class TravelClassifierService {
         '/classify/url',
         body: request.toJson(),
       );
-
       return ClassificationResponse.fromJson(response);
     } catch (e) {
       if (e is ClassifierException) rethrow;
-
       throw ClassifierException(
         message: 'Classification failed: ${e.toString()}',
         originalError: e,
@@ -248,59 +205,6 @@ class TravelClassifierService {
     }
   }
 
-  /// Classify a venue from uploaded image file
-  Future<ClassificationResponse> classifyFromFile({
-    required File imageFile,
-    required String caption,
-    double confidenceThreshold = 0.5,
-  }) async {
-    try {
-      final uri = Uri.parse('$baseUrl/classify/upload');
-      final request = http.MultipartRequest('POST', uri);
-
-      // Add form fields
-      request.fields['caption'] = caption;
-      request.fields['confidence_threshold'] = confidenceThreshold.toString();
-
-      // Add file
-      final fileStream = http.ByteStream(imageFile.openRead());
-      final fileLength = await imageFile.length();
-      final multipartFile = http.MultipartFile(
-        'file',
-        fileStream,
-        fileLength,
-        filename: imageFile.path.split('/').last,
-      );
-      request.files.add(multipartFile);
-
-      // Send request with timeout
-      final streamedResponse = await request.send().timeout(timeout);
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        return ClassificationResponse.fromJson(responseData);
-      } else {
-        throw ClassifierException(
-          message: 'Upload failed: ${response.reasonPhrase}',
-          statusCode: response.statusCode,
-        );
-      }
-    } on TimeoutException {
-      throw ClassifierException(
-        message: 'Request timed out. The server might be loading models.',
-      );
-    } catch (e) {
-      if (e is ClassifierException) rethrow;
-
-      throw ClassifierException(
-        message: 'File upload failed: ${e.toString()}',
-        originalError: e,
-      );
-    }
-  }
-
-  /// Get available classification features
   Future<Map<String, dynamic>> getFeatures() async {
     try {
       final response = await _makeRequest(

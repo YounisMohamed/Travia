@@ -7,16 +7,10 @@ import 'package:travia/Helpers/AppColors.dart';
 // Tourism data
 // Tourism data
 final tourismData = {
-  'Asia': {
-    'China': ['Shanghai'],
-    'United Arab Emirates': ['Dubai'],
-  },
   'Europe': {
     'France': ['Paris'],
-    'Italy': ['Rome'],
     'Germany': ['Berlin'],
     'Spain': ['Barcelona'],
-    'Russia': ['Moscow'],
   },
   'North America': {
     'USA': ['New York', 'Los Angeles'],
@@ -30,11 +24,7 @@ final tourismData = {
 
 // Flag emoji map
 final countryFlagMap = {
-  'China': '🇨🇳',
-  'United Arab Emirates': '🇦🇪',
-  'Russia': '🇷🇺',
   'France': '🇫🇷',
-  'Italy': '🇮🇹',
   'Germany': '🇩🇪',
   'Spain': '🇪🇸',
   'USA': '🇺🇸',
@@ -45,16 +35,10 @@ final countryFlagMap = {
 
 // Country positions (normalized 0-1)
 final countryPositions = {
-  'Asia': {
-    'China': Offset(0.5, 0.5),
-    'United Arab Emirates': Offset(0.2, 0.55),
-  },
   'Europe': {
     'France': Offset(0.3, 0.57),
-    'Italy': Offset(0.4, 0.64),
     'Germany': Offset(0.4, 0.53),
     'Spain': Offset(0.14, 0.62),
-    'Russia': Offset(0.7, 0.45),
   },
   'North America': {
     'USA': Offset(0.5, 0.5),
@@ -73,7 +57,7 @@ class CitySelector extends ConsumerStatefulWidget {
 
 class _CitySelectorState extends ConsumerState<CitySelector> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final continents = ['Asia', 'Europe', 'North America', 'South America'];
+  final continents = ['Europe', 'North America', 'South America'];
 
   @override
   void initState() {

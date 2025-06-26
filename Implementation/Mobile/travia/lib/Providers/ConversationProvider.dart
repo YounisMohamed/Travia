@@ -12,49 +12,6 @@ import '../main.dart';
 
 final conversationIsLoadingProvider = StateProvider<bool>((ref) => false);
 
-final conversationDetailsProvider = FutureProvider<List<ConversationDetail>>((ref) async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    return [];
-  }
-
-  try {
-    // Fetch conversation details using RPC
-    final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': user.uid});
-
-    final List<ConversationDetail> details = (response as List).map((data) {
-      // Decrypt last message content if it exists
-      String? decryptedLastMessage = data['last_message_content'];
-      if (decryptedLastMessage != null && decryptedLastMessage.isNotEmpty) {
-        decryptedLastMessage = EncryptionHelper.decryptContent(decryptedLastMessage, data['conversation_id']);
-      }
-
-      return ConversationDetail(
-          conversationId: data['conversation_id'],
-          conversationType: data['conversation_type'],
-          title: data['title'],
-          createdAt: DateTime.parse(data['created_at']),
-          updatedAt: DateTime.parse(data['updated_at']),
-          userId: data['user_id'],
-          userUsername: data['user_username'],
-          userPhotoUrl: data['user_photo_url'],
-          sender: data['sender'],
-          isTyping: data['is_typing'],
-          isPinned: data['is_pinned'],
-          chatTheme: data['chat_theme'],
-          groupPicture: data['group_picture']);
-    }).toList();
-
-    return details;
-  } catch (e, stackTrace) {
-    print('Error fetching conversation details: $e');
-    debugPrintStack(stackTrace: stackTrace);
-
-    // Return empty list on error
-    return [];
-  }
-});
-
 // Provider to get total unread count across all conversations
 final unreadDMCountProvider = StreamProvider<int>((ref) async* {
   final user = FirebaseAuth.instance.currentUser;
@@ -112,6 +69,49 @@ final userSearchProvider = FutureProvider.family<List<UserModel>, String>((ref, 
   final response = await supabase.from('users').select().or('username.ilike.%$query%,display_name.ilike.%$query%').neq('id', currentUserId!).limit(10);
 
   return (response as List).map((user) => UserModel.fromMap(user)).toList();
+});
+
+final conversationDetailsProvider = FutureProvider<List<ConversationDetail>>((ref) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    return [];
+  }
+
+  try {
+    // Fetch conversation details using RPC
+    final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': user.uid});
+
+    final List<ConversationDetail> details = (response as List).map((data) {
+      // Decrypt last message content if it exists
+      String? decryptedLastMessage = data['last_message_content'];
+      if (decryptedLastMessage != null && decryptedLastMessage.isNotEmpty) {
+        decryptedLastMessage = EncryptionHelper.decryptContent(decryptedLastMessage, data['conversation_id']);
+      }
+
+      return ConversationDetail(
+          conversationId: data['conversation_id'],
+          conversationType: data['conversation_type'],
+          title: data['title'],
+          createdAt: DateTime.parse(data['created_at']),
+          updatedAt: DateTime.parse(data['updated_at']),
+          userId: data['user_id'],
+          userUsername: data['user_username'],
+          userPhotoUrl: data['user_photo_url'],
+          sender: data['sender'],
+          isTyping: data['is_typing'],
+          isPinned: data['is_pinned'],
+          chatTheme: data['chat_theme'],
+          groupPicture: data['group_picture']);
+    }).toList();
+
+    return details;
+  } catch (e, stackTrace) {
+    print('Error fetching conversation details: $e');
+    debugPrintStack(stackTrace: stackTrace);
+
+    // Return empty list on error
+    return [];
+  }
 });
 
 final createConversationProvider = FutureProvider.family<String, String>((ref, otherUserId) async {
@@ -250,7 +250,7 @@ final conversationLastMessageStreamProvider = StreamProvider.family<Conversation
           conversationId: conversationId,
           lastMessageAt: null,
           lastMessageId: null,
-          lastMessageContent: 'Loading',
+          lastMessageContent: 'Start Sending!',
           lastMessageContentType: null,
           lastMessageSender: null,
           lastReadAt: null,
@@ -284,6 +284,9 @@ final conversationLastMessageStreamProvider = StreamProvider.family<Conversation
         case 'story_reply':
           processedContent = 'Story reply 💬';
           break;
+        case 'plan':
+          processedContent = 'My Plan! ✈️';
+          break;
         case 'image':
         case 'video':
         case 'gif': // NOT YET SUPPORTED
@@ -305,5 +308,41 @@ final conversationLastMessageStreamProvider = StreamProvider.family<Conversation
   } catch (e) {
     print('Error in message stream: $e');
     yield null;
+  }
+});
+
+// Simple stream that monitors for new conversations and triggers refresh
+final newConversationTriggerProvider = StreamProvider<bool>((ref) async* {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    yield false;
+    return;
+  }
+
+  try {
+    // Get initial count of conversations
+    final initialResponse = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', user.uid);
+
+    int lastCount = (initialResponse as List).length;
+
+    // Stream conversation_participants for this user
+    final stream = supabase.from('conversation_participants').stream(primaryKey: ['conversation_id', 'user_id']).eq('user_id', user.uid);
+
+    await for (final events in stream) {
+      final currentCount = events.length;
+
+      // If count increased, a new conversation was added
+      if (currentCount > lastCount) {
+        lastCount = currentCount;
+        yield true; // Trigger refresh
+
+        // Reset to false after a short delay
+        await Future.delayed(Duration(milliseconds: 100));
+        yield false;
+      }
+    }
+  } catch (e) {
+    print('Error in conversation trigger stream: $e');
+    yield false;
   }
 });

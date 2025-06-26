@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -186,6 +187,32 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                   size: 12,
                   color: Colors.grey,
                   underlined: true,
+                ),
+              ),
+              SizedBox(height: height * 0.03),
+              TextButton.icon(
+                onPressed: () async {
+                  // Check if there's a current user who needs verification
+                  User? currentUser = FirebaseAuth.instance.currentUser;
+                  if (currentUser != null && !currentUser.emailVerified) {
+                    await resendVerificationEmail(context, ref);
+                  }
+                },
+                icon: Icon(
+                  Icons.refresh,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                label: Text(
+                  "Resend Verification Email",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 ),
               ),
               SizedBox(height: height * 0.04),

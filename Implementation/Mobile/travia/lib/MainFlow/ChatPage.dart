@@ -1616,10 +1616,337 @@ class MessageBubble extends ConsumerWidget {
     } else if (isStoryReply && !message.isDeleted) {
       // Add special case for story reply
       return _buildSwipeWrapper(context, ref, _buildStoryReplyBubble(context, ref, isRead, isSelected, hasSelection, storyMediaUrl ?? '', messageContent));
+    } else if (message.contentType == 'plan' && !message.isDeleted) {
+      return _buildPlanBubble(context, ref, isRead, isSelected, hasSelection);
     } else {
       // Media messages
       return _buildSwipeWrapper(context, ref, _buildMediaBubble(context, ref, isSelected, hasSelection));
     }
+  }
+
+  // PLAN BUBBLE
+  Widget _buildPlanBubble(BuildContext context, WidgetRef ref, bool isRead, bool isSelected, bool hasSelection) {
+    final planDetailsAsync = ref.watch(planDetailsProvider(message.content));
+
+    final bubbleContent = planDetailsAsync.when(
+      data: (planDetails) {
+        final itinerary = planDetails.itinerary;
+        final businesses = planDetails.businesses;
+        print("ITINERARY DATA: $itinerary");
+
+        String? getCoverPhoto() {
+          if (businesses.isEmpty) return null;
+          final businessesWithPhotos = businesses.where((b) => b['photos'] != null && (b['photos'] as List).isNotEmpty).toList();
+          if (businessesWithPhotos.isEmpty) return null;
+          return (businessesWithPhotos.first['photos'] as List).first as String?;
+        }
+
+        final coverPhotoUrl = getCoverPhoto();
+
+        return Column(
+          crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (!isCurrentUser)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4.0, left: 12.0, top: 8.0),
+                child: Text(
+                  message.senderUsername ?? 'Unknown',
+                  style: TextStyle(color: kDeepPink, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            GestureDetector(
+              onTap: () {
+                context.push("/plan-result/${itinerary["trip_id"]}");
+              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4.0, 4.0, 4.0, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (coverPhotoUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CachedNetworkImage(
+                          height: 110,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          imageUrl: coverPhotoUrl,
+                          placeholder: (context, url) => Container(height: 110, color: Colors.grey[300]),
+                          errorWidget: (context, url, error) => Container(height: 110, color: Colors.grey[300], child: Icon(Icons.image_not_supported)),
+                        ),
+                      )
+                    else
+                      Container(
+                        height: 110,
+                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(12)),
+                        child: Center(child: Icon(Icons.map_outlined, color: Colors.grey[600], size: 40)),
+                      ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text(
+                        itinerary['trip_name'] ?? 'Trip Plan',
+                        style: GoogleFonts.lexendDeca(fontWeight: FontWeight.bold, fontSize: 14, color: isCurrentUser ? Colors.white : Colors.grey[900]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today, size: 12, color: isCurrentUser ? Colors.white70 : Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text("${itinerary['preferences_snapshot']['travel_days'] ?? 1} days", style: GoogleFonts.lexendDeca(fontSize: 12, color: isCurrentUser ? Colors.white70 : Colors.grey[700])),
+                          const SizedBox(width: 10),
+                          Icon(Icons.place, size: 12, color: isCurrentUser ? Colors.white70 : Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text("${businesses.length} places", style: GoogleFonts.lexendDeca(fontSize: 12, color: isCurrentUser ? Colors.white70 : Colors.grey[700])),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 6),
+              child: _buildTimestampAndReadStatus(isRead),
+            ),
+          ],
+        );
+      },
+      loading: () => Skeletonizer(
+        enabled: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isCurrentUser)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4.0, left: 12.0, top: 8.0),
+                child: Text(
+                  message.senderUsername ?? 'Unknown',
+                  style: TextStyle(color: kDeepPink, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 110,
+                    width: double.infinity,
+                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(12)),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Bone.text(words: 3, style: GoogleFonts.lexendDeca(fontSize: 14)),
+                  ),
+                  const SizedBox(height: 5),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Bone.text(words: 4, style: GoogleFonts.lexendDeca(fontSize: 12)),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 4, bottom: 2),
+                    child: Bone.text(words: 1, style: TextStyle(fontSize: 11)),
+                  )
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (err, stack) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 20.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, color: isCurrentUser ? Colors.white70 : Colors.grey[700], size: 16),
+            const SizedBox(width: 8),
+            Text('Plan was deleted', style: TextStyle(color: isCurrentUser ? Colors.white70 : Colors.grey[700])),
+          ],
+        ),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isCurrentUser) ...[
+            _buildAvatar(context),
+            const SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: hasSelection ? () => ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message) : () => print("Plan bubble tapped!"),
+            onLongPress: () => ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message),
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.65, // Reduced max width
+              ),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.grey.withOpacity(0.5)
+                    : isCurrentUser
+                        ? (isPending ? kDeepPink.withOpacity(0.7) : kDeepPink)
+                        : Colors.white,
+                borderRadius: BorderRadius.circular(20).copyWith(
+                  bottomLeft: isCurrentUser ? const Radius.circular(20) : const Radius.circular(0),
+                  bottomRight: isCurrentUser ? const Radius.circular(0) : const Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isCurrentUser ? kDeepPink : Colors.grey).withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+                gradient: isCurrentUser
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [kDeepPink, kDeepPink.withOpacity(0.9)],
+                      )
+                    : null,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: bubbleContent,
+              ),
+            ),
+          ),
+          if (isCurrentUser) ...[
+            const SizedBox(width: 8),
+            _buildAvatar(context),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Build a text message bubble
+  Widget _buildTextBubble(BuildContext context, WidgetRef ref, bool isRead, bool isSelected, bool hasSelection) {
+    final String content = "${message.content}${message.isEdited ? ' (edited)' : ''}";
+    final bool isEmojiOnlyMessage = isEmojiOnly(message.content);
+    final bool isTextMessage = message.contentType == 'text' || message.content.toLowerCase() == "deleted";
+
+    final bubbleColor = isSelected
+        ? Colors.grey.withOpacity(0.5)
+        : isCurrentUser
+            ? (isPending ? kDeepPink.withOpacity(0.7) : kDeepPink)
+            : Colors.white;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isCurrentUser) ...[
+            _buildAvatar(context),
+            SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: hasSelection
+                ? () {
+                    ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
+                  }
+                : null,
+            onLongPress: () {
+              ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
+            },
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
+              ),
+              padding: EdgeInsets.symmetric(
+                horizontal: isEmojiOnlyMessage ? 8 : 16,
+                vertical: isEmojiOnlyMessage ? 6 : 10,
+              ),
+              decoration: isEmojiOnlyMessage
+                  ? null
+                  : BoxDecoration(
+                      color: bubbleColor,
+                      borderRadius: BorderRadius.circular(20).copyWith(
+                        bottomLeft: isCurrentUser ? Radius.circular(20) : Radius.circular(0),
+                        bottomRight: isCurrentUser ? Radius.circular(0) : Radius.circular(20),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isCurrentUser ? kDeepPink : Colors.grey).withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                      gradient: isCurrentUser
+                          ? LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                kDeepPink,
+                                kDeepPink.withOpacity(0.9),
+                              ],
+                            )
+                          : null,
+                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isCurrentUser)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Text(
+                        message.senderUsername ?? 'Unknown',
+                        style: TextStyle(
+                          color: kDeepPink,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  _buildReplyPreview(),
+                  if (isTextMessage)
+                    Text(
+                      content,
+                      textDirection: isMostlyRtl(content),
+                      style: TextStyle(
+                        fontSize: isEmojiOnlyMessage ? 28 : 15,
+                        fontStyle: (message.isEdited || message.isDeleted) ? FontStyle.italic : FontStyle.normal,
+                        color: message.isDeleted
+                            ? Colors.grey
+                            : isEmojiOnlyMessage
+                                ? (isCurrentUser ? kDeepPink : Colors.black87)
+                                : isCurrentUser
+                                    ? kWhite
+                                    : Colors.black87,
+                      ),
+                    )
+                  else
+                    MediaPreview(
+                      mediaUrl: message.content,
+                      isVideo: isPathVideo(message.content),
+                    ),
+                  SizedBox(height: 4),
+                  _buildTimestampAndReadStatus(isRead),
+                ],
+              ),
+            ),
+          ),
+          if (isCurrentUser) ...[
+            SizedBox(width: 8),
+            _buildAvatar(context),
+          ],
+        ],
+      ),
+    );
   }
 
   // Story Reply Bubble
@@ -1697,7 +2024,6 @@ class MessageBubble extends ConsumerWidget {
                         ),
                       ),
                     ),
-
                   // Story Preview Container
                   Container(
                     margin: EdgeInsets.only(bottom: 6, left: 8, right: 8, top: isCurrentUser ? 6 : 0),
@@ -1841,123 +2167,6 @@ class MessageBubble extends ConsumerWidget {
               color: Colors.black,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // Build a text message bubble
-  Widget _buildTextBubble(BuildContext context, WidgetRef ref, bool isRead, bool isSelected, bool hasSelection) {
-    final String content = "${message.content}${message.isEdited ? ' (edited)' : ''}";
-    final bool isEmojiOnlyMessage = isEmojiOnly(message.content);
-    final bool isTextMessage = message.contentType == 'text' || message.content.toLowerCase() == "deleted";
-
-    final bubbleColor = isSelected
-        ? Colors.grey.withOpacity(0.5)
-        : isCurrentUser
-            ? (isPending ? kDeepPink.withOpacity(0.7) : kDeepPink)
-            : Colors.white;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isCurrentUser) ...[
-            _buildAvatar(context),
-            SizedBox(width: 8),
-          ],
-          GestureDetector(
-            onTap: hasSelection
-                ? () {
-                    ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
-                  }
-                : null,
-            onLongPress: () {
-              ref.read(messageActionsProvider.notifier).toggleSelectedMessage(message);
-            },
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.7,
-              ),
-              padding: EdgeInsets.symmetric(
-                horizontal: isEmojiOnlyMessage ? 8 : 16,
-                vertical: isEmojiOnlyMessage ? 6 : 10,
-              ),
-              decoration: isEmojiOnlyMessage
-                  ? null
-                  : BoxDecoration(
-                      color: bubbleColor,
-                      borderRadius: BorderRadius.circular(20).copyWith(
-                        bottomLeft: isCurrentUser ? Radius.circular(20) : Radius.circular(0),
-                        bottomRight: isCurrentUser ? Radius.circular(0) : Radius.circular(20),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (isCurrentUser ? kDeepPink : Colors.grey).withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                      gradient: isCurrentUser
-                          ? LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                kDeepPink,
-                                kDeepPink.withOpacity(0.9),
-                              ],
-                            )
-                          : null,
-                    ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!isCurrentUser)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Text(
-                        message.senderUsername ?? 'Unknown',
-                        style: TextStyle(
-                          color: kDeepPink,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  _buildReplyPreview(),
-                  if (isTextMessage)
-                    Text(
-                      content,
-                      textDirection: isMostlyRtl(content),
-                      style: TextStyle(
-                        fontSize: isEmojiOnlyMessage ? 28 : 15,
-                        fontStyle: (message.isEdited || message.isDeleted) ? FontStyle.italic : FontStyle.normal,
-                        color: message.isDeleted
-                            ? Colors.grey
-                            : isEmojiOnlyMessage
-                                ? (isCurrentUser ? kDeepPink : Colors.black87)
-                                : isCurrentUser
-                                    ? kWhite
-                                    : Colors.black87,
-                      ),
-                    )
-                  else
-                    MediaPreview(
-                      mediaUrl: message.content,
-                      isVideo: isPathVideo(message.content),
-                    ),
-                  SizedBox(height: 4),
-                  _buildTimestampAndReadStatus(isRead),
-                ],
-              ),
-            ),
-          ),
-          if (isCurrentUser) ...[
-            SizedBox(width: 8),
-            _buildAvatar(context),
-          ],
         ],
       ),
     );
@@ -2689,3 +2898,37 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
     );
   }
 }
+
+class PlanDetails {
+  final Map<String, dynamic> itinerary;
+  final List<dynamic> businesses;
+  final int totalDays;
+  PlanDetails({required this.itinerary, required this.businesses, required this.totalDays});
+}
+
+final planDetailsProvider = FutureProvider.family<PlanDetails, String>((ref, tripId) async {
+  // Fetch all days for this trip
+  final itineraryDataList = await supabase.from('itineraries').select().eq('trip_id', tripId);
+
+  if (itineraryDataList.isEmpty) {
+    throw Exception('Plan not found');
+  }
+
+  // Get all business IDs
+  final Set<int> businessIds = {};
+  for (final dayData in itineraryDataList) {
+    businessIds.addAll(List<int>.from(dayData['business_ids'] ?? []));
+  }
+
+  // Fetch businesses
+  List<dynamic> businesses = [];
+  if (businessIds.isNotEmpty) {
+    businesses = await supabase.from('businesses').select('id, name, photos').inFilter('id', businessIds.toList());
+  }
+
+  return PlanDetails(
+    itinerary: itineraryDataList.first,
+    businesses: businesses,
+    totalDays: itineraryDataList.length,
+  );
+});

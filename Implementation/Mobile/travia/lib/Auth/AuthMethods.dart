@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:travia/Helpers/PopUp.dart';
-import 'package:travia/Providers/PostsCommentsProviders.dart';
 
 import '../Providers/LoadingProvider.dart';
 import '../Services/NotificationService.dart';
@@ -118,7 +117,6 @@ Future<void> signInWithEmailAndPassword(
 }
 
 // =====================================
-
 Future<void> signUpWithEmailAndPassword(
   BuildContext context,
   WidgetRef ref, {
@@ -127,6 +125,7 @@ Future<void> signUpWithEmailAndPassword(
 }) async {
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
+
     // Create user
     UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: email,
@@ -136,16 +135,74 @@ Future<void> signUpWithEmailAndPassword(
     User? user = userCredential.user;
     if (user == null) throw Exception("User creation failed");
 
-    // Send email verification
-    await user.sendEmailVerification();
+    print("User created successfully: ${user.uid}");
+    print("User email: ${user.email}");
+    print("Email verified status: ${user.emailVerified}");
 
-    // Show popup instructing user to verify
-    Popup.showSuccess(text: "A verification email has been sent to $email. Please verify before logging in.", context: context, duration: 10);
+    // Check if email verification is needed
+    if (user.emailVerified) {
+      print("Email is already verified!");
+      Popup.showSuccess(
+        text: "Account created and email is already verified!",
+        context: context,
+        duration: 5,
+      );
+      context.go("/splash-screen");
+      return;
+    }
 
-    // Start listening for verification
-    await _waitForEmailVerification(user, context, ref);
+    // Send email verification with detailed error handling
+    try {
+      print("Attempting to send verification email...");
+      await user.sendEmailVerification();
+      print("Verification email sent successfully!");
+
+      // Show popup instructing user to verify
+      Popup.showSuccess(
+        text: "A verification email has been sent to $email. Please check your INBOX and SPAM folder.",
+        context: context,
+        duration: 10,
+      );
+
+      // Start listening for verification
+      await _waitForEmailVerification(user, context, ref);
+    } on FirebaseAuthException catch (emailError) {
+      print("Firebase error sending verification email: ${emailError.code} - ${emailError.message}");
+
+      switch (emailError.code) {
+        case "too-many-requests":
+          Popup.showError(
+            text: "Too many verification emails sent. Please wait before requesting another.",
+            context: context,
+          );
+          break;
+        case "network-request-failed":
+          Popup.showError(
+            text: "Network error. Please check your connection and try again.",
+            context: context,
+          );
+          break;
+        case "invalid-email":
+          Popup.showError(
+            text: "Invalid email address. Please check and try again.",
+            context: context,
+          );
+          break;
+        default:
+          Popup.showError(
+            text: "Failed to send verification email: ${emailError.message}",
+            context: context,
+          );
+      }
+    } catch (emailError) {
+      print("Unexpected error sending verification email: $emailError");
+      Popup.showError(
+        text: "Failed to send verification email. Please try again.",
+        context: context,
+      );
+    }
   } on FirebaseAuthException catch (e) {
-    print(e);
+    print("Firebase Auth Exception: ${e.code} - ${e.message}");
     String errorMessage = "";
 
     switch (e.code) {
@@ -170,6 +227,7 @@ Future<void> signUpWithEmailAndPassword(
 
     Popup.showError(text: errorMessage, context: context);
   } catch (e) {
+    print("Unexpected error: $e");
     Popup.showError(
       text: "An unexpected error occurred. Please try again later.",
       context: context,
@@ -178,14 +236,13 @@ Future<void> signUpWithEmailAndPassword(
     ref.read(loadingProvider.notifier).setLoadingToFalse();
   }
 }
-
 // =====================================
 
 Future<void> _waitForEmailVerification(User user, BuildContext context, WidgetRef ref) async {
   final FirebaseAuth auth = FirebaseAuth.instance;
   const int timeoutSeconds = 300; // Set a timeout of 5 minutes
   int elapsedSeconds = 0;
-  int refreshPeriod = 2;
+  int refreshPeriod = 3;
 
   Timer.periodic(Duration(seconds: refreshPeriod), (timer) async {
     if (auth.currentUser == null) {
@@ -217,7 +274,7 @@ Future<void> signInWithGoogle(BuildContext context, WidgetRef ref) async {
   try {
     ref.read(loadingProvider.notifier).setLoadingToTrue();
 
-    final GoogleSignInAccount? googleUser = await GoogleSignIn(clientId: "536970171951-k30lmtrdnc348rr806u0lroar3kh5clj.apps.googleusercontent.com").signIn();
+    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
       ref.read(loadingProvider.notifier).setLoadingToFalse();
       return; // User canceled the sign-in
@@ -280,9 +337,6 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
     if (await googleSignIn.isSignedIn()) {
       await googleSignIn.signOut();
     }
-    ref.invalidate(postsProvider);
-
-    context.go("/splash-screen");
     Phoenix.rebirth(context);
   } catch (e) {
     Popup.showError(text: "Sign-out failed", context: context);
@@ -293,6 +347,60 @@ Future<void> signOut(BuildContext context, WidgetRef ref) async {
 final firebaseAuthProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
+
+// =====================================
+
+Future<void> resendVerificationEmail(BuildContext context, WidgetRef ref) async {
+  try {
+    ref.read(loadingProvider.notifier).setLoadingToTrue();
+
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Popup.showError(
+        text: "No user found. Please sign up first.",
+        context: context,
+      );
+      return;
+    }
+
+    if (user.emailVerified) {
+      Popup.showSuccess(
+        text: "Your email is already verified! You can proceed to sign in.",
+        context: context,
+      );
+      return;
+    }
+
+    await user.sendEmailVerification();
+    Popup.showSuccess(
+      text: "Verification email sent to ${user.email}. Please check your inbox.",
+      context: context,
+    );
+
+    // Restart verification listening
+    await _waitForEmailVerification(user, context, ref);
+  } on FirebaseAuthException catch (e) {
+    String errorMessage = "";
+    switch (e.code) {
+      case "too-many-requests":
+        errorMessage = "Too many requests. Please wait before requesting another verification email.";
+        break;
+      case "network-request-failed":
+        errorMessage = "Network error. Please check your connection.";
+        break;
+      default:
+        errorMessage = "Failed to send verification email. Please try again.";
+    }
+    Popup.showError(text: errorMessage, context: context);
+  } catch (e) {
+    Popup.showError(
+      text: "An unexpected error occurred. Please try again.",
+      context: context,
+    );
+  } finally {
+    ref.read(loadingProvider.notifier).setLoadingToFalse();
+  }
+}
 
 // =====================================
 

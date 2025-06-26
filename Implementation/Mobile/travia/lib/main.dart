@@ -280,14 +280,11 @@ class MyApp extends StatelessWidget {
             builder: (context, state) => CitySelector(),
           ),
           GoRoute(
-            path: '/plan-result',
+            path: '/plan-result/:tripId',
             builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?;
-              return PlanResultPage(
-                destination: extra?['destination'] ?? 'Paris',
-                days: extra?['days'] ?? 1,
-                date: extra?['date'] ?? DateTime.now(),
-              );
+              final tripId = state.pathParameters['tripId']!;
+
+              return PlanResultPage(tripId: tripId);
             },
           ),
         ],

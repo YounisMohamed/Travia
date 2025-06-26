@@ -65,11 +65,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    Future<void> refresh() async {
-      await Future.delayed(Duration(milliseconds: 300));
-      Phoenix.rebirth(context);
-    }
-
     Future<void> _handleBlockUser(BuildContext context, WidgetRef ref) async {
       // Show confirmation dialog
       showCustomDialog(
@@ -148,9 +143,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
           return Scaffold(
             body: RefreshIndicator(
-              onRefresh: refresh,
+              onRefresh: () async {
+                refresh(context);
+              },
               displacement: 32,
-              color: Colors.black,
+              color: kDeepPink,
               backgroundColor: Colors.white,
               child: Stack(
                 children: [
@@ -785,7 +782,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                                                   Icon(Icons.inbox, size: 60, color: kDeepPinkLight),
                                                                   const SizedBox(height: 10),
                                                                   Text(
-                                                                    'No${isTabEqualPosts ? "" : " ${tabLabels[selectedTab].toLowerCase()}"} posts yet.\n If this was an Error,\nTry Refreshing.',
+                                                                    'No${isTabEqualPosts ? "" : " ${tabLabels[selectedTab].toLowerCase()}"} posts yet\nIf this was an Error\nTry Refreshing',
                                                                     textAlign: TextAlign.center,
                                                                     style: TextStyle(
                                                                       fontSize: 16,

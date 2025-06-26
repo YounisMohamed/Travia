@@ -89,7 +89,7 @@ class ExplorePage extends ConsumerWidget {
         body: RefreshIndicator(
           onRefresh: refresh,
           displacement: 32,
-          color: Colors.black,
+          color: kDeepPink,
           backgroundColor: Colors.white,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

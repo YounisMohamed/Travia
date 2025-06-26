@@ -102,7 +102,7 @@ class SignInWithOtpState extends ConsumerState<ForgotPassword> {
                                     print("Not Valid");
                                   }
                                 },
-                                bgGradient: LinearGradient(colors: [Colors.orangeAccent, Colors.purpleAccent]),
+                                bgGradient: LinearGradient(colors: [kDeepPinkLight, kDeepPink]),
                                 animationDuration: 5,
                               ),
                         SizedBox(height: height * 0.05),

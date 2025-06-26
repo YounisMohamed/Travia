@@ -159,6 +159,7 @@ Future<void> deletePostFromDatabase(String postId) async {
     }
 
     try {
+      await supabase.from('metadata').delete().eq('post_id', postId);
       await supabase.from('posts').delete().eq('id', postId);
       print("Post deleted from database: $postId");
     } catch (e) {

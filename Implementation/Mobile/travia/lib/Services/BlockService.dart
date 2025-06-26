@@ -1,10 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../main.dart';
 
 class BlockService {
-  static final _supabase = Supabase.instance.client;
-
   /// Block a user
   /// This adds targetUserId to currentUser's blocked_user_ids array
   /// and adds currentUserId to targetUser's blocked_by_user_ids array
@@ -13,7 +12,7 @@ class BlockService {
       // Start a transaction-like operation by performing both updates
 
       // 1. Add targetUserId to current user's blocked_user_ids
-      await _supabase.rpc('add_to_array', params: {
+      await supabase.rpc('add_to_array', params: {
         'table_name': 'users',
         'column_name': 'blocked_user_ids',
         'user_id': currentUserId,
@@ -21,7 +20,7 @@ class BlockService {
       });
 
       // 2. Add currentUserId to target user's blocked_by_user_ids
-      await _supabase.rpc('add_to_array', params: {
+      await supabase.rpc('add_to_array', params: {
         'table_name': 'users',
         'column_name': 'blocked_by_user_ids',
         'user_id': targetUserId,
@@ -44,7 +43,7 @@ class BlockService {
   static Future<bool> unblockUser(String currentUserId, String targetUserId) async {
     try {
       // 1. Remove targetUserId from current user's blocked_user_ids
-      await _supabase.rpc('remove_from_array', params: {
+      await supabase.rpc('remove_from_array', params: {
         'table_name': 'users',
         'column_name': 'blocked_user_ids',
         'user_id': currentUserId,
@@ -52,7 +51,7 @@ class BlockService {
       });
 
       // 2. Remove currentUserId from target user's blocked_by_user_ids
-      await _supabase.rpc('remove_from_array', params: {
+      await supabase.rpc('remove_from_array', params: {
         'table_name': 'users',
         'column_name': 'blocked_by_user_ids',
         'user_id': targetUserId,
@@ -69,7 +68,7 @@ class BlockService {
   /// Check if currentUser has blocked targetUser
   static Future<bool> hasBlocked(String currentUserId, String targetUserId) async {
     try {
-      final response = await _supabase.from('users').select('blocked_user_ids').eq('id', currentUserId).single();
+      final response = await supabase.from('users').select('blocked_user_ids').eq('id', currentUserId).single();
 
       final blockedIds = List<String>.from(response['blocked_user_ids'] ?? []);
       return blockedIds.contains(targetUserId);
@@ -82,7 +81,7 @@ class BlockService {
   /// Check if currentUser is blocked by targetUser
   static Future<bool> isBlockedBy(String currentUserId, String targetUserId) async {
     try {
-      final response = await _supabase.from('users').select('blocked_by_user_ids').eq('id', currentUserId).single();
+      final response = await supabase.from('users').select('blocked_by_user_ids').eq('id', currentUserId).single();
 
       final blockedByIds = List<String>.from(response['blocked_by_user_ids'] ?? []);
       return blockedByIds.contains(targetUserId);
@@ -102,7 +101,7 @@ class BlockService {
   /// Get list of users that current user has blocked
   static Future<List<String>> getBlockedUsers(String currentUserId) async {
     try {
-      final response = await _supabase.from('users').select('blocked_user_ids').eq('id', currentUserId).single();
+      final response = await supabase.from('users').select('blocked_user_ids').eq('id', currentUserId).single();
 
       return List<String>.from(response['blocked_user_ids'] ?? []);
     } catch (e) {
@@ -115,14 +114,14 @@ class BlockService {
   static Future<void> _removeFromConnections(String currentUserId, String targetUserId) async {
     try {
       // Remove target from current user's following and friends
-      await _supabase.rpc('remove_from_array', params: {
+      await supabase.rpc('remove_from_array', params: {
         'table_name': 'users',
         'column_name': 'following_ids',
         'user_id': currentUserId,
         'value_to_remove': targetUserId,
       });
 
-      await _supabase.rpc('remove_from_array', params: {
+      await supabase.rpc('remove_from_array', params: {
         'table_name': 'users',
         'column_name': 'friend_ids',
         'user_id': currentUserId,
@@ -130,14 +129,14 @@ class BlockService {
       });
 
       // Remove current user from target's following and friends
-      await _supabase.rpc('remove_from_array', params: {
+      await supabase.rpc('remove_from_array', params: {
         'table_name': 'users',
         'column_name': 'following_ids',
         'user_id': targetUserId,
         'value_to_remove': currentUserId,
       });
 
-      await _supabase.rpc('remove_from_array', params: {
+      await supabase.rpc('remove_from_array', params: {
         'table_name': 'users',
         'column_name': 'friend_ids',
         'user_id': targetUserId,

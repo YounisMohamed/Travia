@@ -546,7 +546,7 @@ class HomeWidget extends ConsumerWidget {
               child: RefreshIndicator(
                 onRefresh: refresh,
                 displacement: 32,
-                color: Colors.black,
+                color: kDeepPink,
                 backgroundColor: Colors.white,
                 child: postsAsync.when(
                   loading: () => Skeletonizer(

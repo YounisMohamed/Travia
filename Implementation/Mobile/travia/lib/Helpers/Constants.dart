@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:travia/Helpers/AppColors.dart';
 
 BoxDecoration backGroundColor() {
   return BoxDecoration(color: Colors.white);
+}
+
+String baseUrlForPlanner = 'http://192.168.8.17:8001';
+String baseUrlForClassification = 'http://192.168.8.17:8000';
+
+Future<void> refresh(context) async {
+  await Future.delayed(Duration(milliseconds: 300));
+  Phoenix.rebirth(context);
 }
 
 final List<Map<String, String>> countries = [

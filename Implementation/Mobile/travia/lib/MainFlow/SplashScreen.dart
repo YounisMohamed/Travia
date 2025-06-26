@@ -37,7 +37,7 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (!mounted) return;
 
-    if (user == null) {
+    if (user == null || !user.emailVerified) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go('/welcome');
       });

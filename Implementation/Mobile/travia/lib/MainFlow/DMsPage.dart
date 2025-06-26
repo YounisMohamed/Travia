@@ -60,6 +60,15 @@ class _DMsPageState extends ConsumerState<DMsPage> {
     final detailsAsync = ref.watch(conversationDetailsProvider);
     final isLoading = ref.watch(conversationIsLoadingProvider);
 
+    ref.listen(newConversationTriggerProvider, (previous, next) {
+      next.whenData((shouldRefresh) {
+        if (shouldRefresh) {
+          // Invalidate the conversation details provider to force a refresh
+          ref.invalidate(conversationDetailsProvider);
+        }
+      });
+    });
+
     return Scaffold(
       backgroundColor: kBackground,
       appBar: AppBar(

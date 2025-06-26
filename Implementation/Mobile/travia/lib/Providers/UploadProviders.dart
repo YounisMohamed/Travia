@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../Helpers/PopUp.dart';
+import '../Services/ClassificationService.dart';
 import '../main.dart';
 import 'ImagePickerProvider.dart';
 
@@ -181,9 +182,11 @@ class MediaUploadService {
     }
   }
 
-  static Future<void> savePostToDatabase(String userId, String mediaUrl, String caption, String location, {String? videoThumbnail}) async {
+  static Future<void> savePostToDatabase(
+      {required String postId, required String userId, required String mediaUrl, required String caption, required String location, required String? videoThumbnail}) async {
     try {
       await supabase.from('posts').insert({
+        'id': postId,
         'user_id': userId,
         'media_url': mediaUrl,
         'caption': caption,
@@ -210,13 +213,51 @@ abstract class MediaUploadNotifier extends StateNotifier<bool> {
   }
 }
 
+class UploadState {
+  final bool isUploading;
+  final String? currentStep;
+  final double? progress;
+
+  const UploadState({
+    this.isUploading = false,
+    this.currentStep,
+    this.progress,
+  });
+
+  UploadState copyWith({
+    bool? isUploading,
+    String? currentStep,
+    double? progress,
+  }) {
+    return UploadState(
+      isUploading: isUploading ?? this.isUploading,
+      currentStep: currentStep ?? this.currentStep,
+      progress: progress ?? this.progress,
+    );
+  }
+}
+
 // Post upload provider
-final postProvider = StateNotifierProvider<PostUploadNotifier, bool>((ref) {
+final postProvider = StateNotifierProvider<PostUploadNotifier, UploadState>((ref) {
   return PostUploadNotifier(ref);
 });
 
-class PostUploadNotifier extends MediaUploadNotifier {
-  PostUploadNotifier(super.ref);
+class PostUploadNotifier extends StateNotifier<UploadState> {
+  final Ref ref;
+
+  PostUploadNotifier(this.ref) : super(const UploadState());
+
+  void setUploadStep(String step, {double? progress}) {
+    state = state.copyWith(
+      isUploading: true,
+      currentStep: step,
+      progress: progress,
+    );
+  }
+
+  void clearUploadState() {
+    state = const UploadState();
+  }
 
   Future<void> uploadPost({
     required String userId,
@@ -230,17 +271,30 @@ class PostUploadNotifier extends MediaUploadNotifier {
       return;
     }
 
-    setLoading(true);
-
     try {
-      final mediaUrl = await MediaUploadService.uploadMedia(mediaFile: mediaFile, userId: userId, bucketName: 'posts', folderPath: 'posts', compress: true, context: context);
+      // Step 1: Compressing
+      setUploadStep('Compressing media...', progress: 0.2);
+
+      final mediaUrl = await MediaUploadService.uploadMedia(
+        mediaFile: mediaFile,
+        userId: userId,
+        bucketName: 'posts',
+        folderPath: 'posts',
+        compress: true,
+        context: context,
+      );
 
       if (mediaUrl == null) throw Exception("Failed to upload media");
 
-      String? thumbnailUrl;
+      // Step 2: Uploading
+      setUploadStep('Uploading to storage...', progress: 0.4);
 
+      String? thumbnailUrl;
       final isVideo = mediaFile.path.endsWith(".mp4") || mediaFile.path.endsWith(".mov");
+
       if (isVideo) {
+        setUploadStep('Generating thumbnail...', progress: 0.5);
+
         final uint8list = await VideoThumbnail.thumbnailData(
           video: mediaFile.path,
           imageFormat: ImageFormat.PNG,
@@ -249,29 +303,116 @@ class PostUploadNotifier extends MediaUploadNotifier {
         );
 
         if (uint8list != null) {
-          final fileName = 'thumb_${DateTime.now().millisecondsSinceEpoch}.png';
+          final fileName = 'thumb_${DateTime.now().millisecondsSinceEpoch}.jpg';
           final storagePath = 'thumbnails/$userId/$fileName';
 
-          final uploadRes = await supabase.storage.from('posts').uploadBinary(storagePath, uint8list, fileOptions: const FileOptions(contentType: 'image/png'));
+          await supabase.storage.from('posts').uploadBinary(
+                storagePath,
+                uint8list,
+                fileOptions: const FileOptions(contentType: 'image/jpg'),
+              );
 
           final publicUrl = supabase.storage.from('posts').getPublicUrl(storagePath);
           thumbnailUrl = publicUrl;
         }
       }
 
+      final String postId = Uuid().v4();
+      print("POST ID: $postId");
+
+// Step 3: Save post to database
+      setUploadStep('Saving post...', progress: 0.6);
+
       await MediaUploadService.savePostToDatabase(
-        userId,
-        mediaUrl,
-        caption,
-        location,
+        postId: postId,
+        userId: userId,
+        mediaUrl: mediaUrl,
+        caption: caption,
+        location: location,
         videoThumbnail: thumbnailUrl,
       );
 
+// Step 4: Classification and metadata
+      if (!isVideo) {
+        setUploadStep('Analyzing content...', progress: 0.8);
+
+        try {
+          final classifier = TravelClassifierService.instance;
+
+          final classificationResult = await classifier.classifyFromUrl(
+            imageUrl: mediaUrl,
+            caption: caption,
+            confidenceThreshold: 0.5,
+          );
+
+          if (classificationResult.success) {
+            final attributes = classificationResult.attributes;
+            final metadata = classificationResult.metadata;
+
+            print("CUS CUS: ${attributes.restaurantsCuisines}");
+
+            await supabase.from('metadata').insert({
+              'post_id': postId,
+              'romantic': attributes.ambienceRomantic ? 1 : 0,
+              'good_for_kids': attributes.goodForKids ? 1 : 0,
+              'classy': attributes.ambienceClassy ? 1 : 0,
+              'casual': attributes.ambienceCasual ? 1 : 0,
+              'cuisine_types': ['italian'], // Array of cuisines
+              'combined_text': metadata.combinedText.replaceAll("Objects: image contains various objects and people...", ""), // Add the combined text
+            });
+
+            print('Classification successful: ${attributes.getActiveAttributes()}');
+            print('Combined text: ${metadata.combinedText}');
+          } else {
+            // Insert default metadata if classification returns but isn't successful
+            await supabase.from('metadata').insert({
+              'post_id': postId,
+              'romantic': 0,
+              'good_for_kids': 0,
+              'classy': 0,
+              'casual': 0,
+              'cuisine_types': [],
+              'combined_text': "",
+            });
+          }
+        } catch (classificationError) {
+          print('Classification failed: $classificationError');
+
+          await supabase.from('metadata').insert({
+            'post_id': postId,
+            'romantic': 0,
+            'good_for_kids': 0,
+            'classy': 0,
+            'casual': 0,
+            'cuisine_types': [],
+            'combined_text': "",
+          });
+        }
+      } else {
+        // For videos, insert default metadata
+        await supabase.from('metadata').insert({
+          'post_id': postId,
+          'romantic': 0,
+          'good_for_kids': 0,
+          'classy': 0,
+          'casual': 0,
+          'cuisine_types': [],
+          'combined_text': "",
+        });
+      }
+
+      setUploadStep('Complete!', progress: 1.0);
+      await Future.delayed(Duration(milliseconds: 500)); // Show complete briefly
+
       Popup.showSuccess(text: "Post uploaded successfully!", context: context);
+
+      // Clear states
+      clearUploadState();
+      ref.read(singleMediaPickerProvider.notifier).clearImage();
     } catch (e) {
       print("Post Upload Error: $e");
-    } finally {
-      setLoading(false);
+      Popup.showError(text: "Failed to upload post. Please try again.", context: context);
+      clearUploadState();
     }
   }
 }

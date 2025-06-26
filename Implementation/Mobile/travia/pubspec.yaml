@@ -102,6 +102,7 @@ dependencies:
   flutter_exit_app: ^1.1.4
   encrypt: ^5.0.3
   html: ^0.15.6
+  carousel_slider: ^5.1.1
 
 
 dependency_overrides:
