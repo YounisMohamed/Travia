@@ -89,9 +89,9 @@ class TravelRecommendationService:
             logger.error(f"Error saving PPO model: {e}")
     
     async def train_ppo_agent(self, connection: asyncpg.Connection, user_id: str):
-        """Train PPO agent based on user interactions"""
+        """Train PPO agent based on user interactions - OPTIMIZED for performance"""
         try:
-            # Get user interactions
+            # Get user interactions with business details already included
             interaction_data = await self.get_user_interactions_data(connection, user_id)
             interactions = interaction_data['interactions']
             
@@ -128,7 +128,7 @@ class TravelRecommendationService:
             # Get metadata preferences
             metadata_preferences = await self.analyze_user_metadata_preferences(connection, user_id)
             
-            # Prepare training data
+            # Prepare training data - OPTIMIZED: Use business details from interactions
             states = []
             actions = []
             rewards = []
@@ -137,30 +137,21 @@ class TravelRecommendationService:
                 # Create user feature vector (state)
                 user_features = self.create_user_feature_vector(user_preferences, metadata_preferences)
                 
-                # Get business details for this interaction
-                business_query = """
-                SELECT id, name, locality, region, country, stars, review_count, price_range,
-                       primary_category, categories, cuisines, phone, website, photos,
-                       payment_options, serves_beer, has_delivery, has_wifi,
-                       good_for_breakfast, good_for_lunch, good_for_dinner, good_for_dessert,
-                       ambience_classy, ambience_casual, ambience_romantic, ambience_touristy,
-                       good_for_kids
-                FROM businesses WHERE id = $1
-                """
+                # Create business object from interaction data (no additional DB query needed)
+                business = {
+                    'id': interaction['business_id'],
+                    'name': interaction['business_name'],
+                    'primary_category': interaction['primary_category'],
+                    'cuisines': interaction['cuisines'],
+                    'price_range': interaction['price_range'],
+                    'stars': interaction['stars'],
+                    'ambience_romantic': interaction['ambience_romantic'],
+                    'ambience_classy': interaction['ambience_classy'],
+                    'ambience_casual': interaction['ambience_casual'],
+                    'good_for_kids': interaction['good_for_kids']
+                }
                 
-                business_row = await connection.fetchrow(business_query, interaction['business_id'])
-                if not business_row:
-                    continue
-                
-                business = dict(business_row)
-                
-                # Parse JSON fields
-                if business.get('categories') and isinstance(business['categories'], str):
-                    try:
-                        business['categories'] = json.loads(business['categories'])
-                    except:
-                        business['categories'] = []
-                
+                # Parse cuisines if needed
                 if business.get('cuisines') and isinstance(business['cuisines'], str):
                     try:
                         business['cuisines'] = json.loads(business['cuisines'])
@@ -233,9 +224,9 @@ class TravelRecommendationService:
             # Normalize rewards
             rewards_tensor = (rewards_tensor - rewards_tensor.mean()) / (rewards_tensor.std() + 1e-8)
             
-            # PPO Training Loop
+            # PPO Training Loop - OPTIMIZED: Reduced epochs for faster training
             self.ppo_agent.train()
-            for epoch in range(10):  # 10 epochs as specified
+            for epoch in range(5):  # Reduced from 10 to 5 epochs for speed
                 # Forward pass
                 action_probs, state_values = self.ppo_agent(states_tensor)
                 
@@ -538,142 +529,22 @@ class TravelRecommendationService:
         
         return features
 
-    async def get_businesses_by_location_and_filters(
-        self, 
-        connection: asyncpg.Connection,
-        locality: str, 
-        region: str, 
-        user_preferences: Dict[str, Any],
-        limit: int = 1000
-    ) -> List[Dict[str, Any]]:
-        """Get businesses filtered by location and user preferences - updated for new schema"""
-        
-        # Base query with new schema columns
-        base_query = """
-        SELECT id, name, locality, region, country, stars, review_count, price_range,
-               primary_category, categories, cuisines, phone, website, photos,
-               payment_options, serves_beer, has_delivery, has_wifi,
-               good_for_breakfast, good_for_lunch, good_for_dinner, good_for_dessert,
-               ambience_classy, ambience_casual, ambience_romantic, ambience_touristy,
-               good_for_kids
-        FROM businesses 
-        WHERE locality = $1 AND region = $2
-        AND (stars >= 3.0 OR stars IS NULL)
-        AND name IS NOT NULL AND name != ''
-        """
-        
-        params = [locality, region]
-        param_count = 2
-        
-        # Add cuisine filtering if specified
-        preferred_cuisine = user_preferences.get('preferred_cuisine', [])
-        if preferred_cuisine:
-            cuisine_conditions = []
-            for cuisine in preferred_cuisine:
-                param_count += 1
-                # Check in cuisines JSON array
-                cuisine_conditions.append(f"cuisines::text ILIKE ${param_count}")
-                params.append(f'%{cuisine}%')
-            
-            if cuisine_conditions:
-                base_query += f" AND ({' OR '.join(cuisine_conditions)})"
-        
-        # Add ordering and limit
-        base_query += " ORDER BY stars DESC NULLS LAST, review_count DESC"
-        
-        if limit:
-            param_count += 1
-            base_query += f" LIMIT ${param_count}"
-            params.append(limit)
-        
-        try:
-            rows = await connection.fetch(base_query, *params)
-            businesses = []
-            
-            for row in rows:
-                business = dict(row)
-                
-                # Parse JSON fields
-                if business.get('categories') and isinstance(business['categories'], str):
-                    try:
-                        business['categories'] = json.loads(business['categories'])
-                    except:
-                        business['categories'] = []
-                
-                if business.get('cuisines') and isinstance(business['cuisines'], str):
-                    try:
-                        business['cuisines'] = json.loads(business['cuisines'])
-                    except:
-                        business['cuisines'] = []
-                
-                if business.get('photos') and isinstance(business['photos'], str):
-                    try:
-                        business['photos'] = json.loads(business['photos'])
-                    except:
-                        business['photos'] = []
-                
-                if business.get('payment_options') and isinstance(business['payment_options'], str):
-                    try:
-                        business['payment_options'] = json.loads(business['payment_options'])
-                    except:
-                        business['payment_options'] = {}
-                
-                businesses.append(business)
-            
-            return businesses
-            
-        except Exception as e:
-            logger.error(f"Error fetching businesses: {e}")
-            return []
-
-    async def get_available_locations(self, connection: asyncpg.Connection) -> List[Dict[str, Any]]:
-        """Get available locations from businesses table - updated for new schema"""
-        try:
-            query = """
-            SELECT locality, region, country, COUNT(*) as business_count
-            FROM businesses
-            WHERE locality IS NOT NULL AND region IS NOT NULL
-            AND name IS NOT NULL AND name != ''
-            GROUP BY locality, region, country
-            HAVING COUNT(*) >= 10
-            ORDER BY business_count DESC, locality ASC
-            """
-            
-            rows = await connection.fetch(query)
-            locations = []
-            
-            for row in rows:
-                locations.append({
-                    'locality': row['locality'],
-                    'region': row['region'], 
-                    'country': row['country'],
-                    'business_count': row['business_count']
-                })
-            
-            return locations
-            
-        except Exception as e:
-            logger.error(f"Error fetching locations: {e}")
-            return []
-
     async def create_static_division_itinerary(
-        self,
-        connection: asyncpg.Connection,
-        user_preferences: Dict[str, Any],
-        businesses: List[Dict[str, Any]],
-        user_id: Optional[str] = None,
-        locality: Optional[str] = None,
-        region: Optional[str] = None
+            self,
+            connection: asyncpg.Connection,
+            user_preferences: Dict[str, Any],
+            businesses: List[Dict[str, Any]],
+            user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create itinerary using static division approach - updated for new schema"""
-        
+
         travel_days = user_preferences.get('travel_days', 5)
         include_gym = user_preferences.get('include_gym', False)
         include_bar = user_preferences.get('include_bar', False)
         include_nightlife = user_preferences.get('include_nightlife', False)
         include_beauty_health = user_preferences.get('include_beauty_health', False)
         include_shop = user_preferences.get('include_shop', False)
-        
+
         # Categorize businesses using new schema
         restaurants = []
         cafes = []
@@ -684,52 +555,58 @@ class TravelRecommendationService:
         nightlife = []
         dessert_places = []
         activities = []
-        
+
         for business in businesses:
             name_lower = business.get('name', '').lower()
             categories = business.get('categories', [])
             primary_category = business.get('primary_category', '').lower()
             cuisines = business.get('cuisines', [])
-            
+
             # Categorize based on new schema fields and categories
-            if any('restaurant' in cat.lower() or 'food' in cat.lower() for cat in categories) or 'restaurant' in primary_category:
+            if any('restaurant' in cat.lower() or 'food' in cat.lower() for cat in
+                   categories) or 'restaurant' in primary_category:
                 if business.get('good_for_breakfast'):
                     restaurants.append({**business, 'meal_type': 'breakfast'})
                 if business.get('good_for_lunch', True):
                     restaurants.append({**business, 'meal_type': 'lunch'})
                 if business.get('good_for_dinner', True):
                     restaurants.append({**business, 'meal_type': 'dinner'})
-            
+
             # Cafes
-            if any('cafe' in cat.lower() or 'coffee' in cat.lower() for cat in categories) or 'cafe' in primary_category or 'coffee' in name_lower:
+            if any('cafe' in cat.lower() or 'coffee' in cat.lower() for cat in
+                   categories) or 'cafe' in primary_category or 'coffee' in name_lower:
                 cafes.append(business)
-            
+
             # Dessert places
-            if (business.get('good_for_dessert') or 
-                any('dessert' in cat.lower() or 'ice cream' in cat.lower() or 'bakery' in cat.lower() for cat in categories) or
-                any(word in name_lower for word in ['ice cream', 'gelato', 'bakery', 'dessert'])):
+            if (business.get('good_for_dessert') or
+                    any('dessert' in cat.lower() or 'ice cream' in cat.lower() or 'bakery' in cat.lower() for cat in
+                        categories) or
+                    any(word in name_lower for word in ['ice cream', 'gelato', 'bakery', 'dessert'])):
                 dessert_places.append(business)
-            
+
             # Bars
-            if any('bar' in cat.lower() or 'nightlife' in cat.lower() for cat in categories) or 'bar' in primary_category or business.get('serves_beer'):
+            if any('bar' in cat.lower() or 'nightlife' in cat.lower() for cat in
+                   categories) or 'bar' in primary_category:
                 bars.append(business)
-            
+
             # Gyms
             if any('gym' in cat.lower() or 'fitness' in cat.lower() for cat in categories) or 'gym' in primary_category:
                 gyms.append(business)
-            
+
             # Shops
-            if any('shop' in cat.lower() or 'retail' in cat.lower() for cat in categories) or 'shop' in primary_category:
+            if any('shop' in cat.lower() or 'retail' in cat.lower() for cat in
+                   categories) or 'shop' in primary_category:
                 shops.append(business)
-            
+
             # Beauty & Health
             if any('beauty' in cat.lower() or 'spa' in cat.lower() or 'health' in cat.lower() for cat in categories):
                 beauty_health.append(business)
-            
+
             # Nightlife
-            if any('nightlife' in cat.lower() or 'club' in cat.lower() for cat in categories) or 'nightlife' in primary_category:
+            if any('nightlife' in cat.lower() or 'club' in cat.lower() for cat in
+                   categories) or 'nightlife' in primary_category:
                 nightlife.append(business)
-        
+
         # Get metadata preferences for RL scoring
         metadata_preferences = None
         if user_id:
@@ -737,24 +614,24 @@ class TravelRecommendationService:
                 metadata_preferences = await self.analyze_user_metadata_preferences(connection, user_id)
             except:
                 pass
-        
+
         # Helper function to rank businesses using RL
         def rank_businesses_with_rl(business_list, limit):
             if not business_list:
                 return []
-            
+
             # Score each business with RL
             scored_businesses = []
             for business in business_list:
                 rl_score = self.score_business_with_rl(user_preferences, business, metadata_preferences)
                 scored_businesses.append((business, rl_score))
-            
+
             # Sort by RL score (highest first) and take top results
             scored_businesses.sort(key=lambda x: x[1], reverse=True)
-            
+
             # Add some randomness to avoid always picking the same businesses
             top_candidates = scored_businesses[:min(len(scored_businesses), limit * 2)]
-            
+
             # Use weighted random selection from top candidates
             if len(top_candidates) <= limit:
                 return [business for business, score in top_candidates]
@@ -763,17 +640,17 @@ class TravelRecommendationService:
                 weights = [score + 0.1 for business, score in top_candidates]  # Add small baseline
                 selected = []
                 available = top_candidates.copy()
-                
+
                 for _ in range(min(limit, len(available))):
                     if not available:
                         break
-                    
+
                     # Weighted random selection
                     total_weight = sum(w for _, w in zip(available, weights[:len(available)]))
                     if total_weight <= 0:
                         selected.append(available.pop(0)[0])
                         continue
-                    
+
                     rand_val = random.random() * total_weight
                     cumsum = 0
                     for i, (business, score) in enumerate(available):
@@ -783,13 +660,13 @@ class TravelRecommendationService:
                             available.pop(i)
                             weights.pop(i)
                             break
-                
+
                 return selected
-        
+
         # Create itinerary with RL-based business ranking
         itinerary = []
         used_businesses = set()  # Track used businesses to avoid duplicates
-        
+
         for day in range(1, travel_days + 1):
             day_plan = {
                 'day': day,
@@ -799,17 +676,18 @@ class TravelRecommendationService:
                 'activities': [],
                 'dessert': []
             }
-            
+
             # Breakfast (cafes or breakfast restaurants) - RL ranked
-            breakfast_options = [r for r in restaurants if r.get('meal_type') == 'breakfast' and r['id'] not in used_businesses] + \
-                              [c for c in cafes if c['id'] not in used_businesses]
+            breakfast_options = [r for r in restaurants if
+                                 r.get('meal_type') == 'breakfast' and r['id'] not in used_businesses] + \
+                                [c for c in cafes if c['id'] not in used_businesses]
             if breakfast_options:
                 selected_breakfast = rank_businesses_with_rl(breakfast_options, 2)
                 day_plan['breakfast'] = selected_breakfast
                 for b in selected_breakfast:
                     used_businesses.add(b['id'])
                 logger.info(f"🤖 Day {day} breakfast: Selected {len(selected_breakfast)} businesses using RL")
-            
+
             # Lunch - RL ranked
             lunch_options = [r for r in restaurants if r.get('meal_type') == 'lunch' and r['id'] not in used_businesses]
             if lunch_options:
@@ -818,19 +696,20 @@ class TravelRecommendationService:
                 for b in selected_lunch:
                     used_businesses.add(b['id'])
                 logger.info(f"🤖 Day {day} lunch: Selected {len(selected_lunch)} businesses using RL")
-            
+
             # Dinner - RL ranked
-            dinner_options = [r for r in restaurants if r.get('meal_type') == 'dinner' and r['id'] not in used_businesses]
+            dinner_options = [r for r in restaurants if
+                              r.get('meal_type') == 'dinner' and r['id'] not in used_businesses]
             if dinner_options:
                 selected_dinner = rank_businesses_with_rl(dinner_options, 3)
                 day_plan['dinner'] = selected_dinner
                 for b in selected_dinner:
                     used_businesses.add(b['id'])
                 logger.info(f"🤖 Day {day} dinner: Selected {len(selected_dinner)} businesses using RL")
-            
+
             # Activities based on preferences - RL ranked
             day_activities = []
-            
+
             if include_gym and gyms:
                 available_gyms = [g for g in gyms if g['id'] not in used_businesses]
                 if available_gyms:
@@ -838,7 +717,7 @@ class TravelRecommendationService:
                     day_activities.extend(selected_gyms)
                     for g in selected_gyms:
                         used_businesses.add(g['id'])
-            
+
             if include_shop and shops:
                 available_shops = [s for s in shops if s['id'] not in used_businesses]
                 if available_shops:
@@ -846,7 +725,7 @@ class TravelRecommendationService:
                     day_activities.extend(selected_shops)
                     for s in selected_shops:
                         used_businesses.add(s['id'])
-            
+
             if include_beauty_health and beauty_health:
                 available_bh = [bh for bh in beauty_health if bh['id'] not in used_businesses]
                 if available_bh:
@@ -854,7 +733,7 @@ class TravelRecommendationService:
                     day_activities.extend(selected_bh)
                     for bh in selected_bh:
                         used_businesses.add(bh['id'])
-            
+
             if include_bar and bars:
                 available_bars = [b for b in bars if b['id'] not in used_businesses]
                 if available_bars:
@@ -862,7 +741,7 @@ class TravelRecommendationService:
                     day_activities.extend(selected_bars)
                     for b in selected_bars:
                         used_businesses.add(b['id'])
-            
+
             if include_nightlife and nightlife:
                 available_nightlife = [n for n in nightlife if n['id'] not in used_businesses]
                 if available_nightlife:
@@ -870,9 +749,9 @@ class TravelRecommendationService:
                     day_activities.extend(selected_nightlife)
                     for n in selected_nightlife:
                         used_businesses.add(n['id'])
-            
+
             day_plan['activities'] = day_activities
-            
+
             # Dessert - RL ranked
             available_desserts = [d for d in dessert_places if d['id'] not in used_businesses]
             if available_desserts:
@@ -881,28 +760,30 @@ class TravelRecommendationService:
                 for d in selected_desserts:
                     used_businesses.add(d['id'])
                 logger.info(f"🤖 Day {day} dessert: Selected {len(selected_desserts)} businesses using RL")
-            
+
             itinerary.append(day_plan)
-        
+
         return {
             'itinerary': itinerary,
             'total_businesses': len(businesses),
             'user_preferences': user_preferences
-        } 
+        }
 
     async def analyze_user_metadata_preferences(self, connection: asyncpg.Connection, user_id: str) -> Dict[str, float]:
         """
         Analyze user's liked posts to extract metadata preferences
         This is HOW THE AI KNOWS what the user likes based on post metadata
+        OPTIMIZED: Limited to recent likes for better performance
         """
         try:
-            # Query to get metadata from all posts the user has liked
+            # Query to get metadata from recent posts the user has liked (limited for performance)
             query = """
-            SELECT m.romantic, m.good_for_kids, m.classy, m.casual, m.cuisine_type
+            SELECT m.romantic, m.good_for_kids, m.classy, m.casual, m.cuisine_types
             FROM likes l
             JOIN metadata m ON l.post_id = m.post_id
             WHERE l.liker_user_id = $1 AND l.type = 'like'
             ORDER BY l.created_at DESC
+            LIMIT 30
             """
             
             rows = await connection.fetch(query, user_id)
@@ -951,16 +832,18 @@ class TravelRecommendationService:
         """
         Get user's interaction data for reinforcement learning
         This feeds the PPO Agent with like/dislike patterns
+        OPTIMIZED: Single query with business details to avoid N+1 problem
         """
         try:
             query = """
             SELECT ui.business_id, ui.interaction_type, ui.context_preferences, ui.created_at,
-                   b.name, b.primary_category, b.cuisines, b.price_range, b.stars
+                   b.name, b.primary_category, b.cuisines, b.price_range, b.stars,
+                   b.ambience_romantic, b.ambience_classy, b.ambience_casual, b.good_for_kids
             FROM user_interactions ui
             JOIN businesses b ON ui.business_id = b.id
             WHERE ui.user_id = $1
             ORDER BY ui.created_at DESC
-            LIMIT 100
+            LIMIT 50
             """
             
             rows = await connection.fetch(query, user_id)
@@ -975,7 +858,12 @@ class TravelRecommendationService:
                     'cuisines': row['cuisines'],
                     'price_range': row['price_range'],
                     'stars': row['stars'],
-                    'created_at': row['created_at']
+                    'created_at': row['created_at'],
+                    # Include business details for faster processing
+                    'ambience_romantic': row['ambience_romantic'],
+                    'ambience_classy': row['ambience_classy'],
+                    'ambience_casual': row['ambience_casual'],
+                    'good_for_kids': row['good_for_kids']
                 }
                 
                 # Parse context preferences if available
@@ -998,96 +886,276 @@ class TravelRecommendationService:
             
         except Exception as e:
             print(f"Error getting user interactions: {e}")
-            return {'interactions': [], 'total_likes': 0, 'total_dislikes': 0} 
+            return {'interactions': [], 'total_likes': 0, 'total_dislikes': 0}
 
-    async def get_balanced_businesses_with_variety(
-        self, 
-        connection: asyncpg.Connection,
-        locality: str, 
-        region: str, 
-        user_preferences: Dict[str, Any],
-        limit: int = 250
-    ) -> List[Dict[str, Any]]:
-        """
-        Get businesses with 70/30 balance: 70% preferred cuisine, 30% variety
-        Implements the balanced variety/bias selection system from AI architecture
-        """
-        
-        preferred_cuisine = user_preferences.get('preferred_cuisine', [])
-        preferred_limit = int(limit * 0.7)  # 70% for preferred
-        variety_limit = int(limit * 0.3)    # 30% for variety
-        
-        # Base query template
-        base_query_template = """
-        SELECT id, name, locality, region, country, stars, review_count, price_range,
-               primary_category, categories, cuisines, phone, website, photos,
-               payment_options, serves_beer, has_delivery, has_wifi,
-               good_for_breakfast, good_for_lunch, good_for_dinner, good_for_dessert,
-               ambience_classy, ambience_casual, ambience_romantic, ambience_touristy,
-               good_for_kids
-        FROM businesses 
-        WHERE locality = $1 AND region = $2
-        AND (stars >= 3.0 OR stars IS NULL)
-        AND name IS NOT NULL AND name != ''
-        """
-        
-        preferred_businesses = []
-        variety_businesses = []
-        
+    async def get_available_locations(self, connection: asyncpg.Connection) -> List[Dict[str, Any]]:
+        """Get available locations from businesses table - updated for new schema"""
         try:
-            if preferred_cuisine:
-                # Query for preferred cuisine businesses (70%)
-                preferred_query = base_query_template
-                cuisine_conditions = []
-                params = [locality, region]
-                param_count = 2
+            query = """
+            SELECT city as locality, region, country, COUNT(*) as business_count
+            FROM businesses
+            WHERE city IS NOT NULL AND region IS NOT NULL
+            AND name IS NOT NULL AND name != ''
+            GROUP BY city, region, country
+            HAVING COUNT(*) >= 10
+            ORDER BY business_count DESC, city ASC
+            """
+
+            rows = await connection.fetch(query)
+            locations = []
+
+            for row in rows:
+                locations.append({
+                    'locality': row['locality'],
+                    'region': row['region'],
+                    'country': row['country'],
+                    'business_count': row['business_count']
+                })
+
+            return locations
+
+        except Exception as e:
+            logger.error(f"Error fetching locations: {e}")
+            return []
+
+    async def get_businesses_by_location_and_filters(
+            self,
+            connection: asyncpg.Connection,
+            locality: str,
+            user_preferences: Dict[str, Any],
+            limit: int = 1000
+    ) -> List[Dict[str, Any]]:
+        """Get businesses filtered by location and user preferences - updated for new schema"""
+
+        # Base query with new schema columns
+        base_query = """
+        SELECT id, business_id, name, address, latitude, longitude, locality, region, country, city,
+       stars, review_count, price_range, primary_category, categories, cuisines, 
+       phone, website, photos, accepts_credit_cards, payment_options, 
+       serves_beer, has_delivery, has_wifi,
+       good_for_breakfast, good_for_lunch, good_for_dinner, good_for_dessert,
+       ambience_classy, ambience_casual, ambience_romantic, ambience_touristy, ambience_trendy,
+       good_for_kids, hours_monday, hours_tuesday, hours_wednesday, hours_thursday,
+       hours_friday, hours_saturday, hours_sunday,
+       is_bar, is_nightlife, is_beauty_health, is_cafe, is_gym, is_restaurant, is_shop
+FROM businesses 
+WHERE city = $1
+AND (stars >= 3.0 OR stars IS NULL)
+AND name IS NOT NULL AND name != ''
+"""
+
+        params = [locality]
+        param_count = 1
+
+        # Add cuisine filtering if specified
+        preferred_cuisine = user_preferences.get('preferred_cuisine', [])
+        if preferred_cuisine:
+            cuisine_conditions = []
+            for cuisine in preferred_cuisine:
+                param_count += 1
+                # Use array containment operator to check if cuisine is in the array (case-insensitive)
+                cuisine_conditions.append(f"EXISTS(SELECT 1 FROM unnest(cuisines) AS c WHERE LOWER(c) = LOWER(${param_count}))")
+                params.append(cuisine)
+
+            if cuisine_conditions:
+                base_query += f" AND ({' OR '.join(cuisine_conditions)})"
+
+        # Add ordering and limit
+        base_query += " ORDER BY stars DESC NULLS LAST, review_count DESC"
+
+        if limit:
+            param_count += 1
+            base_query += f" LIMIT ${param_count}"
+            params.append(limit)
+
+        try:
+            rows = await connection.fetch(base_query, *params)
+            businesses = []
+
+            for row in rows:
+                business = dict(row)
+
+                # Parse JSON fields
+                if business.get('categories') and isinstance(business['categories'], str):
+                    try:
+                        business['categories'] = json.loads(business['categories'])
+                    except:
+                        business['categories'] = []
+
+                if business.get('cuisines') and isinstance(business['cuisines'], str):
+                    try:
+                        business['cuisines'] = json.loads(business['cuisines'])
+                    except:
+                        business['cuisines'] = []
+
+                if business.get('photos') and isinstance(business['photos'], str):
+                    try:
+                        business['photos'] = json.loads(business['photos'])
+                    except:
+                        business['photos'] = []
+
+                if business.get('payment_options') and isinstance(business['payment_options'], str):
+                    try:
+                        business['payment_options'] = json.loads(business['payment_options'])
+                    except:
+                        business['payment_options'] = {}
+
+                businesses.append(business)
+
+            return businesses
+
+        except Exception as e:
+            logger.error(f"Error fetching businesses: {e}")
+            return []
+
+    async def get_businesses_similar_to_liked(self, connection: asyncpg.Connection, user_id: str, locality: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get businesses similar to what the user has liked before
+        This ensures interactions are considered in business selection
+        """
+        try:
+            # Get user's liked businesses to find patterns
+            liked_query = """
+            SELECT DISTINCT b.cuisines, b.ambience_romantic, b.ambience_classy, b.ambience_casual, 
+                   b.good_for_kids, b.price_range, b.stars, b.primary_category, ui.created_at
+            FROM user_interactions ui
+            JOIN businesses b ON ui.business_id = b.id
+            WHERE ui.user_id = $1
+              AND ui.interaction_type = 'like'
+              AND ui.created_at = (
+                  SELECT MAX(ui2.created_at)
+                  FROM user_interactions ui2
+                  WHERE ui2.user_id = ui.user_id AND ui2.business_id = ui.business_id
+              )
+              AND b.city = $2
+            ORDER BY ui.created_at DESC
+            LIMIT 20
+            """
+            
+            liked_rows = await connection.fetch(liked_query, user_id, locality)
+            
+            if not liked_rows:
+                return []
+            
+            # Extract patterns from liked businesses
+            liked_cuisines = set()
+            liked_ambience_romantic = 0
+            liked_ambience_classy = 0
+            liked_ambience_casual = 0
+            liked_good_for_kids = 0
+            avg_price_range = 0
+            avg_stars = 0
+            
+            for row in liked_rows:
+                if row['cuisines']:
+                    try:
+                        cuisines = json.loads(row['cuisines']) if isinstance(row['cuisines'], str) else row['cuisines']
+                        liked_cuisines.update(cuisines)
+                    except:
+                        pass
                 
-                for cuisine in preferred_cuisine:
+                if row['ambience_romantic']:
+                    liked_ambience_romantic += 1
+                if row['ambience_classy']:
+                    liked_ambience_classy += 1
+                if row['ambience_casual']:
+                    liked_ambience_casual += 1
+                if row['good_for_kids']:
+                    liked_good_for_kids += 1
+                
+                avg_price_range += row['price_range'] or 2
+                avg_stars += row['stars'] or 3.5
+            
+            total_liked = len(liked_rows)
+            if total_liked == 0:
+                return []
+            
+            # Log what cuisines the user liked
+            logger.info(f"🎯 User {user_id} liked businesses with cuisines: {list(liked_cuisines)}")
+            
+            # Calculate preferences
+            romantic_pref = liked_ambience_romantic / total_liked > 0.3
+            classy_pref = liked_ambience_classy / total_liked > 0.3
+            casual_pref = liked_ambience_casual / total_liked > 0.3
+            kids_pref = liked_good_for_kids / total_liked > 0.3
+            avg_price = avg_price_range / total_liked
+            avg_star = avg_stars / total_liked
+            
+            # Build query to find similar businesses
+            similar_query = """
+            SELECT id, business_id, name, address, latitude, longitude, locality, region, country, city,
+                   stars, review_count, price_range, primary_category, categories, cuisines, 
+                   phone, website, photos, accepts_credit_cards, payment_options, 
+                   serves_beer, has_delivery, has_wifi,
+                   good_for_breakfast, good_for_lunch, good_for_dinner, good_for_dessert,
+                   ambience_classy, ambience_casual, ambience_romantic, ambience_touristy, ambience_trendy,
+                   good_for_kids, hours_monday, hours_tuesday, hours_wednesday, hours_thursday,
+                   hours_friday, hours_saturday, hours_sunday,
+                   is_bar, is_nightlife, is_beauty_health, is_cafe, is_gym, is_restaurant, is_shop
+            FROM businesses 
+            WHERE city = $1
+            AND (stars >= 3.0 OR stars IS NULL)
+            AND name IS NOT NULL AND name != ''
+            AND id NOT IN (
+                SELECT business_id FROM user_interactions WHERE user_id = $2 AND (interaction_type = 'like' OR interaction_type = 'dislike')
+            )
+            """
+            
+            params = [locality, user_id]
+            param_count = 2
+            conditions = []
+            
+            # PRIORITY 1: Cuisine matching (most important)
+            if liked_cuisines:
+                cuisine_conditions = []
+                for cuisine in list(liked_cuisines)[:5]:  # Limit to top 5 cuisines
                     param_count += 1
-                    cuisine_conditions.append(f"cuisines::text ILIKE ${param_count}")
-                    params.append(f'%{cuisine}%')
+                    # Use array containment operator for exact cuisine matching (case-insensitive)
+                    cuisine_conditions.append(f"EXISTS(SELECT 1 FROM unnest(cuisines) AS c WHERE LOWER(c) = LOWER(${param_count}))")
+                    params.append(cuisine)
                 
                 if cuisine_conditions:
-                    preferred_query += f" AND ({' OR '.join(cuisine_conditions)})"
-                
-                preferred_query += f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT ${param_count + 1}"
-                params.append(preferred_limit)
-                
-                preferred_rows = await connection.fetch(preferred_query, *params)
-                preferred_businesses = [dict(row) for row in preferred_rows]
-                
-                # Query for variety businesses (30%) - exclude preferred cuisines
-                variety_query = base_query_template
-                variety_params = [locality, region]
-                variety_param_count = 2
-                
-                # Exclude preferred cuisines from variety selection
-                exclude_conditions = []
-                for cuisine in preferred_cuisine:
-                    variety_param_count += 1
-                    exclude_conditions.append(f"cuisines::text NOT ILIKE ${variety_param_count}")
-                    variety_params.append(f'%{cuisine}%')
-                
-                if exclude_conditions:
-                    variety_query += f" AND ({' AND '.join(exclude_conditions)})"
-                
-                variety_query += f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT ${variety_param_count + 1}"
-                variety_params.append(variety_limit)
-                
-                variety_rows = await connection.fetch(variety_query, *variety_params)
-                variety_businesses = [dict(row) for row in variety_rows]
-                
-            else:
-                # No preferred cuisine - get diverse businesses
-                general_query = base_query_template + f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT $3"
-                rows = await connection.fetch(general_query, locality, region, limit)
-                variety_businesses = [dict(row) for row in rows]
+                    conditions.append(f"({' OR '.join(cuisine_conditions)})")
             
-            # Combine businesses maintaining 70/30 balance
-            all_businesses = preferred_businesses + variety_businesses
+            # PRIORITY 2: Ambience preferences (secondary)
+            ambience_conditions = []
+            if romantic_pref:
+                ambience_conditions.append("ambience_romantic = true")
+            if classy_pref:
+                ambience_conditions.append("ambience_classy = true")
+            if casual_pref:
+                ambience_conditions.append("ambience_casual = true")
+            if kids_pref:
+                ambience_conditions.append("good_for_kids = true")
             
-            # Parse JSON fields for all businesses
-            for business in all_businesses:
+            # PRIORITY 3: Price and stars (tertiary)
+            price_star_conditions = []
+            price_star_conditions.append(f"ABS(COALESCE(price_range, 2) - {avg_price:.1f}) <= 1")
+            price_star_conditions.append(f"ABS(COALESCE(stars, 3.5) - {avg_star:.1f}) <= 1.0")
+            
+            # Combine conditions with proper priority
+            if conditions:
+                # Start with cuisine (most important)
+                similar_query += f" AND ({' OR '.join(conditions)})"
+                
+                # Add ambience if available
+                if ambience_conditions:
+                    similar_query += f" AND ({' OR '.join(ambience_conditions)})"
+                
+                # Add price/stars if available
+                if price_star_conditions:
+                    similar_query += f" AND ({' AND '.join(price_star_conditions)})"
+            
+            similar_query += f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT ${param_count + 1}"
+            params.append(limit)
+            
+            rows = await connection.fetch(similar_query, *params)
+            businesses = []
+            
+            for row in rows:
+                business = dict(row)
+                
+                # Parse JSON fields
                 if business.get('categories') and isinstance(business['categories'], str):
                     try:
                         business['categories'] = json.loads(business['categories'])
@@ -1111,38 +1179,316 @@ class TravelRecommendationService:
                         business['payment_options'] = json.loads(business['payment_options'])
                     except:
                         business['payment_options'] = {}
+                
+                businesses.append(business)
             
-            # Log the cuisine distribution for debugging
+            logger.info(f"🎯 Found {len(businesses)} businesses similar to what user {user_id} liked before")
+            return businesses
+            
+        except Exception as e:
+            logger.error(f"Error getting similar businesses: {e}")
+            return []
+
+    async def get_balanced_businesses_with_variety(
+            self,
+            connection: asyncpg.Connection,
+            locality: str,
+            user_preferences: Dict[str, Any],
+            limit: int = 250,
+            user_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get businesses with 70/30 balance: 70% preferred cuisine, 30% variety
+        Implements the balanced variety/bias selection system from AI architecture
+        """
+
+        preferred_cuisine = user_preferences.get('preferred_cuisine', [])  # Keep original case
+        preferred_limit = int(limit * 0.7)
+        variety_limit = limit - preferred_limit  # ensure total = limit
+
+        base_query_template = """
+        SELECT id, business_id, name, address, latitude, longitude, locality, region, country, city,
+       stars, review_count, price_range, primary_category, categories, cuisines, 
+       phone, website, photos, accepts_credit_cards, payment_options, 
+       serves_beer, has_delivery, has_wifi,
+       good_for_breakfast, good_for_lunch, good_for_dinner, good_for_dessert,
+       ambience_classy, ambience_casual, ambience_romantic, ambience_touristy, ambience_trendy,
+       good_for_kids, hours_monday, hours_tuesday, hours_wednesday, hours_thursday,
+       hours_friday, hours_saturday, hours_sunday,
+       is_bar, is_nightlife, is_beauty_health, is_cafe, is_gym, is_restaurant, is_shop
+FROM businesses 
+WHERE city = $1
+AND (stars >= 3.0 OR stars IS NULL)
+AND name IS NOT NULL AND name != ''
+"""
+
+        preferred_businesses = []
+        variety_businesses = []
+
+        try:
+            if preferred_cuisine:
+                # Preferred cuisine businesses (70%) - STRICT filtering
+                preferred_query = base_query_template
+                cuisine_conditions = []
+                params = [locality]
+                param_count = 1
+
+                for cuisine in preferred_cuisine:
+                    param_count += 1
+                    # Use array containment operator to check if cuisine is in the array (case-insensitive)
+                    cuisine_conditions.append(f"EXISTS(SELECT 1 FROM unnest(cuisines) AS c WHERE LOWER(c) = LOWER(${param_count}))")
+                    params.append(cuisine)
+
+                if cuisine_conditions:
+                    preferred_query += f" AND ({' OR '.join(cuisine_conditions)})"
+
+                preferred_query += f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT ${param_count + 1}"
+                params.append(preferred_limit)
+
+                preferred_rows = await connection.fetch(preferred_query, *params)
+                preferred_businesses = [dict(row) for row in preferred_rows]
+
+                # Include businesses that have the preferred cuisine (keep all their cuisines)
+                filtered_preferred_businesses = []
+                for business in preferred_businesses:
+                    business_cuisines = business.get('cuisines', [])
+                    if isinstance(business_cuisines, str):
+                        try:
+                            business_cuisines = json.loads(business_cuisines)
+                        except:
+                            business_cuisines = []
+                    
+                    # Debug: Log the business being processed
+                    logger.debug(f"Processing business: {business.get('name')} with cuisines: {business_cuisines}")
+                    
+                    # Check if this business has the preferred cuisine (case-insensitive)
+                    has_preferred = any(cuisine.lower() in [c.lower() for c in preferred_cuisine] for cuisine in business_cuisines)
+                    logger.debug(f"Has preferred cuisine {preferred_cuisine}: {has_preferred}")
+                    
+                    if has_preferred:
+                        # Include the business with all its original cuisines
+                        filtered_preferred_businesses.append(business)
+                        logger.debug(f"Added to preferred businesses: {business['name']} with cuisines: {business['cuisines']}")
+                    else:
+                        logger.debug(f"Excluded from preferred businesses: {business.get('name')}")
+                
+                preferred_businesses = filtered_preferred_businesses
+                
+                # Debug logging
+                logger.info(f"🔍 Found {len(preferred_businesses)} businesses after filtering for cuisines: {preferred_cuisine}")
+
+                # Variety businesses (30%) - EXCLUDE preferred cuisines
+                variety_query = base_query_template
+                variety_params = [locality]
+                variety_param_count = 1
+                
+                # Add exclusion for preferred cuisines
+                if preferred_cuisine:
+                    exclusion_conditions = []
+                    for cuisine in preferred_cuisine:
+                        variety_param_count += 1
+                        # Use array containment operator for exclusion (case-insensitive)
+                        exclusion_conditions.append(f"NOT EXISTS(SELECT 1 FROM unnest(cuisines) AS c WHERE LOWER(c) = LOWER(${variety_param_count}))")
+                        variety_params.append(cuisine)
+                    
+                    if exclusion_conditions:
+                        variety_query += f" AND ({' AND '.join(exclusion_conditions)})"
+                
+                variety_query += f" ORDER BY RANDOM() LIMIT ${variety_param_count + 1}"
+                variety_params.append(variety_limit)
+
+                variety_rows = await connection.fetch(variety_query, *variety_params)
+                variety_businesses = [dict(row) for row in variety_rows]
+            else:
+                # No explicit preferences: balance between similar businesses and variety
+                if user_id:
+                    # Get businesses similar to what the user liked (70%)
+                    similar_limit = int(limit * 0.7)
+                    variety_limit = limit - similar_limit
+                    
+                    similar_businesses = await self.get_businesses_similar_to_liked(connection, user_id, locality, similar_limit)
+                    
+                    if similar_businesses:
+                        # Get variety businesses (30%) - different from what user liked
+                        variety_query = base_query_template
+                        variety_params = [locality]
+                        variety_query += f" ORDER BY RANDOM() LIMIT $2"
+                        variety_params.append(variety_limit)
+                        
+                        variety_rows = await connection.fetch(variety_query, *variety_params)
+                        variety_businesses = [dict(row) for row in variety_rows]
+                        
+                        # Combine similar + variety
+                        all_businesses = similar_businesses + variety_businesses
+                        
+                        # Parse JSON fields for variety businesses
+                        for business in variety_businesses:
+                            if business.get('categories') and isinstance(business['categories'], str):
+                                try:
+                                    business['categories'] = json.loads(business['categories'])
+                                except:
+                                    business['categories'] = []
+                            
+                            if business.get('cuisines') and isinstance(business['cuisines'], str):
+                                try:
+                                    business['cuisines'] = json.loads(business['cuisines'])
+                                except:
+                                    business['cuisines'] = []
+                            
+                            if business.get('photos') and isinstance(business['photos'], str):
+                                try:
+                                    business['photos'] = json.loads(business['photos'])
+                                except:
+                                    business['photos'] = []
+                            
+                            if business.get('payment_options') and isinstance(business['payment_options'], str):
+                                try:
+                                    business['payment_options'] = json.loads(business['payment_options'])
+                                except:
+                                    business['payment_options'] = {}
+                        
+                        logger.info(f"🎯 Using {len(similar_businesses)} similar + {len(variety_businesses)} variety businesses (balanced approach)")
+                        return all_businesses
+                    else:
+                        # Fallback to metadata preferences if no similar businesses found
+                        metadata_preferences = await self.analyze_user_metadata_preferences(connection, user_id)
+                        
+                        if metadata_preferences:
+                            # Use metadata preferences to find businesses similar to liked ones
+                            metadata_query = base_query_template
+                            metadata_conditions = []
+                            params = [locality]
+                            param_count = 1
+                            
+                            # Add conditions based on metadata preferences
+                            if metadata_preferences.get('romantic_preference', 0) > 0.3:
+                                param_count += 1
+                                metadata_conditions.append(f"ambience_romantic = true")
+                            
+                            if metadata_preferences.get('good_for_kids_preference', 0) > 0.3:
+                                param_count += 1
+                                metadata_conditions.append(f"good_for_kids = true")
+                            
+                            if metadata_preferences.get('classy_preference', 0) > 0.3:
+                                param_count += 1
+                                metadata_conditions.append(f"ambience_classy = true")
+                            
+                            if metadata_preferences.get('casual_preference', 0) > 0.3:
+                                param_count += 1
+                                metadata_conditions.append(f"ambience_casual = true")
+                            
+                            # Add cuisine preferences from metadata
+                            cuisine_conditions = []
+                            for cuisine_key, preference_score in metadata_preferences.items():
+                                if cuisine_key.endswith('_preference') and preference_score > 0.3:
+                                    cuisine_name = cuisine_key.replace('preference', '').replace('', ' ')
+                                    param_count += 1
+                                    cuisine_conditions.append(f"EXISTS(SELECT 1 FROM unnest(cuisines) AS c WHERE LOWER(c) = LOWER(${param_count}))")
+                                    params.append(cuisine_name)
+                            
+                            if cuisine_conditions:
+                                metadata_conditions.append(f"({' OR '.join(cuisine_conditions)})")
+                            
+                            if metadata_conditions:
+                                metadata_query += f" AND ({' OR '.join(metadata_conditions)})"
+                                metadata_query += f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT ${param_count + 1}"
+                                params.append(limit)
+                                
+                                metadata_rows = await connection.fetch(metadata_query, *params)
+                                variety_businesses = [dict(row) for row in metadata_rows]
+                                
+                                logger.info(f"🎯 Using metadata preferences to find {len(variety_businesses)} businesses similar to liked ones")
+                            else:
+                                # Fallback to general selection if no strong metadata patterns
+                                general_query = base_query_template + f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT $2"
+                                rows = await connection.fetch(general_query, locality, limit)
+                                variety_businesses = [dict(row) for row in rows]
+                                logger.info(f"📊 No strong metadata patterns found, using general selection")
+                        else:
+                            # No metadata preferences: general selection
+                            general_query = base_query_template + f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT $2"
+                            rows = await connection.fetch(general_query, locality, limit)
+                            variety_businesses = [dict(row) for row in rows]
+                            logger.info(f"📊 No metadata preferences found, using general selection")
+                else:
+                    # No user_id: general selection
+                    general_query = base_query_template + f" ORDER BY stars DESC NULLS LAST, review_count DESC LIMIT $2"
+                    rows = await connection.fetch(general_query, locality, limit)
+                    variety_businesses = [dict(row) for row in rows]
+                    logger.info(f"📊 No user_id provided, using general selection")
+
+            all_businesses = preferred_businesses + variety_businesses
+
+            # Fallback if no results found
+            if not all_businesses:
+                logger.warning(f"⚠ No businesses found in balanced fetch — falling back to general filter.")
+                return await self.get_businesses_by_location_and_filters(
+                    connection, locality, user_preferences, limit
+                )
+
+            for business in all_businesses:
+                if business.get('categories') and isinstance(business['categories'], str):
+                    try:
+                        business['categories'] = json.loads(business['categories'])
+                    except:
+                        business['categories'] = []
+
+                if business.get('cuisines') and isinstance(business['cuisines'], str):
+                    try:
+                        business['cuisines'] = json.loads(business['cuisines'])
+                    except:
+                        business['cuisines'] = []
+
+                if business.get('photos') and isinstance(business['photos'], str):
+                    try:
+                        business['photos'] = json.loads(business['photos'])
+                    except:
+                        business['photos'] = []
+
+                if business.get('payment_options') and isinstance(business['payment_options'], str):
+                    try:
+                        business['payment_options'] = json.loads(business['payment_options'])
+                    except:
+                        business['payment_options'] = {}
+
+            # Logging
             preferred_count = len(preferred_businesses)
             variety_count = len(variety_businesses)
             total_count = len(all_businesses)
-            
+
             if total_count > 0:
                 preferred_percentage = (preferred_count / total_count) * 100
                 variety_percentage = (variety_count / total_count) * 100
-                
-                logger.info(f"🍽️ Cuisine Balance: {preferred_count} preferred ({preferred_percentage:.1f}%) + {variety_count} variety ({variety_percentage:.1f}%) = {total_count} total")
-                
-                # Log cuisine breakdown
-                preferred_cuisines = set()
-                variety_cuisines = set()
-                
+
+                logger.info(
+                    f"🍽 Cuisine Balance: {preferred_count} preferred ({preferred_percentage:.1f}%) + {variety_count} variety ({variety_percentage:.1f}%) = {total_count} total")
+
+                # FIXED: Distinguish between user's explicit preferences and selected business cuisines
+                user_explicit_cuisines = user_preferences.get('preferred_cuisine', [])
+                if user_explicit_cuisines:
+                    logger.info(f"👤 User's explicit cuisine preference: {user_explicit_cuisines}")
+                else:
+                    logger.info(f"👤 User has no explicit cuisine preference - using interaction-based selection")
+
+                # Show cuisines of selected businesses (not user preferences)
+                selected_business_cuisines = set()
+                variety_business_cuisines = set()
+
                 for business in preferred_businesses:
                     if business.get('cuisines'):
-                        preferred_cuisines.update(business['cuisines'])
-                
+                        selected_business_cuisines.update(business['cuisines'])
+
                 for business in variety_businesses:
                     if business.get('cuisines'):
-                        variety_cuisines.update(business['cuisines'])
-                
-                logger.info(f"📊 Preferred cuisines: {list(preferred_cuisines)}")
-                logger.info(f"📊 Variety cuisines: {list(variety_cuisines)}")
-            
+                        variety_business_cuisines.update(business['cuisines'])
+
+                logger.info(f"🏪 Cuisines of selected preferred businesses: {list(selected_business_cuisines)}")
+                logger.info(f"📊 Cuisines of selected variety businesses: {list(variety_business_cuisines)}")
+
             return all_businesses
-            
+
         except Exception as e:
             logger.error(f"Error fetching balanced businesses: {e}")
-            # Fallback to original method if balanced selection fails
             return await self.get_businesses_by_location_and_filters(
-                connection, locality, region, user_preferences, limit
-            ) 
+                connection, locality, user_preferences, limit
+            )
