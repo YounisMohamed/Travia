@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +14,7 @@ import 'package:travia/Helpers/AppColors.dart';
 import 'package:travia/MainFlow/BannedUserPage.dart';
 import 'package:travia/MainFlow/CitySelector.dart';
 import 'package:travia/MainFlow/ProfilePage.dart';
+import 'package:travia/MainFlow/SearchPage.dart';
 
 import 'Auth/ForgotPassword.dart';
 import 'Auth/SignInPage.dart';
@@ -57,6 +59,13 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  try {
+    await dotenv.load(fileName: ".env");
+    print(".env file loaded successfully!");
+  } catch (e) {
+    print("Error loading .env file: $e");
+  }
 
   prefs = await SharedPreferences.getInstance();
 
@@ -140,12 +149,6 @@ class MyApp extends StatelessWidget {
 
     final GoRouter router = GoRouter(
         initialLocation: initialLocation,
-        //initialLocation: "/messages/74ee6ee8-13d0-4597-a121-1e6ae573c770",
-        //initialLocation: '/recorder',
-        //initialLocation: '/dms-page',
-        //initialLocation: '/error-page/shit/shit',
-        //initialLocation: "/complete-profile",
-        //initialLocation: "/city",
         routes: [
           // ====================== AUTH ROUTES ======================
           //GoRoute(
@@ -278,6 +281,10 @@ class MyApp extends StatelessWidget {
           GoRoute(
             path: '/city',
             builder: (context, state) => CitySelector(),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => SearchPage(),
           ),
           GoRoute(
             path: '/plan-result/:tripId',

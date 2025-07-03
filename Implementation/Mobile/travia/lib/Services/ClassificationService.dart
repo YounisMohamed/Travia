@@ -1,296 +1,396 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:travia/Helpers/Constants.dart';
 
-import '../Helpers/Constants.dart';
-
-/// Request model for venue classification
-class ClassificationRequest {
+// Models for request and response
+class ImageClassificationRequest {
   final String imageUrl;
   final String caption;
-  final double confidenceThreshold;
 
-  ClassificationRequest({
+  ImageClassificationRequest({
     required this.imageUrl,
     required this.caption,
-    this.confidenceThreshold = 0.5,
   });
 
   Map<String, dynamic> toJson() => {
         'image_url': imageUrl,
         'caption': caption,
-        'confidence_threshold': confidenceThreshold,
       };
 }
 
-/// Response model for classification results
-class ClassificationResponse {
-  final bool success;
-  final VenueAttributes attributes;
-  final ClassificationMetadata metadata;
-  final String? error;
-
-  ClassificationResponse({
-    required this.success,
-    required this.attributes,
-    required this.metadata,
-    this.error,
-  });
-
-  factory ClassificationResponse.fromJson(Map<String, dynamic> json) {
-    return ClassificationResponse(
-      success: json['success'] ?? false,
-      attributes: VenueAttributes.fromJson(json['attributes'] ?? {}),
-      metadata: ClassificationMetadata.fromJson(json['metadata'] ?? {}),
-      error: json['error'],
-    );
-  }
-}
-
-/// Venue attributes model
-class VenueAttributes {
-  final bool goodForKids;
-  final bool ambienceRomantic;
-  final bool ambienceTrendy;
-  final bool ambienceCasual;
-  final bool ambienceClassy;
-  final bool barsNight;
-  final bool cafes;
-  final bool restaurantsCuisines;
-
-  VenueAttributes({
-    required this.goodForKids,
-    required this.ambienceRomantic,
-    required this.ambienceTrendy,
-    required this.ambienceCasual,
-    required this.ambienceClassy,
-    required this.barsNight,
-    required this.cafes,
-    required this.restaurantsCuisines,
-  });
-
-  factory VenueAttributes.fromJson(Map<String, dynamic> json) {
-    return VenueAttributes(
-      goodForKids: (json['attributes_GoodForKids'] ?? 0) == 1,
-      ambienceRomantic: (json['attributes_Ambience_romantic'] ?? 0) == 1,
-      ambienceTrendy: (json['attributes_Ambience_trendy'] ?? 0) == 1,
-      ambienceCasual: (json['attributes_Ambience_casual'] ?? 0) == 1,
-      ambienceClassy: (json['attributes_Ambience_classy'] ?? 0) == 1,
-      barsNight: (json['Bars_Night'] ?? 0) == 1,
-      cafes: (json['Cafes'] ?? 0) == 1,
-      restaurantsCuisines: (json['Restaurants_Cuisines'] ?? 0) == 1,
-    );
-  }
-
-  /// Get list of active attributes for display
-  List<String> getActiveAttributes() {
-    final List<String> active = [];
-    if (goodForKids) active.add('Good for Kids');
-    if (ambienceRomantic) active.add('Romantic');
-    if (ambienceTrendy) active.add('Trendy');
-    if (ambienceCasual) active.add('Casual');
-    if (ambienceClassy) active.add('Classy');
-    if (barsNight) active.add('Bar/Nightlife');
-    if (cafes) active.add('Cafe');
-    if (restaurantsCuisines) active.add('Restaurant');
-    return active;
-  }
-
-  /// Get venue type (primary category)
-  String getVenueType() {
-    if (restaurantsCuisines) return 'Restaurant';
-    if (cafes) return 'Cafe';
-    if (barsNight) return 'Bar';
-    return 'Venue';
-  }
-}
-
-/// Classification metadata model
-class ClassificationMetadata {
+class ImageClassificationResponse {
+  final Map<String, bool> attributes;
+  final Map<String, double> confidenceScores;
   final String blipDescription;
-  final String simpleDescription;
-  final String combinedText;
-  final double confidenceThreshold;
+  final String yoloDescription;
+  final String caption;
 
-  ClassificationMetadata({
+  ImageClassificationResponse({
+    required this.attributes,
+    required this.confidenceScores,
     required this.blipDescription,
-    required this.simpleDescription,
-    required this.combinedText,
-    required this.confidenceThreshold,
+    required this.yoloDescription,
+    required this.caption,
   });
 
-  factory ClassificationMetadata.fromJson(Map<String, dynamic> json) {
-    return ClassificationMetadata(
-      blipDescription: json['blip_description'] ?? '',
-      simpleDescription: json['simple_description'] ?? '',
-      combinedText: json['combined_text'] ?? '',
-      confidenceThreshold: (json['confidence_threshold'] ?? 0.5).toDouble(),
+  factory ImageClassificationResponse.fromJson(Map<String, dynamic> json) {
+    return ImageClassificationResponse(
+      attributes: Map<String, bool>.from(json['attributes']),
+      confidenceScores: Map<String, double>.from(json['confidence_scores'].map((key, value) => MapEntry(key, value.toDouble()))),
+      blipDescription: json['blip_description'],
+      yoloDescription: json['yolo_description'],
+      caption: json['caption'],
     );
   }
-}
 
-/// Custom exception for classifier errors
-class ClassifierException implements Exception {
-  final String message;
-  final int? statusCode;
-  final dynamic originalError;
+  // Convenience getters for common attributes
+  bool get isCasual => attributes['casual'] ?? false;
+  bool get isRomantic => attributes['romantic'] ?? false;
+  bool get isClassy => attributes['classy'] ?? false;
+  bool get isGoodForKids => attributes['good_for_kids'] ?? false;
 
-  ClassifierException({
-    required this.message,
-    this.statusCode,
-    this.originalError,
-  });
+  double get casualConfidence => confidenceScores['casual'] ?? 0.0;
+  double get romanticConfidence => confidenceScores['romantic'] ?? 0.0;
+  double get classyConfidence => confidenceScores['classy'] ?? 0.0;
+  double get goodForKidsConfidence => confidenceScores['good_for_kids'] ?? 0.0;
 
   @override
-  String toString() => 'ClassifierException: $message';
+  String toString() {
+    return 'ImageClassificationResponse(attributes: $attributes, confidenceScores: $confidenceScores)';
+  }
 }
 
-class TravelClassifierService {
-  static final String _defaultBaseUrl = baseUrlForClassification;
-  static const Duration _defaultTimeout = Duration(seconds: 60); // Longer timeout for model loading
+// Custom exceptions for better error handling
+class ClassificationException implements Exception {
+  final String message;
+  final int? statusCode;
+  final String? details;
+
+  ClassificationException(this.message, {this.statusCode, this.details});
+
+  @override
+  String toString() => 'ClassificationException: $message${statusCode != null ? ' (Status: $statusCode)' : ''}';
+}
+
+class NetworkException extends ClassificationException {
+  NetworkException(String message) : super('Network error: $message');
+}
+
+class ServerException extends ClassificationException {
+  ServerException(String message, int statusCode) : super(message, statusCode: statusCode);
+}
+
+class TimeoutException extends ClassificationException {
+  TimeoutException() : super('Request timed out');
+}
+
+// Health check response model
+class HealthResponse {
+  final String status;
+  final bool modelsLoaded;
+  final bool? gpuAvailable;
+  final int? gpuMemory;
+
+  HealthResponse({
+    required this.status,
+    required this.modelsLoaded,
+    this.gpuAvailable,
+    this.gpuMemory,
+  });
+
+  factory HealthResponse.fromJson(Map<String, dynamic> json) {
+    return HealthResponse(
+      status: json['status'],
+      modelsLoaded: json['models_loaded'],
+      gpuAvailable: json['gpu_available'],
+      gpuMemory: json['gpu_memory'],
+    );
+  }
+
+  bool get isHealthy => status == 'healthy' && modelsLoaded;
+}
+
+class ImageClassificationService {
+  static const Duration _defaultTimeout = Duration(seconds: 90); // Longer timeout for image processing
+  static const Duration _healthCheckTimeout = Duration(seconds: 10);
 
   final String baseUrl;
   final Duration timeout;
   final http.Client _client;
 
   // Singleton pattern for easy access
-  static TravelClassifierService? _instance;
+  static ImageClassificationService? _instance;
 
-  factory TravelClassifierService({
+  factory ImageClassificationService({
+    String? baseUrl,
     Duration? timeout,
     http.Client? client,
   }) {
-    _instance ??= TravelClassifierService._internal(
-      baseUrl: _defaultBaseUrl,
+    _instance ??= ImageClassificationService._internal(
+      baseUrl: baseUrlForClassification,
       timeout: timeout ?? _defaultTimeout,
       client: client ?? http.Client(),
     );
     return _instance!;
   }
 
-  TravelClassifierService._internal({
+  ImageClassificationService._internal({
     required this.baseUrl,
     required this.timeout,
     required http.Client client,
   }) : _client = client;
 
-  /// Get singleton instance
-  static TravelClassifierService get instance => _instance ?? TravelClassifierService();
-  Future<ClassificationResponse> classifyFromUrl({
-    required String imageUrl,
-    required String caption,
-    double confidenceThreshold = 0.5,
-  }) async {
-    try {
-      final request = ClassificationRequest(
-        imageUrl: imageUrl,
-        caption: caption,
-        confidenceThreshold: confidenceThreshold,
-      );
-
-      final response = await _makeRequest(
-        'POST',
-        '/classify/url',
-        body: request.toJson(),
-      );
-      return ClassificationResponse.fromJson(response);
-    } catch (e) {
-      if (e is ClassifierException) rethrow;
-      throw ClassifierException(
-        message: 'Classification failed: ${e.toString()}',
-        originalError: e,
-      );
-    }
-  }
-
-  Future<Map<String, dynamic>> getFeatures() async {
-    try {
-      final response = await _makeRequest(
-        'GET',
-        '/features',
-      );
-
-      return response;
-    } catch (e) {
-      throw ClassifierException(
-        message: 'Failed to get features: ${e.toString()}',
-        originalError: e,
-      );
-    }
-  }
-
-  /// Make HTTP request with error handling
-  Future<Map<String, dynamic>> _makeRequest(
-    String method,
-    String endpoint, {
-    Map<String, dynamic>? body,
-    Map<String, String>? headers,
-  }) async {
-    try {
-      final uri = Uri.parse('$baseUrl$endpoint');
-      final requestHeaders = {
-        'Content-Type': 'application/json',
-        ...?headers,
-      };
-
-      http.Response response;
-
-      switch (method) {
-        case 'GET':
-          response = await _client.get(uri, headers: requestHeaders).timeout(timeout);
-          break;
-        case 'POST':
-          response = await _client
-              .post(
-                uri,
-                headers: requestHeaders,
-                body: body != null ? json.encode(body) : null,
-              )
-              .timeout(timeout);
-          break;
-        default:
-          throw ClassifierException(message: 'Unsupported HTTP method: $method');
-      }
-
-      // Handle response
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else if (response.statusCode == 422) {
-        // Validation error
-        final error = json.decode(response.body);
-        throw ClassifierException(
-          message: error['detail']?.toString() ?? 'Validation error',
-          statusCode: response.statusCode,
-        );
-      } else {
-        throw ClassifierException(
-          message: 'Request failed: ${response.reasonPhrase}',
-          statusCode: response.statusCode,
-        );
-      }
-    } on TimeoutException {
-      throw ClassifierException(
-        message: 'Request timed out. The server might be loading models or processing.',
-      );
-    } on SocketException {
-      throw ClassifierException(
-        message: 'Cannot connect to server. Make sure the API is running on $baseUrl',
-      );
-    } catch (e) {
-      if (e is ClassifierException) rethrow;
-
-      throw ClassifierException(
-        message: 'Network error: ${e.toString()}',
-        originalError: e,
-      );
-    }
-  }
-
-  /// Dispose of resources
+  // Dispose method for cleanup
   void dispose() {
     _client.close();
     _instance = null;
+  }
+
+  /// Check if the classification service is healthy and ready
+  Future<HealthResponse> checkHealth() async {
+    try {
+      final response = await _client
+          .get(
+            Uri.parse('$baseUrl/health'),
+            headers: _getHeaders(),
+          )
+          .timeout(_healthCheckTimeout);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return HealthResponse.fromJson(data);
+      } else {
+        throw ServerException(
+          'Health check failed: ${response.reasonPhrase}',
+          response.statusCode,
+        );
+      }
+    } on SocketException catch (e) {
+      throw NetworkException('Unable to connect to classification service: ${e.message}');
+    } on http.ClientException catch (e) {
+      throw NetworkException('Client error: ${e.message}');
+    } on TimeoutException {
+      throw TimeoutException();
+    } catch (e) {
+      throw ClassificationException('Unexpected error during health check: $e');
+    }
+  }
+
+  /// Classify an image from URL with caption
+  Future<ImageClassificationResponse> classifyImage({
+    required String imageUrl,
+    required String caption,
+  }) async {
+    // Validate inputs
+    if (imageUrl.trim().isEmpty) {
+      throw ClassificationException('Image URL cannot be empty');
+    }
+    if (caption.trim().isEmpty) {
+      throw ClassificationException('Caption cannot be empty');
+    }
+
+    final request = ImageClassificationRequest(
+      imageUrl: imageUrl.trim(),
+      caption: caption.trim(),
+    );
+
+    try {
+      if (kDebugMode) {
+        print('🔄 Sending classification request for: $imageUrl');
+      }
+
+      final response = await _client
+          .post(
+            Uri.parse('$baseUrl/classify'),
+            headers: _getHeaders(),
+            body: json.encode(request.toJson()),
+          )
+          .timeout(timeout);
+
+      return _handleResponse(response);
+    } on SocketException catch (e) {
+      throw NetworkException('Unable to connect to classification service: ${e.message}');
+    } on http.ClientException catch (e) {
+      throw NetworkException('Client error: ${e.message}');
+    } on TimeoutException {
+      throw TimeoutException();
+    } catch (e) {
+      if (e is ClassificationException) rethrow;
+      throw ClassificationException('Unexpected error during classification: $e');
+    }
+  }
+
+  /// Classify multiple images concurrently with rate limiting
+  Future<List<ImageClassificationResponse>> classifyImages({
+    required List<ImageClassificationRequest> requests,
+    int concurrency = 3, // Limit concurrent requests to avoid overwhelming the server
+  }) async {
+    if (requests.isEmpty) {
+      return [];
+    }
+
+    final results = <ImageClassificationResponse>[];
+    final errors = <String>[];
+
+    // Process requests in batches
+    for (int i = 0; i < requests.length; i += concurrency) {
+      final batch = requests.skip(i).take(concurrency);
+      final futures = batch.map((request) async {
+        try {
+          return await classifyImage(
+            imageUrl: request.imageUrl,
+            caption: request.caption,
+          );
+        } catch (e) {
+          errors.add('Failed to classify ${request.imageUrl}: $e');
+          return null;
+        }
+      });
+
+      final batchResults = await Future.wait(futures);
+      results.addAll(batchResults.whereType<ImageClassificationResponse>());
+
+      // Add a small delay between batches to be respectful to the server
+      if (i + concurrency < requests.length) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+
+    if (errors.isNotEmpty && kDebugMode) {
+      print('⚠️ Some classifications failed: ${errors.join(', ')}');
+    }
+
+    return results;
+  }
+
+  /// Get service info
+  Future<Map<String, dynamic>> getServiceInfo() async {
+    try {
+      final response = await _client
+          .get(
+            Uri.parse('$baseUrl/'),
+            headers: _getHeaders(),
+          )
+          .timeout(_healthCheckTimeout);
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw ServerException(
+          'Failed to get service info: ${response.reasonPhrase}',
+          response.statusCode,
+        );
+      }
+    } catch (e) {
+      if (e is ClassificationException) rethrow;
+      throw ClassificationException('Failed to get service info: $e');
+    }
+  }
+
+  /// Handle HTTP response and convert to ImageClassificationResponse
+  ImageClassificationResponse _handleResponse(http.Response response) {
+    if (kDebugMode) {
+      print('📨 Response status: ${response.statusCode}');
+    }
+
+    switch (response.statusCode) {
+      case 200:
+        try {
+          final data = json.decode(response.body);
+          final result = ImageClassificationResponse.fromJson(data);
+
+          if (kDebugMode) {
+            print('✅ Classification successful: ${result.attributes}');
+          }
+
+          return result;
+        } catch (e) {
+          throw ClassificationException('Failed to parse response: $e');
+        }
+
+      case 400:
+        final errorData = _parseErrorResponse(response.body);
+        throw ClassificationException(
+          'Invalid request: ${errorData['detail'] ?? 'Bad request'}',
+          statusCode: 400,
+        );
+
+      case 404:
+        throw ClassificationException(
+          'Classification endpoint not found',
+          statusCode: 404,
+        );
+
+      case 500:
+        final errorData = _parseErrorResponse(response.body);
+        throw ServerException(
+          'Server error: ${errorData['detail'] ?? 'Internal server error'}',
+          500,
+        );
+
+      case 503:
+        throw ClassificationException(
+          'Service temporarily unavailable',
+          statusCode: 503,
+        );
+
+      default:
+        throw ClassificationException(
+          'Unexpected response: ${response.statusCode} ${response.reasonPhrase}',
+          statusCode: response.statusCode,
+        );
+    }
+  }
+
+  /// Parse error response safely
+  Map<String, dynamic> _parseErrorResponse(String body) {
+    try {
+      return json.decode(body);
+    } catch (e) {
+      return {'detail': 'Unknown error'};
+    }
+  }
+
+  /// Get standard headers for requests
+  Map<String, String> _getHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': 'Flutter-ImageClassification-Client/1.0',
+    };
+  }
+}
+
+// Extension methods for easier usage
+extension ImageClassificationExtension on ImageClassificationResponse {
+  /// Get the attribute with highest confidence
+  String get topAttribute {
+    var maxScore = 0.0;
+    var topAttr = 'casual';
+
+    confidenceScores.forEach((attr, score) {
+      if (score > maxScore) {
+        maxScore = score;
+        topAttr = attr;
+      }
+    });
+
+    return topAttr;
+  }
+
+  /// Get all attributes that are true
+  List<String> get trueAttributes {
+    return attributes.entries.where((entry) => entry.value).map((entry) => entry.key).toList();
+  }
+
+  /// Get formatted description combining BLIP and YOLO
+  String get fullDescription {
+    final parts = <String>[];
+    if (blipDescription.isNotEmpty) parts.add(blipDescription);
+    if (yoloDescription.isNotEmpty) parts.add(yoloDescription);
+    return parts.join(' - ');
   }
 }

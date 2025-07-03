@@ -114,7 +114,9 @@ class ExplorePage extends ConsumerWidget {
                         color: Colors.grey.shade100,
                       ),
                       child: IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          context.push('/search');
+                        },
                         icon: Icon(
                           Icons.search_rounded,
                           size: 22,
@@ -711,8 +713,6 @@ class ExplorePostCard extends ConsumerWidget {
                             reactionType: 'like',
                           );
 
-                      ref.read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier).updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
-
                       if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
                         sendNotification(
                           type: "like",
@@ -775,10 +775,6 @@ class ExplorePostCard extends ConsumerWidget {
                                             reactionType: 'like',
                                           );
 
-                                      ref
-                                          .read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier)
-                                          .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
-
                                       if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
                                         sendNotification(
                                           type: "like",
@@ -803,10 +799,6 @@ class ExplorePostCard extends ConsumerWidget {
                                             posterId: userId,
                                             reactionType: 'dislike',
                                           );
-
-                                      ref
-                                          .read(postReactionCountProvider((postId: postId, likes: likes, dislikes: dislikes)).notifier)
-                                          .updateReaction(from: reaction, to: reaction == 'dislike' ? null : 'dislike');
 
                                       if (reaction != 'like' && canSendNotification(postId, 'dislike', currentUserId!)) {
                                         sendNotification(

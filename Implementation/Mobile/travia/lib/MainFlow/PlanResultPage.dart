@@ -23,40 +23,24 @@ import 'RealTimeEvents.dart';
 // Providers
 
 final fullItineraryProvider = FutureProvider.family<ItineraryResponse, String>((ref, tripId) async {
-  // Fetch all days for this trip
   final itineraryDataList = await supabase.from('itineraries').select().eq('trip_id', tripId).order('day_number', ascending: true);
-
   if (itineraryDataList.isEmpty) {
     throw Exception('No itinerary found for trip $tripId');
   }
-
-  // Collect all business IDs
   final Set<int> allBusinessIds = {};
   for (final dayData in itineraryDataList) {
     allBusinessIds.addAll(List<int>.from(dayData['business_ids'] ?? []));
   }
-
-  // Fetch businesses using IN query instead of filtering all businesses
   List<dynamic> businessesData = [];
   Map<int, Business> businessMap = {};
-
   if (allBusinessIds.isNotEmpty) {
-    print('Fetching businesses with IDs: $allBusinessIds'); // Debug log
-
     businessesData = await supabase.from('businesses').select().inFilter('id', allBusinessIds.toList());
-
-    print('Found ${businessesData.length} businesses for trip $tripId'); // Debug log
-
-    // Create business map
     for (final businessData in businessesData) {
       final business = Business.fromJson(businessData);
       businessMap[business.id] = business;
     }
   }
-
   final allBusinesses = businessesData.map((json) => Business.fromJson(json)).toList();
-
-  // Get preferences snapshot from the first day
   UserPreferences? userPreferences;
   if (itineraryDataList.isNotEmpty) {
     final preferencesSnapshot = itineraryDataList.first['preferences_snapshot'] as Map<String, dynamic>?;
@@ -64,11 +48,8 @@ final fullItineraryProvider = FutureProvider.family<ItineraryResponse, String>((
       userPreferences = UserPreferences.fromJson(preferencesSnapshot);
     }
   }
-
-// Build day itineraries
   final dayItineraries = itineraryDataList.map((dayData) {
     final businessesByCategory = dayData['businesses_by_category'] as Map<String, dynamic>;
-
     return DayItinerary(
       day: dayData['day_number'] as int,
       breakfast: _getBusinessesForCategory(businessesByCategory, 'breakfast', businessMap),
@@ -78,18 +59,31 @@ final fullItineraryProvider = FutureProvider.family<ItineraryResponse, String>((
       activities: _getBusinessesForCategory(businessesByCategory, 'activities', businessMap),
     );
   }).toList();
-
   final String trip_name = itineraryDataList.first["trip_name"];
-
   return ItineraryResponse(itinerary: dayItineraries, totalBusinesses: allBusinesses.length, userPreferences: userPreferences, trip_name: trip_name);
 });
-
 List<Business> _getBusinessesForCategory(Map<String, dynamic> categories, String category, Map<int, Business> businessMap) {
   return (categories[category] as List? ?? []).map((id) => businessMap[id as int]).whereType<Business>().toList();
 }
 
 final selectedDayProvider = StateProvider<int>((ref) => 0);
 final expandedBusinessProvider = StateProvider<String?>((ref) => null);
+
+final userInteractionsProvider = FutureProvider.family<void, String>((ref, userId) async {
+  final service = UserInteractionService();
+  // Always force refresh to get latest data from database
+  await service.loadUserInteractions(userId, forceRefresh: true);
+});
+
+// Create a combined provider that loads both itinerary and interactions
+final planWithInteractionsProvider = FutureProvider.family<ItineraryResponse, String>((ref, tripId) async {
+  final userId = FirebaseAuth.instance.currentUser!.uid;
+  final futures = await Future.wait([
+    ref.watch(fullItineraryProvider(tripId).future),
+    ref.watch(userInteractionsProvider(userId).future),
+  ]);
+  return futures[0] as ItineraryResponse;
+});
 
 class PlanResultPage extends ConsumerWidget {
   final String tripId;
@@ -101,12 +95,29 @@ class PlanResultPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final itineraryAsync = ref.watch(fullItineraryProvider(tripId));
-    return itineraryAsync.when(
+    // Use the combined provider instead of just the itinerary provider
+    final planAsync = ref.watch(planWithInteractionsProvider(tripId));
+
+    return planAsync.when(
       loading: () => Scaffold(
         backgroundColor: kBackground,
         appBar: AppBar(forceMaterialTransparency: true),
-        body: const Center(child: CircularProgressIndicator(color: kDeepPink)),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: kDeepPink),
+              const SizedBox(height: 16),
+              Text(
+                'Loading your travel plan...',
+                style: GoogleFonts.lexendDeca(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
       error: (err, stack) => Scaffold(
         backgroundColor: kBackground,
@@ -117,11 +128,41 @@ class PlanResultPage extends ConsumerWidget {
             onPressed: () => Navigator.pop(context),
           ),
         ),
-        body: Center(child: Text('Failed to load plan: $err')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red[300],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load plan',
+                style: GoogleFonts.lexendDeca(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                err.toString(),
+                style: GoogleFonts.lexendDeca(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
       data: (itinerary) {
         final city = itinerary.city;
         final tripStartDate = itinerary.allUniqueBusinesses.isNotEmpty && itinerary.allUniqueBusinesses.first.createdAt != null ? itinerary.allUniqueBusinesses.first.createdAt! : DateTime.now();
+
         return DefaultTabController(
           length: itinerary.totalDays,
           child: Scaffold(
@@ -184,7 +225,14 @@ class PlanResultPage extends ConsumerWidget {
             body: TabBarView(
               children: List.generate(itinerary.totalDays, (index) {
                 final dayItinerary = itinerary.itinerary[index];
-                return _buildDayView(dayItinerary, ref, tripStartDate: tripStartDate, city: city, totalDays: itinerary.totalDays, context: context);
+                return _buildDayView(
+                  dayItinerary,
+                  ref,
+                  tripStartDate: tripStartDate,
+                  city: city,
+                  totalDays: itinerary.totalDays,
+                  context: context,
+                );
               }),
             ),
           ),
@@ -1100,19 +1148,13 @@ class PlanResultPage extends ConsumerWidget {
 }
 
 class LikeDislikeButtons extends StatefulWidget {
-  final String userId;
   final int businessId;
-  final double size;
-  final Color? likeColor;
-  final Color? dislikeColor;
+  final String userId;
 
   const LikeDislikeButtons({
     Key? key,
-    required this.userId,
     required this.businessId,
-    this.size = 40,
-    this.likeColor,
-    this.dislikeColor,
+    required this.userId,
   }) : super(key: key);
 
   @override
@@ -1126,7 +1168,9 @@ class _LikeDislikeButtonsState extends State<LikeDislikeButtons> {
   void initState() {
     super.initState();
     _interactionService = UserInteractionService();
-    // Initialize the business state
+
+    // Initialize business state if not already present
+    // Since interactions are loaded at the page level, this is just a fallback
     _interactionService.initializeBusinessState(widget.businessId);
   }
 
@@ -1140,36 +1184,31 @@ class _LikeDislikeButtonsState extends State<LikeDislikeButtons> {
         final isLoading = _interactionService.isLoading(widget.businessId);
         final error = _interactionService.getError(widget.businessId);
 
-        return Row(
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Like Button
-            _buildLikeDislikeButton(
-              icon: Icons.favorite_border,
-              onPressed: isLoading ? null : () => _handleLikePressed(),
-              isLiked: isLiked,
-              isDisliked: false,
-              isDislike: false,
-              size: widget.size,
-              isLoading: isLoading,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildLikeDislikeButton(
+                  icon: Icons.favorite_border,
+                  onPressed: isLoading ? null : _handleLikePressed,
+                  isLiked: isLiked,
+                  isDislike: false,
+                  isLoading: isLoading && !isDisliked,
+                ),
+                const SizedBox(width: 12),
+                _buildLikeDislikeButton(
+                  icon: Icons.thumb_down_outlined,
+                  onPressed: isLoading ? null : _handleDislikePressed,
+                  isDisliked: isDisliked,
+                  isDislike: true,
+                  isLoading: isLoading && !isLiked,
+                ),
+              ],
             ),
-
-            SizedBox(width: 12),
-
-            // Dislike Button
-            _buildLikeDislikeButton(
-              icon: Icons.thumb_down_outlined,
-              onPressed: isLoading ? null : () => _handleDislikePressed(),
-              isLiked: false,
-              isDisliked: isDisliked,
-              isDislike: true,
-              size: widget.size,
-              isLoading: isLoading,
-            ),
-
-            // Error indicator (optional)
             if (error != null) ...[
-              SizedBox(width: 8),
+              const SizedBox(height: 4),
               _buildErrorIndicator(error),
             ],
           ],
@@ -1188,7 +1227,7 @@ class _LikeDislikeButtonsState extends State<LikeDislikeButtons> {
     bool isLoading = false,
   }) {
     final isActive = isLiked || isDisliked;
-    final activeColor = isDislike ? (widget.dislikeColor ?? Colors.red) : (widget.likeColor ?? kDeepPink);
+    final activeColor = isDislike ? (Colors.red) : (kDeepPink);
 
     return Container(
       width: size,
@@ -1219,10 +1258,10 @@ class _LikeDislikeButtonsState extends State<LikeDislikeButtons> {
                 highlightColor: (isActive ? activeColor : Colors.white).withOpacity(0.1),
                 child: AnimatedScale(
                   scale: isActive ? 1.1 : 1.0,
-                  duration: Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 200),
                   child: Center(
                     child: AnimatedSwitcher(
-                      duration: Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 300),
                       transitionBuilder: (child, animation) {
                         return ScaleTransition(
                           scale: animation,
@@ -1231,7 +1270,7 @@ class _LikeDislikeButtonsState extends State<LikeDislikeButtons> {
                       },
                       child: isLoading
                           ? SizedBox(
-                              key: ValueKey('loading'),
+                              key: const ValueKey('loading'),
                               width: size * 0.35,
                               height: size * 0.35,
                               child: CircularProgressIndicator(
@@ -1262,12 +1301,12 @@ class _LikeDislikeButtonsState extends State<LikeDislikeButtons> {
     return Tooltip(
       message: error,
       child: Container(
-        padding: EdgeInsets.all(4),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: Colors.red.withOpacity(0.8),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
+        child: const Icon(
           Icons.error_outline,
           size: 16,
           color: Colors.white,

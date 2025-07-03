@@ -24,7 +24,7 @@ final storiesProvider = StreamProvider<List<story_model>>((ref) async* {
 
     final stream = supabase.from('stories').stream(primaryKey: ['story_id']);
 
-    print('[storiesProvider] Listening to Supabase stories stream...');
+    print('Listening to Supabase stories stream...');
 
     await for (final response in stream) {
       if (response.isEmpty) {

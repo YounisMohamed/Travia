@@ -53,7 +53,6 @@ final chatPageCombinedProvider = Provider.family<AsyncValue<ChatPageData>, Strin
   final metadata = ref.watch(chatMetadataProvider(conversationId));
   final messages = ref.watch(messagesProvider(conversationId));
   final participants = ref.watch(conversationParticipantsProvider(conversationId));
-
   if (metadata is AsyncLoading || messages is AsyncLoading || participants is AsyncLoading) {
     return const AsyncValue.loading();
   }

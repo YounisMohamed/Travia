@@ -280,6 +280,7 @@ class _HomePageViewWidgetState extends ConsumerState<HomePageViewWidget> {
           HomeWidget(
             onMessagePressed: () => _changeHorizontalPage(1),
             onExplorePressed: () => widget.onChangeMainPage(0),
+            onPlanPressed: () => widget.onChangeMainPage(1),
           ),
           DMsPage(),
         ],
@@ -427,10 +428,12 @@ class BottomNav extends StatelessWidget {
 class HomeWidget extends ConsumerWidget {
   final VoidCallback onMessagePressed;
   final VoidCallback onExplorePressed;
+  final VoidCallback onPlanPressed;
 
   const HomeWidget({
     required this.onMessagePressed,
     required this.onExplorePressed,
+    required this.onPlanPressed,
     Key? key,
   }) : super(key: key);
 
@@ -697,7 +700,7 @@ class HomeWidget extends ConsumerWidget {
       sections.add(SizedBox(height: 20));
     }
 
-    sections.add(_buildPlanningCard(context));
+    sections.add(_buildPlanningCard(context, onPlanPressed));
     sections.add(SizedBox(height: 20));
 
     return ListView(
@@ -879,7 +882,7 @@ class HomeWidget extends ConsumerWidget {
   }
 }
 
-Widget _buildPlanningCard(BuildContext context) {
+Widget _buildPlanningCard(BuildContext context, onGoToPlan) {
   return Container(
     margin: const EdgeInsets.all(16),
     padding: const EdgeInsets.all(20),
@@ -938,10 +941,7 @@ Widget _buildPlanningCard(BuildContext context) {
         // Start planning button
         Center(
           child: ElevatedButton(
-            onPressed: () {
-              // Navigate to planning page or open planning dialog
-              // You can add navigation logic here
-            },
+            onPressed: onGoToPlan,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: kDeepPink,

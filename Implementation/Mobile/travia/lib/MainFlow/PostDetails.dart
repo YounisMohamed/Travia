@@ -302,10 +302,6 @@ class PostDetailsPage extends ConsumerWidget {
                                     reactionType: 'like',
                                   );
 
-                              ref
-                                  .read(postReactionCountProvider((postId: postId, likes: post.likesCount, dislikes: post.dislikesCount)).notifier)
-                                  .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
-
                               if (reaction != 'like' && canSendNotification(postId, 'like', userId)) {
                                 sendNotification(
                                   type: "like",
@@ -347,10 +343,6 @@ class PostDetailsPage extends ConsumerWidget {
                                     reactionType: 'like',
                                   );
 
-                              ref
-                                  .read(postReactionCountProvider((postId: postId, likes: post.likesCount, dislikes: post.dislikesCount)).notifier)
-                                  .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
-
                               if (reaction != 'like' && canSendNotification(postId, 'like', userId)) {
                                 sendNotification(
                                   type: "like",
@@ -377,10 +369,6 @@ class PostDetailsPage extends ConsumerWidget {
                                     posterId: post.userId,
                                     reactionType: 'dislike',
                                   );
-
-                              ref
-                                  .read(postReactionCountProvider((postId: postId, likes: post.likesCount, dislikes: post.dislikesCount)).notifier)
-                                  .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
 
                               if (reaction != 'dislike' && canSendNotification(postId, 'dislike', userId)) {
                                 sendNotification(

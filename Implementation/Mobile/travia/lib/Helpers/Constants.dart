@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
-import 'package:travia/Helpers/AppColors.dart';
 
 BoxDecoration backGroundColor() {
   return BoxDecoration(color: Colors.white);
 }
 
-String baseUrlForPlanner = 'http://192.168.8.17:8001';
-String baseUrlForClassification = 'http://192.168.8.17:8000';
+String baseUrlForPlanner = 'http://192.168.9.92:8001';
+String baseUrlForClassification = 'http://192.168.9.92:8002';
 
 Future<void> refresh(context) async {
   await Future.delayed(Duration(milliseconds: 300));
@@ -270,98 +269,88 @@ final Map<String, BadgeStyle> badgeStyles = {
     gradient: [Color(0xFF8A2BE2), Color(0xFF4B0082), Color(0xFF9400D3)],
     icon: Icons.verified,
   ),
+  'Tester': BadgeStyle(
+    gradient: [Color(0xFF000000), Color(0xFF00CED1)],
+    icon: Icons.bug_report,
+  ),
   'Poster': BadgeStyle(
-    gradient: [Colors.blue, Colors.black54],
+    gradient: [Color(0xFF2193b0), Color(0xFF6dd5ed)],
     icon: Icons.post_add,
   ),
-  'Adventurer': BadgeStyle(
-    gradient: [Color(0xFF1D976C), Color(0xFF11998E)],
-    icon: Icons.explore,
-  ),
   'Social': BadgeStyle(
-    gradient: [Color(0xFFF46B45), Color(0xFFEEA849)],
+    gradient: [Color(0xFFFF5F6D), Color(0xFFFFC371)],
     icon: Icons.forum,
   ),
   'Trendy': BadgeStyle(
-    gradient: [Color(0xFFFF416C), Color(0xFFFF4B2B)],
+    gradient: [Color(0xFFee0979), Color(0xFFff6a00)],
     icon: Icons.trending_up,
   ),
   'Ramy': BadgeStyle(
-    gradient: [Color(0xFF00C9FF), Colors.blue],
+    gradient: [Color(0xFF36D1DC), Color(0xFF5B86E5)],
     icon: Icons.local_cafe,
   ),
   'International': BadgeStyle(
     gradient: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
     icon: Icons.public,
   ),
-  'Follower': BadgeStyle(
-    gradient: [Color(0xFFDA22FF), Color(0xFF9733EE)],
+  'Popular': BadgeStyle(
+    gradient: [Color(0xFFF7971E), Color(0xFFFFD200)],
     icon: Icons.people_alt,
   ),
-  'Tester': BadgeStyle(
-    gradient: [Colors.black, Colors.teal],
-    icon: Icons.bug_report,
-  ),
-  'New User': BadgeStyle(
-    gradient: [Color(0xFFFF5F6D), Color(0xFFFFC371)],
-    icon: Icons.fiber_new,
-  ),
   'Commentator': BadgeStyle(
-    gradient: [Color(0xFF0575E6), Color(0xFF021B79)],
+    gradient: [Color(0xFF00B4DB), Color(0xFF0083B0)],
     icon: Icons.comment,
   ),
   'Supporter': BadgeStyle(
-    gradient: [Color(0xFFFF0000), Color(0xFFF20089)],
+    gradient: [Color(0xFFFF5F6D), Color(0xFFFFC371)],
     icon: Icons.favorite,
   ),
   'Messenger': BadgeStyle(
-    gradient: [Color(0xFF00F260), Color(0xFF0575E6)],
+    gradient: [Color(0xFF00C9FF), Color(0xFF92FE9D)],
     icon: Icons.message,
   ),
   'Story Star': BadgeStyle(
-    gradient: [Color(0xFF834D9B), Color(0xFFD04ED6)],
+    gradient: [Color(0xFF7F00FF), Color(0xFFE100FF)],
     icon: Icons.star,
   ),
   'Friendly': BadgeStyle(
-    gradient: [Color(0xFF56CCF2), Color(0xFF2F80ED)],
+    gradient: [Color(0xFF56ab2f), Color(0xFFA8E063)],
     icon: Icons.group,
   ),
-  'Engaged': BadgeStyle(
+  'Notificated': BadgeStyle(
     gradient: [Color(0xFFFDC830), Color(0xFFF37335)],
     icon: Icons.notifications_active,
   ),
   'Profile Pro': BadgeStyle(
-    gradient: [Color(0xFFED213A), Color(0xFF93291E)],
+    gradient: [Color(0xFF93291E), Color(0xFFED213A)],
     icon: Icons.person,
   ),
   'Platinum': BadgeStyle(
-    gradient: [kDeepPink, Colors.black],
+    gradient: [Color(0xFFDAE2F8), Color(0xFFD6A4A4)],
     icon: Icons.military_tech,
   ),
+};
+
+const badgeDescriptions = {
+  'Founder': 'Reserved for the visionary and genius creator of the app.',
+  'Tester': 'Earned by early testers who helped shape the app.',
+  'Poster': 'Share your voice by posting 5 or more times.',
+  'Social': 'Join 5 or more conversations to connect with others.',
+  'Trendy': 'Create 3 or more posts, each with 5+ likes.',
+  'Ramy': 'Include "Ramy" in your display name to unlock this badge.',
+  'International': 'Visit 5 or more countries and add them to your profile.',
+  'Popular': 'Follow 10 or more users.',
+  'Commentator': 'Leave 10 or more comments.',
+  'Supporter': 'Like 10 or more posts or comments.',
+  'Messenger': 'Send 30 or more messages.',
+  'Story Star': 'Your story items must be viewed 5 or more times.',
+  'Friendly': 'Follow 5 different people and have them follow you as well',
+  'Notificated': 'Receive 50 or more notifications.',
+  'Profile Pro': 'Fully complete your profile: photo, and bio.',
+  'Platinum': 'Awarded for collecting all primary badges (excluding Founder, Tester).',
 };
 
 final defaultBadgeStyle = BadgeStyle(
   gradient: [Colors.blue, Colors.blue],
   icon: Icons.star_border,
 );
-
-const badgeDescriptions = {
-  'Founder': 'Reserved for the visionary creator of the app.',
-  'Poster': 'Share your voice by posting 5 or more times.',
-  'Adventurer': 'Plan 5 or more adventures to earn this badge.',
-  'Social': 'Join 5 or more conversations to connect with others.',
-  'Trendy': 'Create 3 or more posts, each with 5+ likes.',
-  'Ramy': 'Include "Ramy" in your display name to unlock this badge.',
-  'International': 'Visit 5 or more countries and add them to your profile.',
-  'Follower': 'Build a following of 10 or more users.',
-  'Tester': 'Earned by early testers who helped shape the app.',
-  'New User': 'Welcome aboard! Engage to earn more badges.',
-  'Commentator': 'Leave 10 or more comments.',
-  'Supporter': 'Show love by liking 15 or more posts, comments, or stories.',
-  'Messenger': 'Send 20 or more messages in general.',
-  'Story Star': 'Have your story items viewed 10 or more times.',
-  'Friendly': 'Follow 5 users and have the same users follow you back.',
-  'Engaged': 'Read 10 or more notifications.',
-  'Profile Pro': 'Fully complete your profile with email, name, username, photo, and bio.',
-  'Platinum': 'Your reward for earning all badges (except Founder, Tester and Adventurer).',
-};

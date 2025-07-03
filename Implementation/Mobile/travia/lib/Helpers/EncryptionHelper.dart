@@ -2,9 +2,10 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class EncryptionHelper {
-  static const String APP_SALT = "Y9d+g3vIkBQFx2WxPskdFw==";
+  static String APP_SALT = dotenv.env['APP_SALT'] ?? "";
   static String generateConversationKey(String conversationId) {
     var bytes = utf8.encode('$conversationId-$APP_SALT');
     var digest = sha256.convert(bytes);
@@ -13,6 +14,7 @@ class EncryptionHelper {
 
   static String encryptContent(String plainText, String conversationId) {
     try {
+      print("SALT FOR TESTING ${APP_SALT}");
       final encryptionKey = generateConversationKey(conversationId);
       final key = Key.fromUtf8(encryptionKey);
       final iv = IV.fromSecureRandom(16);

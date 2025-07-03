@@ -66,7 +66,34 @@ final likePostProvider = StateNotifierProvider<LikeNotifierPost, Map<String, Str
 });
 
 class PostReactionCountNotifier extends StateNotifier<Map<String, int>> {
-  PostReactionCountNotifier({required int likes, required int dislikes}) : super({'likes': likes, 'dislikes': dislikes});
+  final String postId;
+  final Ref ref;
+
+  PostReactionCountNotifier({
+    required this.postId,
+    required this.ref,
+    required int likes,
+    required int dislikes,
+  }) : super({'likes': likes, 'dislikes': dislikes}) {
+    // Set up the listener after initialization
+    _setupListener();
+  }
+
+  void _setupListener() {
+    ref.listen<Map<String, String?>>(
+      likePostProvider,
+      (previous, next) {
+        final previousReaction = previous?[postId];
+        final currentReaction = next[postId];
+
+        // Only update if the reaction for this post changed
+        if (previousReaction != currentReaction) {
+          updateReaction(from: previousReaction, to: currentReaction);
+        }
+      },
+      fireImmediately: false,
+    );
+  }
 
   void updateReaction({required String? from, required String? to}) {
     // Create a new map to ensure state change detection
@@ -89,14 +116,11 @@ class PostReactionCountNotifier extends StateNotifier<Map<String, int>> {
 // Use autoDispose to ensure fresh state for each post
 final postReactionCountProvider = StateNotifierProvider.autoDispose.family<PostReactionCountNotifier, Map<String, int>, ({String postId, int likes, int dislikes})>(
   (ref, args) {
-    // Listen to like state changes to keep counts in sync
-    ref.listen<Map<String, String?>>(
-      likePostProvider,
-      (previous, next) {
-        // This will trigger whenever the like state changes
-      },
+    return PostReactionCountNotifier(
+      postId: args.postId,
+      ref: ref,
+      likes: args.likes,
+      dislikes: args.dislikes,
     );
-
-    return PostReactionCountNotifier(likes: args.likes, dislikes: args.dislikes);
   },
 );

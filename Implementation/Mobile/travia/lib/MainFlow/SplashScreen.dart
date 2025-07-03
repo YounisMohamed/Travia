@@ -13,7 +13,51 @@ import '../Providers/ConversationProvider.dart';
 import '../Providers/NotificationProvider.dart';
 import '../Providers/PostsCommentsProviders.dart';
 import '../Providers/StoriesProviders.dart';
+import '../Services/PlannerService.dart';
+import '../Services/UserInteractionService.dart';
 import '../main.dart';
+import 'PlanResultPage.dart';
+import 'YourPlansPage.dart';
+
+final allUserPlansProvider = FutureProvider<Map<String, ItineraryResponse>>((ref) async {
+  final userId = FirebaseAuth.instance.currentUser?.uid;
+  if (userId == null) return {};
+
+  try {
+    print("AllUserPlansProvider: Loading all plans for user $userId");
+
+    // First get all trip IDs for the user
+    final savedItineraries = await ref.watch(savedItinerariesProvider.future);
+
+    final Map<String, ItineraryResponse> allPlans = {};
+
+    // Load each plan's full data in parallel (limit to prevent overwhelming)
+    final planFutures = savedItineraries.take(10).map((savedItinerary) async {
+      try {
+        final planData = await ref.watch(fullItineraryProvider(savedItinerary.id).future);
+        return MapEntry(savedItinerary.id, planData);
+      } catch (e) {
+        print("AllUserPlansProvider: Error loading plan ${savedItinerary.id}: $e");
+        return null;
+      }
+    });
+
+    final results = await Future.wait(planFutures);
+
+    // Add successful results to map
+    for (final result in results) {
+      if (result != null) {
+        allPlans[result.key] = result.value;
+      }
+    }
+
+    print("AllUserPlansProvider: Successfully preloaded ${allPlans.length} plans");
+    return allPlans;
+  } catch (e) {
+    print("AllUserPlansProvider: Error loading plans: $e");
+    return {};
+  }
+});
 
 class SplashScreen extends ConsumerStatefulWidget {
   final String? type;
@@ -114,7 +158,10 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
         }
       });
 
-      // Run all tasks with individual timeouts
+      // Start background preloading (non-blocking)
+      _startBackgroundPreloading(user.uid);
+
+      // Run all essential tasks with individual timeouts
       Future.wait([
         _fetchUserData(user.uid).timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while loading user data')),
         _fetchPosts().timeout(timeoutDuration, onTimeout: () => throw TimeoutException('Timeout while loading posts')),
@@ -157,6 +204,61 @@ class SplashScreenState extends ConsumerState<SplashScreen> {
           }
         });
       }
+    }
+  }
+
+  /// Start all background preloading tasks
+  void _startBackgroundPreloading(String firebaseUserId) {
+    // Start multiple preload tasks in parallel
+    Future.wait([
+      _preloadPlansData(),
+      _preloadUserInteractions(firebaseUserId),
+      _preloadIndividualPlans(),
+    ]).then((_) {
+      print("SplashScreen: All background preloading completed successfully");
+    }).catchError((e) {
+      print("SplashScreen: Some background preloading failed: $e");
+      // Don't block splash screen for preload errors
+    });
+  }
+
+  /// Preload user plans list
+  Future<void> _preloadPlansData() async {
+    try {
+      print("SplashScreen: Starting to preload plans data...");
+      ref.read(savedItinerariesProvider);
+      print("SplashScreen: Plans data preloading initiated");
+    } catch (e) {
+      print("SplashScreen: Error preloading plans data: $e");
+    }
+  }
+
+  /// Preload user interactions (fixed logic)
+  Future<void> _preloadUserInteractions(String firebaseUserId) async {
+    try {
+      print("SplashScreen: Starting to preload user interactions...");
+
+      // Use Firebase UID directly - no need to convert to Supabase ID
+      final interactionService = UserInteractionService();
+      await interactionService.loadUserInteractions(firebaseUserId, forceRefresh: true);
+
+      print("SplashScreen: User interactions preloaded successfully");
+    } catch (e) {
+      print("SplashScreen: Error preloading user interactions: $e");
+    }
+  }
+
+  /// Preload individual plan data for faster plan result pages
+  Future<void> _preloadIndividualPlans() async {
+    try {
+      print("SplashScreen: Starting to preload individual plans...");
+
+      // This will start loading all user plans in the background
+      ref.read(allUserPlansProvider);
+
+      print("SplashScreen: Individual plans preloading initiated");
+    } catch (e) {
+      print("SplashScreen: Error preloading individual plans: $e");
     }
   }
 

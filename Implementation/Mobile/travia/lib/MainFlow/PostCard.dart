@@ -260,8 +260,6 @@ class PostCard extends StatelessWidget {
                           reactionType: 'like',
                         );
 
-                    ref.read(postReactionCountProvider((postId: postId, likes: likesCount, dislikes: dislikesCount)).notifier).updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
-
                     if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
                       sendNotification(
                         type: "like",
@@ -332,10 +330,6 @@ class PostCard extends StatelessWidget {
                                           reactionType: 'like',
                                         );
 
-                                    ref
-                                        .read(postReactionCountProvider((postId: postId, likes: likesCount, dislikes: dislikesCount)).notifier)
-                                        .updateReaction(from: reaction, to: reaction == 'like' ? null : 'like');
-
                                     if (reaction != 'like' && canSendNotification(postId, 'like', currentUserId!)) {
                                       sendNotification(
                                         type: "like",
@@ -362,10 +356,6 @@ class PostCard extends StatelessWidget {
                                           posterId: userId,
                                           reactionType: 'dislike',
                                         );
-
-                                    ref
-                                        .read(postReactionCountProvider((postId: postId, likes: likesCount, dislikes: dislikesCount)).notifier)
-                                        .updateReaction(from: reaction, to: reaction == 'dislike' ? null : 'dislike');
 
                                     if (reaction != 'dislike' && canSendNotification(postId, 'dislike', currentUserId!)) {
                                       sendNotification(

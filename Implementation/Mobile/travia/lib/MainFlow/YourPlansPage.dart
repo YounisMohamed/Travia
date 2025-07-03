@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:travia/Helpers/Loading.dart';
 import 'package:travia/Helpers/PopUp.dart';
 
@@ -61,35 +62,25 @@ class _YourPlansPageState extends ConsumerState<YourPlansPage> {
     super.dispose();
   }
 
-  Future<void> _refreshPlans() async {
+  Future<void> _refreshPlans(bool delete) async {
     try {
-      // Refresh the itineraries provider
-      ref.invalidate(savedItinerariesProvider);
+      // Properly refresh the itineraries provider - remove .future
+      ref.refresh(savedItinerariesProvider);
+
+      // Also refresh the grouped provider to ensure UI updates
+      ref.refresh(itinerariesByCityProvider);
+
+      // Wait a moment for the refresh to complete
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // Optional: Show success feedback
-      if (mounted) {
+      if (mounted && !delete) {
         Popup.showSuccess(text: 'Plans refreshed successfully', context: context);
       }
     } catch (e) {
       // Handle refresh error
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to refresh plans',
-              style: GoogleFonts.lexendDeca(
-                fontSize: 14,
-                color: Colors.white,
-              ),
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
+        Popup.showError(text: 'Failed to refresh plans', context: context);
       }
     }
   }
@@ -121,7 +112,9 @@ class _YourPlansPageState extends ConsumerState<YourPlansPage> {
           ),
         ),
         error: (error, stack) => RefreshIndicator(
-          onRefresh: _refreshPlans,
+          onRefresh: () async {
+            _refreshPlans(false);
+          },
           color: kDeepPink,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -170,7 +163,9 @@ class _YourPlansPageState extends ConsumerState<YourPlansPage> {
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
-                      onPressed: _refreshPlans,
+                      onPressed: () async {
+                        _refreshPlans(false);
+                      },
                       icon: const Icon(Icons.refresh, size: 20),
                       label: const Text('Try Again'),
                       style: ElevatedButton.styleFrom(
@@ -194,7 +189,9 @@ class _YourPlansPageState extends ConsumerState<YourPlansPage> {
         data: (itineraries) {
           if (itineraries.isEmpty) {
             return RefreshIndicator(
-              onRefresh: _refreshPlans,
+              onRefresh: () async {
+                _refreshPlans(false);
+              },
               displacement: 32,
               color: Colors.black,
               backgroundColor: Colors.white,
@@ -209,7 +206,9 @@ class _YourPlansPageState extends ConsumerState<YourPlansPage> {
           }
 
           return RefreshIndicator(
-            onRefresh: _refreshPlans,
+            onRefresh: () async {
+              _refreshPlans(false);
+            },
             color: kDeepPink,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -251,7 +250,9 @@ class _YourPlansPageState extends ConsumerState<YourPlansPage> {
       mini: true,
       backgroundColor: kDeepPink,
       foregroundColor: Colors.white,
-      onPressed: _refreshPlans,
+      onPressed: () {
+        _refreshPlans(false);
+      },
       child: const Icon(Icons.refresh),
     );
   }
@@ -572,6 +573,7 @@ class _YourPlansPageState extends ConsumerState<YourPlansPage> {
                                 IconButton(
                                   onPressed: () {
                                     deleteSavedItinerary(userId: currentUserId, tripId: itinerary.id);
+                                    _refreshPlans(true);
                                   },
                                   icon: Icon(
                                     Icons.delete_outline,
@@ -730,9 +732,10 @@ class _BusinessCarouselState extends State<BusinessCarousel> {
               imageUrl: url,
               fit: BoxFit.cover,
               width: double.infinity,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-                child: const Center(child: LoadingWidget()),
+              placeholder: (context, url) => Skeletonizer(
+                child: Container(
+                  color: Colors.grey[300],
+                ),
               ),
               errorWidget: (context, url, error) => Container(
                 color: Colors.grey[300],

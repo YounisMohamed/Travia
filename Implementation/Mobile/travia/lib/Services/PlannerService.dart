@@ -83,7 +83,7 @@ class TravelPlannerException implements Exception {
 }
 
 class TravelPlannerService {
-  static const Duration _defaultTimeout = Duration(seconds: 30);
+  static const Duration _defaultTimeout = Duration(seconds: 60);
 
   final Duration timeout;
   final http.Client _client;

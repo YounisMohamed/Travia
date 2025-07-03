@@ -73,21 +73,14 @@ final userSearchProvider = FutureProvider.family<List<UserModel>, String>((ref, 
 
 final conversationDetailsProvider = FutureProvider<List<ConversationDetail>>((ref) async {
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    return [];
-  }
-
   try {
-    // Fetch conversation details using RPC
-    final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': user.uid});
-
+    final response = await supabase.rpc('get_conversation_details', params: {'p_user_id': user!.uid});
     final List<ConversationDetail> details = (response as List).map((data) {
       // Decrypt last message content if it exists
       String? decryptedLastMessage = data['last_message_content'];
       if (decryptedLastMessage != null && decryptedLastMessage.isNotEmpty) {
         decryptedLastMessage = EncryptionHelper.decryptContent(decryptedLastMessage, data['conversation_id']);
       }
-
       return ConversationDetail(
           conversationId: data['conversation_id'],
           conversationType: data['conversation_type'],

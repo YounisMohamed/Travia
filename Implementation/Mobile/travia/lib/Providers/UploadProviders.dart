@@ -25,9 +25,9 @@ class MediaCompressor {
       final result = await FlutterImageCompress.compressAndGetFile(
         file.absolute.path,
         targetPath,
-        quality: 20,
-        minWidth: 720,
-        minHeight: 720,
+        quality: 100,
+        minWidth: 1080,
+        minHeight: 1080,
         format: CompressFormat.jpeg,
       );
 
@@ -320,7 +320,7 @@ class PostUploadNotifier extends StateNotifier<UploadState> {
       final String postId = Uuid().v4();
       print("POST ID: $postId");
 
-// Step 3: Save post to database
+      // Step 3: Save post to database
       setUploadStep('Saving post...', progress: 0.6);
 
       await MediaUploadService.savePostToDatabase(
@@ -332,81 +332,98 @@ class PostUploadNotifier extends StateNotifier<UploadState> {
         videoThumbnail: thumbnailUrl,
       );
 
-// Step 4: Classification and metadata
+      // Step 4: Classification and metadata
+      Map<String, dynamic> metadataToInsert = _getDefaultMetadata(postId, caption, mediaUrl, location);
+      print("LOCATION: $location");
+
       if (!isVideo) {
         setUploadStep('Analyzing content...', progress: 0.8);
 
         try {
-          final classifier = TravelClassifierService.instance;
+          // Check if classification service is available first
+          final classifier = ImageClassificationService();
 
-          final classificationResult = await classifier.classifyFromUrl(
-            imageUrl: mediaUrl,
-            caption: caption,
-            confidenceThreshold: 0.5,
-          );
+          print('Classification service is healthy, proceeding with analysis...');
 
-          if (classificationResult.success) {
-            final attributes = classificationResult.attributes;
-            final metadata = classificationResult.metadata;
+          // Perform classification with timeout
+          final classificationResult = await classifier
+              .classifyImage(
+                imageUrl: mediaUrl,
+                caption: caption,
+              )
+              .timeout(
+                const Duration(seconds: 60),
+                onTimeout: () => throw TimeoutException(),
+              );
 
-            print("CUS CUS: ${attributes.restaurantsCuisines}");
+          // Create combined text description
+          final List<String> textParts = [
+            if (caption.trim().isNotEmpty) caption.trim(),
+            if (classificationResult.blipDescription.trim().isNotEmpty) classificationResult.blipDescription.trim(),
+            if (classificationResult.yoloDescription.trim().isNotEmpty) classificationResult.yoloDescription.trim(),
+          ];
 
-            await supabase.from('metadata').insert({
-              'post_id': postId,
-              'romantic': attributes.ambienceRomantic ? 1 : 0,
-              'good_for_kids': attributes.goodForKids ? 1 : 0,
-              'classy': attributes.ambienceClassy ? 1 : 0,
-              'casual': attributes.ambienceCasual ? 1 : 0,
-              'cuisine_types': ['italian'], // Array of cuisines
-              'combined_text': metadata.combinedText.replaceAll("Objects: image contains various objects and people...", ""), // Add the combined text
-            });
+          final combinedText = textParts.join(', ');
+          final conf = 0.6;
 
-            print('Classification successful: ${attributes.getActiveAttributes()}');
-            print('Combined text: ${metadata.combinedText}');
-          } else {
-            // Insert default metadata if classification returns but isn't successful
-            await supabase.from('metadata').insert({
-              'post_id': postId,
-              'romantic': 0,
-              'good_for_kids': 0,
-              'classy': 0,
-              'casual': 0,
-              'cuisine_types': [],
-              'combined_text': "",
-            });
-          }
-        } catch (classificationError) {
-          print('Classification failed: $classificationError');
-
-          await supabase.from('metadata').insert({
+          // Update metadata with classification results (matching database schema)
+          metadataToInsert = {
             'post_id': postId,
+            'romantic': classificationResult.romanticConfidence > conf ? 1 : 0,
+            'good_for_kids': classificationResult.goodForKidsConfidence > conf ? 1 : 0,
+            'classy': classificationResult.classyConfidence > conf ? 1 : 0,
+            'casual': classificationResult.casualConfidence > conf ? 1 : 0,
+            'combined_text': combinedText,
+            'post_media_url': mediaUrl,
+            'location': location,
+          };
+
+          print('Classification successful: ${classificationResult.attributes}');
+        } on TimeoutException catch (e) {
+          print('Classification timed out, using default metadata: $e');
+        } on NetworkException catch (e) {
+          print('Network error during classification, using default metadata: $e');
+        } on ClassificationException catch (e) {
+          print('Classification error, using default metadata: $e');
+        } catch (e) {
+          print('Unexpected error during classification, using default metadata: $e');
+        }
+      }
+
+      // Step 5: Insert metadata (will always succeed with either classified or default values)
+      setUploadStep('Saving photo content...', progress: 0.9);
+
+      try {
+        await supabase.from('metadata').insert(metadataToInsert);
+        print('Metadata inserted successfully');
+      } catch (e) {
+        print('Failed to insert metadata, retrying with minimal defaults: $e');
+
+        // If metadata insertion fails, try again with absolute minimal data
+        try {
+          final minimalMetadata = {
+            'post_id': postId,
+            'post_media_url': mediaUrl,
+            'location': location,
+            'combined_text': caption.isNotEmpty ? caption : 'Post from $location',
             'romantic': 0,
             'good_for_kids': 0,
             'classy': 0,
             'casual': 0,
-            'cuisine_types': [],
-            'combined_text': "",
-          });
+          };
+
+          await supabase.from('metadata').insert(minimalMetadata);
+          print('Minimal metadata inserted successfully');
+        } catch (finalError) {
+          print('Critical error: Failed to insert even minimal metadata: $finalError');
         }
-      } else {
-        // For videos, insert default metadata
-        await supabase.from('metadata').insert({
-          'post_id': postId,
-          'romantic': 0,
-          'good_for_kids': 0,
-          'classy': 0,
-          'casual': 0,
-          'cuisine_types': [],
-          'combined_text': "",
-        });
       }
 
       setUploadStep('Complete!', progress: 1.0);
-      await Future.delayed(Duration(milliseconds: 500)); // Show complete briefly
+      await Future.delayed(const Duration(milliseconds: 500));
 
       Popup.showSuccess(text: "Post uploaded successfully!", context: context);
 
-      // Clear states
       clearUploadState();
       ref.read(singleMediaPickerProvider.notifier).clearImage();
     } catch (e) {
@@ -415,6 +432,20 @@ class PostUploadNotifier extends StateNotifier<UploadState> {
       clearUploadState();
     }
   }
+}
+
+// Helper function to create default metadata (matching database schema)
+Map<String, dynamic> _getDefaultMetadata(String postId, String caption, String mediaUrl, String location) {
+  return {
+    'post_id': postId,
+    'romantic': 0,
+    'good_for_kids': 0,
+    'classy': 0,
+    'casual': 0,
+    'combined_text': caption.trim().isNotEmpty ? caption.trim() : "No description available",
+    'post_media_url': mediaUrl,
+    'location': location,
+  };
 }
 
 // Chat media upload provider
