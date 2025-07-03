@@ -17,17 +17,17 @@ def main():
     """Main startup function"""
     
     # Add current directory to Python path
-    current_dir = Path(__file__).parent
+    current_dir = Path(_file_).parent
     sys.path.insert(0, str(current_dir))
     
     print("🚀 Starting TRAVIA v2.0 FastAPI Server...")
     print("=" * 50)
-    
+    host = "192.168.8.17"
     # Development configuration
     config = {
         "app": "main:app",
-        "host": "0.0.0.0",
-        "port": 8000,
+        "host": host,
+        "port": 8001,
         "reload": True,
         "reload_dirs": [str(current_dir)],
         "log_level": "info",
@@ -42,10 +42,10 @@ def main():
         })
         print("🌐 Running in PRODUCTION mode")
     else:
-        print("🛠️  Running in DEVELOPMENT mode")
+        print("🛠  Running in DEVELOPMENT mode")
     
-    print(f"📡 Server will be available at: http://localhost:{config['port']}")
-    print(f"📚 API Documentation: http://localhost:{config['port']}/docs")
+    print(f"📡 Server will be available at: http://{host}:{config['port']}")
+    print(f"📚 API Documentation: http://{host}:{config['port']}/docs")
     print(f"🔄 Auto-reload: {'Enabled' if config['reload'] else 'Disabled'}")
     print("=" * 50)
     
@@ -57,5 +57,5 @@ def main():
         print(f"❌ Server startup failed: {e}")
         sys.exit(1)
 
-if __name__ == "__main__":
-    main() 
+if _name_ == "_main_":
+    main()

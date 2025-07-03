@@ -9,3 +9,32 @@ Content categories: dance, comedy, cooking, education, etc.
        'Bars_Night', 'Beauty_Health_Care', 'Cafes', 'GYM',
        'Restaurants_Cuisines', 'Shops'
 Content categories: dance, comedy, cooking, education, etc.
+
+
+romantic
+good_for_kids
+
+classy
+casual 
+
+cuisine_types
+
+
+
+now i want to ask what is the ercommended approac for this now
+
+i want to calssify each post to these attributes :
+
+romantic
+
+good_for_kids
+
+classy
+
+casual 
+
+i want u to notice that classy is opposite of casual and romantic is the opposite of good for kids
+
+the input is photo with the caption (post)
+
+and the point i am currently in is that i used bilp to extract text from the image, and using yolo i support that extracted text by combining the labels to it, so what now, what should i do to map this combined text to those attributes
